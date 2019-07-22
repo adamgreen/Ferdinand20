@@ -13,6 +13,123 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## July 21st, 2019
+### Christmas in July
+<img src="photos/20190721-01.jpg" alt="Christmas in July" width="320" height="295"/>
+
+The photo above shows everything that has arrived during the last week for the Sawppy Rover build. It kind of feels like Christmas in July around here :)
+
+At this point everything has arrived except for the 3D printer and filament from Prusa Research. I don't expect those to arrive until sometime in August. That gives me time to work on other electronic and software related work items.
+
+### Wireless BLE based MRI Debugging
+![BLEMRI Prototype](photos/20190720-01.jpg)
+
+I have used an ESP8266 to enable remote debugging and programming of robots (like [Ferdinand16](https://github.com/adamgreen/Ferdinand16#readme)) in the past. It works quite well when working on the robots within my home but it isn't as convenient when working on them out in the field. Switching to Bluetooth Low Energy (BLE) could be more convenient for a few reasons:
+* wouldn't require a portable WiFi router out in the field.
+* a phone could easily connect to the robot over BLE in the field for parameter tweaking, logging, etc and still stay connected to the Internet via LTE without any special setup.
+
+I have tried to build a BLE to Serial bridge with a Nordic nRF51822 once before but I failed miserably and decided to use the ESP8266 instead. Since that time I have developed a few successful BLE projects with the nRF51 family of microcontrollers so I was a bit more confident that I would know how to debug and fix any issues encountered this time.
+
+I figured it was time to make a second attempt with this Ferdinand20 project. To that end, I spent some time over the last week working on a new prototype. There were a few pieces of the puzzle that I need to put together before I could use **arm-none-eabi-gdb** to wirelessly debug a NXP-LPC1768 microcontroller:
+
+* I should first point out that what I mean by debugging here is not just printf() debugging but actually being able to use GDB to do things like set breakpoints, single step, inspect and modify variables, etc. It would also be nice if I could just use the **load** command in GDB to upload new code into the LPC1768 as well.
+* GDB can perform remote target debugging via:
+  * Serial - I already have my [MRI debug monitor](https://github.com/adamgreen/mri) which allows GDB to debug a LPC1768 microcontroller via a serial port connection. MRI is a library that is linked into the firmware to be debugged. It supports serial connections from GDB and allows GDB to do things like set breakpoints/watchpoints, single step, view variables, modify variables, etc.
+  * stdin/stdout Piping
+  * UDP
+  * TCP - This is the method commonly used by hardware debugging solutions like OpenOCD, JLinkGDBServer, etc. Tools like OpenOCD and JLinkGDBServer are software programs which act a bridge between GDB and JTAG/SWD debug probes. They connect to the debug probes (usually via USB) and allow GDB to connect via TCP/IP. The main work performed by these applications is to map GDB requests sent via the TCP/IP port into the correct JTAG/SWD operations. I needed to write an application like this to allow GDB to connect via TCP/IP and then tunnel the subsequent requests and responses over BLE.
+* I [developed firmware](software/blemri/firmware) to run on the BLE capable nRF51 Development Kit to act as a bridge between BLE and Serial. I started with Nordic's BLE UART Service SDK sample (ble_app_uart) and made a few updates to make it work better for this purpose:
+  * The original sample buffered up data received from the serial port until the buffer was full or a newline character was sent. GDB's remote protocol isn't line based. It instead uses a packet format which starts with the '$' character and ends with a '#' following by a two hexadecimal digit checksum. I modified the ```uartEventHandler()``` function to instead use the checksum as the delimiter.
+  * The original sample would fail to send large MRI generated response packets out via BLE. It would fail the ```ble_nus_string_send()``` call with a ```BLE_ERROR_NO_TX_PACKETS``` error because it queued up the BLE packets faster than the nRF51's stack could send them. My solution to that issue can also be seen in the ```uartEventHandler()```.
+    * It now queues them up in my own circular queue implementation,```g_chunkQueue```, by calling ```pushSerialChunk()```. They can then be dequeued and sent when the previous packet's transmission is successfully completed in the ```BLE_EVT_TX_COMPLETE``` event handler of ```handleBleEventsForApplication()```.
+    * The above queuing only works when there is an outstanding BLE transmission to trigger the ```BLE_EVT_TX_COMPLETE``` event handler. This doesn't work on the first chunk of a response. In that case it schedules the initial transmission to be performed by the ```transmitFirstPacket()``` function from the main loop.
+  * The original sample would encounter a ```APP_UART_COMMUNICATION_ERROR``` in ```uartEventHandler()``` when the UART's internal Rx buffer overflowed because the BLE stack was taking up too much CPU for the UART data to be processed in a timely fashion. I fixed that problem by bumping the UART driver up to ```APP_IRQ_PRIORITY_HIGHEST``` in ```initUart()```. Previously it was running at the same ```APP_IRQ_PRIORITY_LOWEST``` priority as the BLE stack. This change did add the complication that the ```uartEventHandler()``` could no longer call ```ble_nus_string_send()``` directly. That is why it now uses the application scheduler to run ```transmitFirstPacket()``` in the context of ```main()``` instead.
+  * The above changes allowed GDB to reliably communicate with the MRI debug monitor over BLE but the performance was quite bad. I improved the performance by setting ```MIN_CONN_INTERVAL``` and ```MAX_CONN_INTERVAL``` to the minimum of 7.5 msecs. The sample's original intervals are better for power sensitive environments but in the case of robots, things like motors tend to dwarf BLE current consumption and robots tend to use larger batteries.
+* I [developed code to run on my MacBook](software/blemri/macos) to act as a bridge between BLE and TCP/IP. This application communicates wirelessly with the nRF51 device using BLE. GDB connects to it via TCP/IP. GDB's request packets and MRI's response packets are tunneled between the TCP/IP and BLE connections. I still had the code from my previous attempt sitting on my development machine so that is what I started with. I updated its BLE code to more closely match my more recent BLE applications so that it would function better on recent macOS versions. I also found and corrected one of the bugs that I didn't notice on my previous attempt. The original code was transmitting via BLE whatever sized data that it received from GDB. However the maximum size of these BLE transmits is 20 bytes (maximum MTU) so larger transmit attempts were silently failing. This was no doubt one of the main causes of the problems that I hit on my previous attempt.
+
+The animation below shows GDB connected wirelessly to the LPC1768 via my most recent prototype.
+
+![BLEMRI Prototype showing GDB output](photos/20190720-02.gif)
+
+#### Prototype Evaluation
+So now that I have the BLE debugging prototype, the big question is how does it compare to my current WiFi solution?
+* I have had intermittent problems with the WiFi solution where the connection will slowdown or stall for short periods of time. I haven't encountered that so far with this BLE prototype. It does slow down as I get further away from the target but that is to be expected.
+* It's quite nice not needing to have a WiFi connection for it to work. I have already used it outside of my home with no WiFi connectivity while developing this prototype and it worked a charm.
+* Even though both are running the UART portion of the bridge at 115200, this prototype doesn't feel as snappy. I attached a logic analyzer to the serial pins between the nRF51 and the LPC1768 and noticed a few things:
+  * The trace below shows how a longer GDB request is broken down into 5 smaller chunks. These chunks are spread out according to the 7.5 msec connection interval.
+  <br>![Request Packet Waveforms](photos/20190720-03.png)
+
+  * The 3 larger chunks in the middle each contain 40 bytes of data which means that macOS sends 2 BLE packets (20 bytes/packet) per connection interval. In theory this can be as high as 4-6 depending on the OS. I don't know if there is a way to get macOS to increase it or not.
+  <br>![Request Packet Zoomed In](photos/20190720-04.png)
+
+### Inertial Measurement Unit
+I used the [SparkFun 9 DoF - Sensor Stick](https://www.sparkfun.com/products/retired/10724) as the IMU in my previous Robo-Magellan bot attempts. It actually contains 3 separate sensors:
+* Analog Devices ADXL345 Accelerometer
+* Honeywell HMC5883L Magnetometer
+* InvenSense ITG-3200 Gyroscope
+
+Given that this board is no longer available and there might now be better options on the market, I would like to do some research into the more popular IMU solutions used by hobbyists these days and compare features.
+
+Looking at Adafruit, I see these two solutions:
+* [Adafruit 9-DOF Absolute Orientation IMU Fusion Breakout - BNO055](https://www.adafruit.com/product/2472) - This one requires no external filtering as it performs the filtering itself.
+* [Adafruit Precision NXP 9-DOF Breakout Board - FXOS8700 + FXAS21002](https://www.adafruit.com/product/3463) - Adafruit indicates that the sensors in this unit (especially the gyro) are superior in this one. They also have their own filtering code available that I could compare and contrast to my own.
+
+Looking at Sparkfun, I see a few more options:
+* [SparkFun 9DoF Razor IMU M0](https://www.sparkfun.com/products/14001) - This uses a InvenSense MPU-9250 and includes a microcontroller to run the filtering on board. Adafruit appears to have included the MPU-9250 in their [research](https://learn.adafruit.com/comparing-gyroscope-datasheets) and decided to go with the NXP parts instead.
+* [SparkFun 9DoF IMU Breakout - LSM9DS1](https://www.sparkfun.com/products/13284) - Adafruit appears to have included the LSM9DS1 in their [research](https://learn.adafruit.com/comparing-gyroscope-datasheets) and decided to go with the NXP parts instead.
+* [SparkFun VR IMU Breakout - BNO080](https://www.sparkfun.com/products/14686) - This one requires no external filtering as it performs the filtering itself. It uses a Bosh part like the [Adafruit 9-DOF Absolute Orientation IMU Fusion Breakout - BNO055](https://www.adafruit.com/product/2472) but it seems like this one is probably more accurate. Meant to be used as an all-in-1 solution and I don't see detailed specs on each of the individual sensors.
+* [SparkFun 9DoF IMU Breakout - ICM-20948](https://www.sparkfun.com/products/15335) - This looks like an interesting sensor to consider as well. It does have built-in filtering but it can probably be bypassed.
+
+I really like the research and development that Adafruit puts into their products so I would definitely like to consider their [Precision NXP 9-DOF Breakout Board - FXOS8700 + FXAS21002](https://www.adafruit.com/product/3463).  They have already written sample filtering code for it and [compared it to other sensor solutions](https://learn.adafruit.com/comparing-gyroscope-datasheets) as well.
+
+Of the Sparkfun offerings, I find the [9DoF IMU Breakout - ICM-20948](https://www.sparkfun.com/products/15335) offering to be the most interesting.
+
+Lets compare the [Adafruit Precision NXP 9-DOF Breakout Board - FXOS8700 + FXAS21002](https://www.adafruit.com/product/3463) and [SparkFun 9DoF IMU Breakout - ICM-20948](https://www.sparkfun.com/products/15335) to my [current sensor package](https://www.sparkfun.com/products/retired/10724):
+
+| Feature             | Current Sensor      | FXOS8700 + FXAS21002  | ICM-20948               |
+|---------------------|---------------------|-----------------------|-------------------------|
+| Accel Range         | 2 to 16g            | 2 to 8g               | 2 to 16g                |
+| Accel Resolution    | 4mg                 | 0.244 to 0.976 mg     | 0.06mg to 0.5 mg        |
+| Accel Sampling Rate | 6.25 to 3200 Hz     | 1.563 to 400Hz        | 4.5 to 4500 kHz         |
+| Mag Resolution      | 0.73 to 4.35 mGauss | 1 mGauss              | 1.5 mGauss              |
+| Mag Sampling Rate   | 160 Hz              | 1.563 to 400Hz        | 100 Hz                  |
+| Gyro Range          | 2000 deg/sec        | 250 to 2000 deg/sec   | 250 to 2000 deg/sec     |
+| Gyro Resolution     | 1/14.375 deg/sec    | 1/128 to 1/16 deg/sec | 1/131 to 1/16.4 deg/sec |
+| Gyro Sampling Rate  | 4 to 8000 Hz        | 12.5 to 800 Hz        | 4.4 to 9000 Hz          |
+
+Both of those newer sensors look better than the current sensor that I am using. One thing I didn't track in that table is the expected drift at room temperature. The FXAS21002 gyro datasheet indicates that it has a drift value that is lower than many of the others by an order of magnitude. I think I will order up the [Adafruit Precision NXP 9-DOF Breakout Board - FXOS8700 + FXAS21002](https://www.adafruit.com/product/3463) and attempt to port my Kalman filter to it if I have time. I can also try out Adafruit's filter code as well and compare its performance to mine.
+
+### OpenMV
+I had planned to use the [Pixy camera from Charmed Labs](https://pixycam.com/pixy-cmucam5/) as my traffic cone detection sensor in my previous Robo-Magellan attempt. Now there is a newer version of the [Pixy camera model (Pixy2)](https://pixycam.com/pixy2/) available. There is also a new competitor, the [OpenMV camera module](https://openmv.io), which has emerged on the market as well.
+
+The latest [OpenMV Cam H7](https://openmv.io/collections/cams/products/openmv-cam-h7) has some pretty impressive features:
+* It uses a pretty powerful ARM Cortex-M7 microcontroller:
+  * STM32H743VI
+  * 480 MHz
+  * 1MB of RAM
+  * 2MB of FLASH
+* It offers a few different camera and lens options which is pretty darn cool:
+  * [Global shutter](https://openmv.io/collections/cams/products/global-shutter-camera-module) - Might better handle robot motion.
+  * [FLIR Lepton  Thermal Imager](https://openmv.io/collections/cams/products/flir-lepton-adapter-module)
+  * [Wide Angle Lens](https://openmv.io/collections/lenses/products/ultra-wide-angle-lens) - Would give robot a >180 degree FOV for finding the traffic cone at the cost of fewer pixels per degree of view (ie. fewer pixels belonging to the cone to be detected).
+  * [Polarizing filter](https://openmv.io/collections/lenses/products/polarizing-filter) - Could improve traffic cone detection in outdoor sunlight.
+* The Eagle based schematics and layout are available on [GitHub](https://github.com/openmv/openmv-boards/tree/master/openmv4/base) which would make hacking easier.
+* All of the low level C/C++ source code appears to be available on [GitHub](https://github.com/openmv/openmv/tree/master/src).
+  * Makefiles and GCC for the win!
+* Looks like it supports all of the algorithms supported by the PixyCam and more.
+* Development on this project is still very active.
+
+I definitely want to order ones of these and start experimenting with it.
+
+### Next Steps
+* The BLE debugging prototype that I built shows promise. I want to continue development on it this week and make some robustness updates.
+* Write mbed driver for the LewanSoul LX-16A servos.
+* Order an [Adafruit Precision NXP 9-DOF Breakout Board - FXOS8700 + FXAS21002](https://www.adafruit.com/product/3463).
+* Order an [OpenMV Cam H7](https://www.sparkfun.com/products/15325).
+
+
+
+---
 ## July 11th, 2019
 ### Restoring Arlo
 When I last worked on my Robo-Magellan bot, I had removed one of the caster wheels from my Parallax Arlo platform in a failed attempt to get it to work better outside on the grass. Even with this caster removed, the battery holder still high centered. One of my first work items for this project was to reinstall that caster:
@@ -45,14 +162,16 @@ I am considering the use of a nRF51 instead of the ESP8266 for a few reasons:
 
 ### Sawppy Drive Mechanics
 I reviewed the [Sawppy Arduino code](https://github.com/Roger-random/Sawppy_Rover/blob/master/arduino_sawppy/arduino_sawppy.ino) to better understand its drive mechanics:
-* When driving along, it functions like a 4-wheel ackerman steering rig, where the point of rotation always falls outside of the robot's chassis.<br>
-<img src="photos/20190711-01.jpg" alt="Rover Driving Along" width="160" height="142"/>
-* Once stopped, it can rotate all 4 outer wheels to point their axles towards the center of the robot chassis. This allows it to turn in place like a differential wheeled robot.<br>
-<img src="photos/20190711-02.jpg" alt="Rover Turning in Place" width="160" height="145"/>
+* When driving along, it functions like a 4-wheel ackerman steering rig, where the point of rotation always falls outside of the robot's chassis.
+<br><img src="photos/20190711-01.jpg" alt="Rover Driving Along" width="160" height="142"/>
+
+* Once stopped, it can rotate all 4 outer wheels to point their axles towards the center of the robot chassis. This allows it to turn in place like a differential wheeled robot.
+<br><img src="photos/20190711-02.jpg" alt="Rover Turning in Place" width="160" height="145"/>
+
 * Since all 6 wheels are driven to achieve the best traction possible, the code needs to calculate the relative turning radii for all wheels and drive each wheel at the correct rate to properly turn around the desired point of rotation.
 
 ### Sawppy Rover Parts Ordered
-I used the [Sawppy Rover documentation](https://github.com/Roger-random/Sawppy_Rover/tree/master/docs#readme) to finalize a list of parts and tools that needed to order. I had been looking for an excuse to purchase a [Prusa i3](https://shop.prusa3d.com/en/3d-printers/181-original-prusa-i3-mk3-3d-printer.html) for sometime now. This 3D printer has consistently received good reviews in Make magazine and elsewhere. It is also the printer used at the local library's makerspace where it has worked reliably under heavy use. It's also nice to have someone local who is experienced with the same printer should I need help with it. I have just been waiting for an excuse to purchase one and this project gives me that excuse:)
+I used the [Sawppy Rover documentation](https://github.com/Roger-random/Sawppy_Rover/tree/master/docs#readme) to finalize a list of parts and tools that I needed to order. I had been looking for an excuse to purchase a [Prusa i3](https://shop.prusa3d.com/en/3d-printers/181-original-prusa-i3-mk3-3d-printer.html) for sometime now. This 3D printer has consistently received good reviews in Make magazine and elsewhere. It is also the printer used at the local library's makerspace where it has worked reliably under heavy use. It's also nice to have someone local who is experienced with the same printer should I need help with it. I have just been waiting for an excuse to purchase one and this project gives me that excuse:)
 
 The parts and tools are now all ordered and should start arriving in the upcoming days and weeks.
 
@@ -87,7 +206,9 @@ Tools that I already had and didn't need to order:
 * Drill and/or drill press
 * File for creating set screw detents in steel rods
 * Dremel for cutting retaining ring grooves in steel rods
+* Hacksaw
 * Soldering iron for threaded heat set inserts
+* Metric Allen (hex) wrenches
 
 ### Next Steps
 * Start experimenting with a nRF5 microcontroller based UART to BLE bridge for debugging.
@@ -135,3 +256,16 @@ environment variable.  You may want to edit this script to further customize you
 
 If you encounter any issues with the install then refer to the **Important Notes** section of the README in the gcc4mbed
 subdirectory.
+
+
+
+## nRF51 BLE to UART Firmware Build
+I have only tested the build on macOS but it might work on other Posix operating systems too.
+
+**Note:** Building the firmware and deploying it to the nRF51 requires the **nrfjprog** tool. The archive for your OS can be downloaded from [here](https://www.nordicsemi.com/Software-and-Tools/Development-Tools/nRF5-Command-Line-Tools). You will also need a SEGGER J-Link JTAG/SWD Debugger. If your projects are of a non-commercial nature, you can use this [low cost module available from Adafruit](https://www.adafruit.com/product/3571).
+
+* `make sdk` will download and install the required Nordic SDK. This should only need to be done once.
+* `make flash_softdevice` will install the required Nordic SoftDevice on the nRF51422 microcontroller using the J-Link debugger. This will typically only need to be done once for each microcontroller.
+* `make all` will build the hat firmware.
+* `make flash` will build the hat firmware and deploy it using the J-Link debugger.
+
