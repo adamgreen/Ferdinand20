@@ -215,6 +215,9 @@ static void initUart(void)
                        APP_IRQ_PRIORITY_HIGHEST,
                        errorCode);
     APP_ERROR_CHECK(errorCode);
+
+    // Enable pull-up on Rx pin so that we don't get framing errors if nothing is connected.
+    nrf_gpio_cfg_input(UART_RX_PIN, NRF_GPIO_PIN_PULLUP);
 }
 
 static void uartEventHandler(app_uart_evt_t * pEvent)
