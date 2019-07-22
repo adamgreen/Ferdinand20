@@ -38,18 +38,10 @@ int main(int argc, char *argv[])
 void workerMain(void)
 {
     static const uint16_t portNumber = 3333;
+    int                   isBleConnected = 0;
     int                   result = -1;
     int                   listenSocket = -1;
     int                   socket = -1;
-
-    printf("Connecting to BLEUART device.\n");
-    result = bleuartConnect(NULL);
-    if (result)
-    {
-        printf("error: Failed to connect to remote BLEUART device.\n");
-        goto Error;
-    }
-    printf("Connected...\n");
 
     listenSocket = initListenSocket(portNumber);
     if (listenSocket == -1)
@@ -57,7 +49,6 @@ void workerMain(void)
         printf("error: Failed to initialize socket. %s\n", strerror(errno));
         goto Error;
     }
-
     while (1)
     {
         size_t             bytesRead;
@@ -65,19 +56,40 @@ void workerMain(void)
         socklen_t          remoteAddressSize = sizeof(remoteAddress);
         uint8_t            buffer[4096];
 
-        printf("Waiting for TCP/IP connection on port %d...\n", portNumber);
-        socket = accept(listenSocket, (struct sockaddr*)&remoteAddress, &remoteAddressSize);
+        if (!isBleConnected)
+        {
+            printf("Connecting to BLEUART device.\n");
+            result = bleuartConnect(NULL);
+            if (result)
+            {
+                printf("error: Failed to connect to remote BLEUART device.\n");
+                goto Error;
+            }
+            printf("Connected...\n");
+            isBleConnected = 1;
+        }
         if (socket == -1)
         {
-            printf("error: Failed to accept TCP/IP connection. %s\n", strerror(errno));
-            goto Error;
+            printf("Waiting for TCP/IP connection on port %d...\n", portNumber);
+            socket = accept(listenSocket, (struct sockaddr*)&remoteAddress, &remoteAddressSize);
+            if (socket == -1)
+            {
+                printf("error: Failed to accept TCP/IP connection. %s\n", strerror(errno));
+                goto Error;
+            }
+            printf("Connected...\n");
         }
-        printf("Connected...\n");
 
-        while (socket != -1)
+        while (socket != -1 && isBleConnected)
         {
             /* Forward data received from BLEUART to socket. */
-            bleuartReceiveData(buffer, sizeof(buffer), &bytesRead);
+            result = bleuartReceiveData(buffer, sizeof(buffer), &bytesRead);
+            if (result == BLEUART_ERROR_NOT_CONNECTED)
+            {
+                printf("BLE no longer connected.\n");
+                isBleConnected = 0;
+                break;
+            }
             if (bytesRead > 0)
             {
                 printf("tcp<-ble:%.*s\n", (int)bytesRead, buffer);
@@ -103,7 +115,13 @@ void workerMain(void)
                     break;
                 }
                 printf("tcp->ble:%.*s\n", result, buffer);
-                bleuartTransmitData(buffer, result);
+                result = bleuartTransmitData(buffer, result);
+                if (result == BLEUART_ERROR_NOT_CONNECTED)
+                {
+                    printf("BLE no longer connected.\n");
+                    isBleConnected = 0;
+                    break;
+                }
             }
 
             /* This is a little more time than it takes to transmit one byte at 115200. */

@@ -641,6 +641,11 @@ Error:
 // The worker thread calls this selector to make a deep copy of any received data.
 - (int) popReceiveData:(uint8_t*) pBuffer size:(size_t) size actualLength:(size_t*) pActual
 {
+    if (!peripheral)
+    {
+        // Don't have a successful connection so error out.
+        return BLEUART_ERROR_NOT_CONNECTED;
+    }
     return [receiveQueue pop:pBuffer size:size actualLength:pActual];
 }
 
