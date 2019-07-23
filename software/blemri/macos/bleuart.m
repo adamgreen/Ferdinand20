@@ -25,6 +25,9 @@
 static void* workerThread(void* pArg);
 
 
+// This is the service UUID advertised by BLEMRI devices.
+#define BLEMRI_ADVERTISE "6E40ADA3-B5A3-F393-E0A9-E50E24DCCA9E"
+
 // This is the BLEUART service UUID.
 #define BLEUART_SERVICE "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
 
@@ -410,7 +413,7 @@ Error:
     }
     else
     {
-        [manager scanForPeripheralsWithServices:[NSArray arrayWithObject:[CBUUID UUIDWithString:@BLEUART_SERVICE]]
+        [manager scanForPeripheralsWithServices:[NSArray arrayWithObject:[CBUUID UUIDWithString:@BLEMRI_ADVERTISE]]
                  options:nil];
     }
 }

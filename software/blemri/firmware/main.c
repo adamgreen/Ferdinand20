@@ -50,6 +50,9 @@
 // encountered when attempting the BLE send.
 #define SERIAL_CHUNK_QUEUE_SIZE 64
 
+// This is the vendor UUID offset to be advertised by BLEMRI devices.
+#define BLEMRI_ADVERTISE 0xADA3
+
 // The service database for this device can't be changed at runtime. Must be non-zero for DFU.
 #define IS_SRVC_CHANGED_CHARACT_PRESENT 0
 
@@ -128,7 +131,7 @@ static ble_nus_t                    g_nordicUartService;
 static uint16_t                     g_currBleConnection = BLE_CONN_HANDLE_INVALID;
 
 // UUIDS returned in advertising scan response.
-static ble_uuid_t                   g_advertiseUuids[] = {{BLE_UUID_NUS_SERVICE, NUS_SERVICE_UUID_TYPE}};
+static ble_uuid_t                   g_advertiseUuids[] = {{BLEMRI_ADVERTISE, NUS_SERVICE_UUID_TYPE}};
 
 // Queue of serial packets to be sent to PC via BLE.
 static SerialChunkQueue             g_chunkQueue;
