@@ -451,8 +451,6 @@ Error:
 // Invoked whenever an existing connection with the peripheral is torn down.
 - (void)centralManager:(CBCentralManager *)central didDisconnectPeripheral:(CBPeripheral *)aPeripheral error:(NSError *)err
 {
-    NSLog(@"didDisconnectPeripheral");
-    NSLog(@"err = %@", err);
     [self clearPeripheral];
 }
 

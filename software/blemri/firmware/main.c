@@ -69,7 +69,7 @@
 // This application is a peripheral and only hosts 1 peripheral link back to a central device.
 #define PERIPHERAL_LINK_COUNT           1
 
-#define DEVICE_NAME                     "BLE_MRI"
+#define DEVICE_NAME                     "BLEMRI"
 
 // UUID type for the Nordic UART Service (vendor specific).
 #define NUS_SERVICE_UUID_TYPE           BLE_UUID_TYPE_VENDOR_BEGIN

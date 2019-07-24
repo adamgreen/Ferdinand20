@@ -17,16 +17,66 @@
 #include <errno.h>
 #include <netdb.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #include "bleuart.h"
 
+
+
+static void displayUsage(void)
+{
+    printf("\n"
+           "Usage: blemri [--port gdbPortNumber] [--log logFilename] [--verbose]\n"
+           "Where:\n"
+           "  --port is an optional parameter to specify TCP/IP port for GDB connections.\n"
+           "         Defaults to port 3333.\n"
+           "  --log is an optional parameter to specify name of file to which all TCP/IP\n"
+           "        traffic should be logged. By default no logging is performed.\n"
+           "  --verbose is an optional parameter to enable logging of TCP/IP traffic to\n"
+           "            stdout.\n");
+}
+
+
+
+// Flags to be used in CommandLineParams::flags field.
+#define FLAG_VERBOSE (1 << 0)
+
+
+
+// Command line flags are parsed into this structure.
+typedef struct CommandLineParams
+{
+    const char* pLogFilename;
+    uint32_t    flags;
+    uint16_t    portNumber;
+} CommandLineParams;
+
+static CommandLineParams g_params;
+
+// The Control+C handler and workerMain both need to access these globals.
+static volatile int      g_controlCdetected;
+static int               g_listenSocket = -1;
+
+
+static int parseCommandLine(CommandLineParams* pParams, int argc, char** ppArgs);
+static int parsePortNumber(CommandLineParams* pParams, int argc, char** ppArgs);
+static int parseLogFilename(CommandLineParams* pParams, int argc, char** ppArgs);
+static void controlCHandler(int arg);
 static int initListenSocket(uint16_t portNumber);
 static int socketHasDataToRead(int socket);
 
+
+
 int main(int argc, char *argv[])
 {
+    if (0 != parseCommandLine(&g_params, argc, argv))
+    {
+        displayUsage();
+        return 1;
+    }
+
     /*
        Initialize the Core Bluetooth stack on this the main thread and start the worker robot thread to run the
        code found in workerMain() below.
@@ -35,21 +85,106 @@ int main(int argc, char *argv[])
     return 0;
 }
 
+static int parseCommandLine(CommandLineParams* pParams, int argc, char** ppArgs)
+{
+    int result = 0;
+
+    memset(pParams, 0, sizeof(*pParams));
+    pParams->portNumber = 3333;
+
+    // Skip executable name.
+    ppArgs++;
+    argc--;
+    while (argc && result == 0)
+    {
+        const char* pArg = *ppArgs;
+        if (0 == strcmp(pArg, "--port"))
+        {
+            result = parsePortNumber(pParams, --argc, ++ppArgs);
+        }
+        else if (0 == strcmp(pArg, "--log"))
+        {
+            result = parseLogFilename(pParams, --argc, ++ppArgs);
+        }
+        else if (0 == strcmp(pArg, "--verbose"))
+        {
+            pParams->flags |= FLAG_VERBOSE;
+        }
+        else
+        {
+            fprintf(stderr, "error: '%s' isn't a valid command line flag.\n", pArg);
+            return -1;
+        }
+
+        ppArgs++;
+        argc--;
+    }
+
+    return result;
+}
+
+static int parsePortNumber(CommandLineParams* pParams, int argc, char** ppArgs)
+{
+    if (argc < 1)
+    {
+        fprintf(stderr, "error: --port requires gdbPortNumber parameter.\n");
+        return -1;
+    }
+    uint32_t portNumber = strtoul(*ppArgs, NULL, 0);
+    if (portNumber > 0xFFFF)
+    {
+        fprintf(stderr, "error: gdbPortNumber of %u isn't valid.\n", portNumber);
+        return -1;
+    }
+    pParams->portNumber = portNumber;
+    return 0;
+}
+
+static int parseLogFilename(CommandLineParams* pParams, int argc, char** ppArgs)
+{
+    if (argc < 1)
+    {
+        fprintf(stderr, "error: --log requires logFilename parameter.\n");
+        return -1;
+    }
+    pParams->pLogFilename = *ppArgs;
+    return 0;
+}
+
+
+
+// Macro used to log traffic between GDB and MRI when user wants it.
+#define LOG_TRAFFIC(...) \
+    if (g_params.flags & FLAG_VERBOSE) { printf(__VA_ARGS__); } \
+    if (pLogFile) { fprintf(pLogFile, __VA_ARGS__); }
+
+
 void workerMain(void)
 {
-    static const uint16_t portNumber = 3333;
     int                   isBleConnected = 0;
     int                   result = -1;
-    int                   listenSocket = -1;
     int                   socket = -1;
+    FILE*                 pLogFile = NULL;
 
-    listenSocket = initListenSocket(portNumber);
-    if (listenSocket == -1)
+    signal(SIGINT, controlCHandler);
+
+    if (g_params.pLogFilename)
+    {
+        pLogFile = fopen(g_params.pLogFilename, "w");
+        if (!pLogFile)
+        {
+            fprintf(stderr, "error: Failed to open '%s' logfile. %s\n", g_params.pLogFilename, strerror(errno));
+            goto Error;
+        }
+    }
+
+    g_listenSocket = initListenSocket(g_params.portNumber);
+    if (g_listenSocket == -1)
     {
         printf("error: Failed to initialize socket. %s\n", strerror(errno));
         goto Error;
     }
-    while (1)
+    while (!g_controlCdetected)
     {
         size_t             bytesRead;
         struct sockaddr_in remoteAddress;
@@ -58,45 +193,48 @@ void workerMain(void)
 
         if (!isBleConnected)
         {
-            printf("Connecting to BLEUART device.\n");
+            printf("Attempting to connect to BLEMRI device...\n");
             result = bleuartConnect(NULL);
             if (result)
             {
-                printf("error: Failed to connect to remote BLEUART device.\n");
+                fprintf(stderr, "error: Failed to connect to remote BLEMRI device.\n");
                 goto Error;
             }
-            printf("Connected...\n");
+            printf("BLEMRI device connected!\n");
             isBleConnected = 1;
         }
         if (socket == -1)
         {
-            printf("Waiting for TCP/IP connection on port %d...\n", portNumber);
-            socket = accept(listenSocket, (struct sockaddr*)&remoteAddress, &remoteAddressSize);
-            if (socket == -1)
+            printf("Waiting for GDB to connect on port %u...\n", g_params.portNumber);
+            socket = accept(g_listenSocket, (struct sockaddr*)&remoteAddress, &remoteAddressSize);
+            if (socket == -1 && errno != ECONNABORTED)
             {
-                printf("error: Failed to accept TCP/IP connection. %s\n", strerror(errno));
+                fprintf(stderr, "error: Failed to accept TCP/IP connection. %s\n", strerror(errno));
                 goto Error;
             }
-            printf("Connected...\n");
+            if (socket != -1)
+            {
+                printf("GDB connected!\n");
+            }
         }
 
-        while (socket != -1 && isBleConnected)
+        while (socket != -1 && isBleConnected && !g_controlCdetected)
         {
             /* Forward data received from BLEUART to socket. */
             result = bleuartReceiveData(buffer, sizeof(buffer), &bytesRead);
             if (result == BLEUART_ERROR_NOT_CONNECTED)
             {
-                printf("BLE no longer connected.\n");
+                printf("BLE connection lost!\n");
                 isBleConnected = 0;
                 break;
             }
             if (bytesRead > 0)
             {
-                printf("tcp<-ble:%.*s\n", (int)bytesRead, buffer);
+                LOG_TRAFFIC("tcp<-ble:%.*s\n", (int)bytesRead, buffer);
                 result = send(socket, buffer, bytesRead, 0);
                 if (result == -1)
                 {
-                    printf("TCP/IP connection lost.\n");
+                    printf("TCP/IP connection lost!\n");
                     close(socket);
                     socket = -1;
                     break;
@@ -109,16 +247,16 @@ void workerMain(void)
                 result = recv(socket, buffer, sizeof(buffer), 0);
                 if (result < 1)
                 {
-                    printf("TCP/IP connection lost.\n");
+                    printf("TCP/IP connection lost!\n");
                     close(socket);
                     socket = -1;
                     break;
                 }
-                printf("tcp->ble:%.*s\n", result, buffer);
+                LOG_TRAFFIC("tcp->ble:%.*s\n", result, buffer);
                 result = bleuartTransmitData(buffer, result);
                 if (result == BLEUART_ERROR_NOT_CONNECTED)
                 {
-                    printf("BLE no longer connected.\n");
+                    printf("BLE connection lost!\n");
                     isBleConnected = 0;
                     break;
                 }
@@ -130,11 +268,25 @@ void workerMain(void)
     }
 
 Error:
+    printf("Shutting down\n");
     if (socket != -1)
         close (socket);
-    if (listenSocket != -1)
-        close(listenSocket);
+    if (g_listenSocket != -1)
+        close(g_listenSocket);
+    if (pLogFile)
+        fclose(pLogFile);
     bleuartDisconnect();
+}
+
+static void controlCHandler(int arg)
+{
+    g_controlCdetected = 1;
+    if (g_listenSocket != -1)
+    {
+        int listenSocket = g_listenSocket;
+        *(volatile int*)&g_listenSocket = -1;
+        close(listenSocket);
+    }
 }
 
 static int initListenSocket(uint16_t portNumber)
