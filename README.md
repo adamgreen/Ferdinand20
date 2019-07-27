@@ -13,6 +13,60 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## July 27th, 2019
+### Wireless BLE based MRI Debugging Updates
+![BLEMRI Prototype](photos/20190720-01.jpg)
+
+I made a few updates to my BLEMRI prototype from last week:
+* Software enable the pull-up on the UART Rx pin to fix UART framing errors encountered when the target LPC1768 isn't connected or powered off.
+* Advertise a unique UUID for BLEMRI firmware so that the TCP/IP to BLE bridge program will only connect to BLEMRI devices and not just any device supporting Nordic's UART service.
+* Make the macOS TCP/IP to BLE bridge application more robust by having it detect loss of the BLE connection and automatically attempt to reconnect.
+* Add command line parsing to macOS bridge. Can now change TCP/IP port to use for GDB connections and enable logging of the traffic between GDB and MRI to a log file or stdout.
+* The macOS bridge now catches CTRL+C presses and shuts down gracefully.
+
+As I work on future firmware for the mbed-LPC1768, I will dogfood this prototype by using it to debug and program the LPC1768 wirelessly.
+
+### New Battery for Powering LewanSoul LX-16A Servos
+![Photo of battery & connectors](photos/20190724-01.jpg)
+
+I wanted to be able to work on my LewanSoul LX-16A software driver at locations where it wouldn't be convenient to have my bench power supply so I decided to get a LiPo battery now like I will use on the final robot. Rather than order one off of the Internet, I decided to make a quick trip over to my local HobbyTown USA to purchase a **7.4V (2S) 5200mAH LiPo** battery and some matching XT60 connectors to facilitate servo experimentation while at the local makerspace.
+
+### mbed Drivers for LewanSoul LX-16A Servos
+It was now time to start playing with those [LewanSoul LX-16A servos](https://www.amazon.com/dp/B0748BQ49M) that I ordered off of Amazon a few weeks ago. I started by downloading some documentation from the **Download** tab of the [LewanSoul LX-16A product page](http://www.lewansoul.com/product/detail-17.html):
+* LX-16A Bus Servo User Manual
+* LewanSoul Bus Servo Communication Protocol
+
+I also looked at the [sample Arduino code found in the Sawppy repository](https://github.com/Roger-random/Sawppy_Rover/blob/master/arduino_sawppy/lewansoul.cpp). Between this Arduino code and the **LewanSoul Bus Servo Communication Protocol** document, I had everything I needed to get started on writing the mbed driver for these servos.
+
+#### Hit a Little Snag!
+<img src="photos/20190726-01.jpg" alt="LX-16A Setup" width="320" height="240"/>
+
+I took my hardware to the local makerspace this week and started working on this driver. While I got the beginnings of a driver completed during the visit, I couldn't get it to work. I probably spent more than an hour looking at my code and comparing it to working Arduino versions and couldn't find any differences that I hadn't already addressed.
+
+Once I got back home, I was able to look at it in more detail with a logic analyzer and oscilloscope. It appears that when the LPC1768 is driving the serial Rx line, the line just transitions between 4V and 3.5V instead of 3.3V and 0V as expected. Before the LPC1768 is powered up, I see that the BusLinker has pulled the same Rx line up to 4V.
+
+LewanSoul has an Arduino sample which I was able to load up onto my Arduino Uno. Much to my surprise, that sample worked a charm! I looked at its serial signaling on the oscilloscope and saw that it transitions were between 5V and 1V. Not the perfect 5V to 0V swing that I was hoping for but much better than my LPC1768 was doing.
+
+<img src="photos/20190726-02.jpg" alt="LPC1768 Signal After 5V Level Translation" width="320" height="240"/><br>
+**LPC1768 Signal After 5V Level Translation**
+
+I thought that adding a level shifter to convert the 3.3V signaling of the LPC1768 to match the Arduino Uno's 5V would help but it still never pulls the signal lower than ~3.5V for the LOW portions of the signal. The mbed just doesn't seem to be able to sink enough current to pull down the Rx line on the BusLinker. The [level shifter](https://www.adafruit.com/product/757) that I connected uses pull-up resistors for sourcing the HIGH portions of the signal but still requires the LPC1768's pin to sink the current for LOW portions. At this point I removed the LPC1768 from the picture and just installed a 100 ohm resistor between the Rx line and ground. This resulted in a 3V drop across the resistor, for a 30mA (3v / 100ohm) current. That board must have a very strong pull-up resistor on that Rx line and the mbed just can't pull it down while the ATMEGA328P in the Uno can.
+
+#### A Different Path
+At this point, I am ready to give up on the BusLinker board and try communicating with the LX-16A servos directly from the LPC1768 using its Half-Duplex protocol. Maybe I will have more success with that approach.
+
+### Sensors Ordered
+* Ordered and received a [NXP 9-DoF Breakout Board - FXOS8700 + FXAS21002](https://www.adafruit.com/product/3463) IMU board from Adafruit.
+* Ordered an [OpenMV Cam H7](https://www.sparkfun.com/products/15325) from Sparkfun.
+
+### Next Steps
+* Try a new approach for the LX16-A driver. Bypass the BusLinker board and attempt to communicate directly with the LX16-A servos using half-duplex communication.
+* Fix any issues in the BLEMRI firmware or macOS application that I encounter as I dogfood it.
+* My 3D printer has shipped so I may be able to start playing with it next week.
+
+
+
+---
 ## July 21st, 2019
 ### Christmas in July
 <img src="photos/20190721-01.jpg" alt="Christmas in July" width="320" height="295"/>
