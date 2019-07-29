@@ -13,6 +13,20 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## July 28th, 2019
+### Got LPC1768 Talking to LewanSoul LX-16A Servos
+![Working LX-16A Servo](photos/20190728-01.gif)
+
+I tried a new approach for the LX16-A driver. I skipped the BusLinker debug board and instead communicated directly with the [LX16-A servos]((http://www.lewansoul.com/product/detail-17.html)). I first tried it with the 5V level translation still in-place. It was a great success! The signal looked great with a full 5V to 0V swing and the servo responded just as expected.
+<br><img src="photos/20190727-01.jpg" alt="5V Signal" width="320" height="240"/><br>
+The servo also worked when connected directly to the 3.3V mbed with no level translation.
+<br><img src="photos/20190727-02.jpg" alt="3.3V Signal" width="320" height="240"/>
+
+Now I am going to flesh out this LX-16A driver a bit more. First I need to get half-duplex communications working from my LPC1768 so that LX-16A read commands can be performed.
+
+
+
+---
 ## July 27th, 2019
 ### Wireless BLE based MRI Debugging Updates
 ![BLEMRI Prototype](photos/20190720-01.jpg)
