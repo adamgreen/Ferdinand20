@@ -13,6 +13,16 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## July 29th, 2019
+### My 3D Printer has Arrived!
+![3D Printer in Entryway - Coton for Scale](photos/20190729-01.jpg)
+![First 3D Print](photos/20190729-02.jpg)
+
+My 3D printer, a Prusa i3 MK3S, and PETG filament arrived today. I will probably be doing a bit less electronics and coding this week so that I can instead get up to speed on this new toy and start cranking out Sawppy parts.
+
+
+
+---
 ## July 28th, 2019
 ### Got LPC1768 Talking to LewanSoul LX-16A Servos
 ![Working LX-16A Servo](photos/20190728-01.gif)
