@@ -12,6 +12,29 @@ Tracking the build of my robot to compete in the
 
 
 
+## July 31st, 2019
+### OpenMV Camera has Arrived!
+![Just opened OpenMV](photos/20190730-01.jpg)
+
+The new OpenMV camera arrived on Tuesday. Since I decided to concentrate on the 3D printer this week, I didn't have time to experiment with it yet. I am really interested to see how it performs outside. I just want to get Sawppy's 3D printed parts rolling off of the printer first :)
+
+### First Prints Off New Prusa 3D Printer
+![Tree frog model from Prusa SD card](photos/20190731-01.jpg)
+
+The photo above shows one of the earliest prints to come off of my new 3D printer. It is a PLA print of the tree frog model that came with the printer on the included SD card. Once that print came off of the printer, I was hooked! I just kept throwing various prints at it. Some from the same card and others from [Thingiverse](https://www.thingiverse.com).
+
+Once I was done **playing around** with my new printer, I got down to business by loading up the [LX-16A Servo Coupler](https://github.com/Roger-random/Sawppy_Rover/blob/master/STL/LX-16A%20-%20Coupler.stl) in PrusaSlicer and started experimenting around with the various slicer settings. The image below shows some of those experimental results. From right to left:
+* A 0.15mm layer height version printed in PLA. This one had a very nice looking round hole for the set screw.
+* A 0.30mm layer height version printed in PLA. This one had very noticeable flat spots on the top and bottom of the set screw hole.
+* A 0.30mm layer height version with finer layer height used at the top and bottom of the set screw hole. Printed in PLA. The variable layer heights used for this run results in better definition in the set screw hole with minimal impact on the print time (which increased from 17 to 18 minutes).
+* The final example on the left is the same as the previous except it was printed out of black PETG instead.
+
+<img src="photos/20190731-02.jpg" alt="Various Couplers" width="320" height="240"/>
+
+Before printing more of the couplers in PETG (I need a total of 10 plus a few spares for my Sawppy build), I want to post process the current one and make sure that it is of sufficient quality. For example, I want to try installing the heat set insert for the set screw and make sure that it is formed well enough to allow easy installation of the inserts.
+
+
+
 ---
 ## July 29th, 2019
 ### My 3D Printer has Arrived!
