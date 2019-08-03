@@ -2291,9 +2291,9 @@
 // <1=> 1
 // <2=> 2
 // <3=> 3
-
+// Setting to APP_IRQ_PRIORITY_HIGHEST to match UART handler since their handlers will touch the same data structures.
 #ifndef TIMER_DEFAULT_CONFIG_IRQ_PRIORITY
-#define TIMER_DEFAULT_CONFIG_IRQ_PRIORITY 3
+#define TIMER_DEFAULT_CONFIG_IRQ_PRIORITY APP_IRQ_PRIORITY_HIGHEST
 #endif
 
 // <q> TIMER0_ENABLED  - Enable TIMER0 instance
@@ -3779,6 +3779,43 @@
 
 // </h>
 //==========================================================
+
+
+// <e> SIMPLE_TIMER_ENABLED - app_simple_timer - Simple application timer functionality
+//==========================================================
+#ifndef SIMPLE_TIMER_ENABLED
+#define SIMPLE_TIMER_ENABLED 1
+#endif
+#if  SIMPLE_TIMER_ENABLED
+// <o> SIMPLE_TIMER_CONFIG_FREQUENCY  - Timer frequency if in Timer mode
+
+// <0=> 16 MHz
+// <1=> 8 MHz
+// <2=> 4 MHz
+// <3=> 2 MHz
+// <4=> 1 MHz
+// <5=> 500 kHz
+// <6=> 250 kHz
+// <7=> 125 kHz
+// <8=> 62.5 kHz
+// <9=> 31.25 kHz
+
+#ifndef SIMPLE_TIMER_CONFIG_FREQUENCY
+#define SIMPLE_TIMER_CONFIG_FREQUENCY 4
+#endif
+
+// <o> SIMPLE_TIMER_CONFIG_INSTANCE  - TIMER instance used
+
+// <0=> 0
+// <1=> 1
+// <2=> 2
+
+#ifndef SIMPLE_TIMER_CONFIG_INSTANCE
+#define SIMPLE_TIMER_CONFIG_INSTANCE 1
+#endif
+
+#endif //SIMPLE_TIMER_ENABLED
+// </e>
 
 // <<< end of configuration section >>>
 #endif //SDK_CONFIG_H

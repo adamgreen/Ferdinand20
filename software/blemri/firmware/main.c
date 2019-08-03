@@ -26,6 +26,7 @@
 */
 #include <app_button.h>
 #include <app_scheduler.h>
+#include <app_simple_timer.h>
 #include <app_timer.h>
 #include <app_uart.h>
 #include <app_util_platform.h>
@@ -46,12 +47,22 @@
 #define UART_RX_PIN                     1
 #define UART_TX_PIN                     2
 
+// UART Baud Rate
+#define UART_BAUD_RATE_NRF_BITMASK      UART_BAUDRATE_BAUDRATE_Baud115200
+#define UART_BAUD_RATE                  115200
+
+// If haven't received any more data from UART in this amount of bit times, then send what we have already received.
+// 15 is 1.5 UART frames.
+#define UART_NAGLE_BIT_TIMES            15
+#define UART_NAGLE_TIME_MICROSECONDS    ((UART_NAGLE_BIT_TIMES * 1000000) / 115200)
+
 // The <= 20 byte chunks of UART data to be sent over BLE can be queued up if a BLE_ERROR_NO_TX_PACKETS is
 // encountered when attempting the BLE send.
-#define SERIAL_CHUNK_QUEUE_SIZE 64
+#define SERIAL_CHUNK_QUEUE_SIZE         64
 
 // This is the vendor UUID offset to be advertised by BLEMRI devices.
-#define BLEMRI_ADVERTISE 0xADA3
+#define BLEMRI_ADVERTISE                0xADA3
+
 
 // The service database for this device can't be changed at runtime. Must be non-zero for DFU.
 #define IS_SRVC_CHANGED_CHARACT_PRESENT 0
@@ -142,12 +153,20 @@ static SerialChunkQueue             g_chunkQueue;
 static volatile uint32_t            g_packetsQueued;
 static volatile uint32_t            g_packetsTransmitted;
 
+// Buffer up data received from the UART until a full BLE packet is received or no more data is received for a few
+// serial frames.
+static uint8_t g_uartData[BLE_NUS_MAX_DATA_LEN];
+static uint8_t g_uartIndex = 0;
+
 
 
 // Forward Function Declarations
+static void initTimers(void);
 static void initUart(void);
 static void uartEventHandler(app_uart_evt_t * pEvent);
 static void transmitFirstPacket(void * pData, uint16_t length);
+static void sendUartBuffer();
+static void uartFrameTimeoutHandler(void* pContext);
 static void interlockedIncrement(volatile uint32_t* pVal);
 static void pushSerialChunk(const uint8_t* pData, uint8_t length);
 static bool isSerialChunkQueueFull();
@@ -176,7 +195,7 @@ static void enterLowPowerModeUntilNextEvent(void);
 int main(void)
 {
     APP_SCHED_INIT(BLE_NUS_MAX_DATA_LEN, 1);
-    APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, false);
+    initTimers();
     initUart();
 
     bool eraseBonds;
@@ -197,6 +216,12 @@ int main(void)
     }
 }
 
+static void initTimers(void)
+{
+    APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, false);
+    app_simple_timer_init();
+}
+
 static void initUart(void)
 {
     uint32_t                     errorCode;
@@ -208,7 +233,7 @@ static void initUart(void)
         0xFF, // CTS not used
         APP_UART_FLOW_CONTROL_DISABLED,
         false,
-        UART_BAUDRATE_BAUDRATE_Baud115200
+        UART_BAUD_RATE_NRF_BITMASK
     };
 
     APP_UART_FIFO_INIT(&commParams,
@@ -225,50 +250,27 @@ static void initUart(void)
 
 static void uartEventHandler(app_uart_evt_t * pEvent)
 {
-    static uint8_t data[BLE_NUS_MAX_DATA_LEN];
-    static uint8_t index = 0;
-    static int32_t bytesLeftInPacket = -1;
-
     switch (pEvent->evt_type)
     {
         case APP_UART_DATA_READY:
-            UNUSED_VARIABLE(app_uart_get(&data[index]));
+            UNUSED_VARIABLE(app_uart_get(&g_uartData[g_uartIndex]));
 
-            index++;
-            if (bytesLeftInPacket >= 0)
-            {
-                bytesLeftInPacket--;
-            }
+            g_uartIndex++;
 
-            if (data[index - 1] == '#')
+            if (g_uartIndex >= sizeof(g_uartData))
             {
-                bytesLeftInPacket = 2;
+                // Buffer is full so queue it up to be sent to PC via BLE.
+                // Cancel any outstanding timers since we are now sending filled buffer.
+                app_simple_timer_stop();
+                sendUartBuffer();
             }
-            if (bytesLeftInPacket == 0 || (index >= (BLE_NUS_MAX_DATA_LEN)))
+            else
             {
-                bool needToPushChunk = true;
-                if (g_packetsQueued == g_packetsTransmitted)
-                {
-                    // Normally queued up serial chunks will be transmitted when the previous one completes.
-                    // However if there isn't already a transmit in-flight, we need to queue up an event to
-                    // have the main thread loop issue the first transmit.
-                    uint32_t errorCode = app_sched_event_put(data, index, transmitFirstPacket);
-                    if (errorCode == NRF_SUCCESS)
-                    {
-                        needToPushChunk = false;
-                    }
-                    // It will fail to schedule an event if there is already an event scheduled so it is ok to just add
-                    // to chunk queue instead.
-                }
-                if (needToPushChunk)
-                {
-                    pushSerialChunk(data, index);
-                }
-                index = 0;
-                if (bytesLeftInPacket == 0)
-                {
-                    bytesLeftInPacket = -1;
-                }
+                // Kick off a timer that if it expires, sends whatever data has been received so far.
+                app_simple_timer_start(APP_SIMPLE_TIMER_MODE_SINGLE_SHOT,
+                                       uartFrameTimeoutHandler,
+                                       UART_NAGLE_TIME_MICROSECONDS,
+                                       NULL);
             }
             break;
 
@@ -296,6 +298,39 @@ static void transmitFirstPacket(void * pData, uint16_t length)
     {
         APP_ERROR_CHECK(errorCode);
     }
+}
+
+static void sendUartBuffer()
+{
+    bool needToPushChunk = true;
+    if (g_packetsQueued == g_packetsTransmitted)
+    {
+        // Normally queued up serial chunks will be transmitted when the previous one completes.
+        // However if there isn't already a transmit in-flight, we need to queue up an event to
+        // have the main thread loop issue the first transmit.
+        uint32_t errorCode = app_sched_event_put(g_uartData, g_uartIndex, transmitFirstPacket);
+        if (errorCode == NRF_SUCCESS)
+        {
+            needToPushChunk = false;
+        }
+        // It will fail to schedule an event if there is already an event scheduled so it is ok to just add
+        // to chunk queue instead.
+    }
+    if (needToPushChunk)
+    {
+        pushSerialChunk(g_uartData, g_uartIndex);
+    }
+    g_uartIndex = 0;
+}
+
+static void uartFrameTimeoutHandler(void* pContext)
+{
+    if (g_uartIndex == 0)
+    {
+        // Data has already been set.
+        return;
+    }
+    sendUartBuffer();
 }
 
 static void interlockedIncrement(volatile uint32_t* pVal)
