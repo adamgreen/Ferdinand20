@@ -14,6 +14,7 @@
    An application like GDB can open a socket to which this server is listening
    and be connected to a remote serial device over Bluetooth Low Energy.
 */
+#include <ctype.h>
 #include <errno.h>
 #include <netdb.h>
 #include <stdio.h>
@@ -54,6 +55,7 @@ typedef struct CommandLineParams
 } CommandLineParams;
 
 static CommandLineParams g_params;
+static FILE*             g_pLogFile;
 
 // The Control+C handler and workerMain both need to access these globals.
 static volatile int      g_controlCdetected;
@@ -66,6 +68,9 @@ static int parseLogFilename(CommandLineParams* pParams, int argc, char** ppArgs)
 static void controlCHandler(int arg);
 static int initListenSocket(uint16_t portNumber);
 static int socketHasDataToRead(int socket);
+static void logData(const char* pDirection, uint8_t* pData, int dataLength);
+static const char* escapeData(const uint8_t* pBuffer, int bufferSize);
+static char hexDigit(uint8_t digit);
 
 
 
@@ -153,25 +158,18 @@ static int parseLogFilename(CommandLineParams* pParams, int argc, char** ppArgs)
 
 
 
-// Macro used to log traffic between GDB and MRI when user wants it.
-#define LOG_TRAFFIC(...) \
-    if (g_params.flags & FLAG_VERBOSE) { printf(__VA_ARGS__); } \
-    if (pLogFile) { fprintf(pLogFile, __VA_ARGS__); }
-
-
 void workerMain(void)
 {
     int                   isBleConnected = 0;
     int                   result = -1;
     int                   socket = -1;
-    FILE*                 pLogFile = NULL;
 
     signal(SIGINT, controlCHandler);
 
     if (g_params.pLogFilename)
     {
-        pLogFile = fopen(g_params.pLogFilename, "w");
-        if (!pLogFile)
+        g_pLogFile = fopen(g_params.pLogFilename, "w");
+        if (!g_pLogFile)
         {
             fprintf(stderr, "error: Failed to open '%s' logfile. %s\n", g_params.pLogFilename, strerror(errno));
             goto Error;
@@ -230,7 +228,7 @@ void workerMain(void)
             }
             if (bytesRead > 0)
             {
-                LOG_TRAFFIC("tcp<-ble:%.*s\n", (int)bytesRead, buffer);
+                logData("tcp<-ble", buffer, (int)bytesRead);
                 result = send(socket, buffer, bytesRead, 0);
                 if (result == -1)
                 {
@@ -252,7 +250,7 @@ void workerMain(void)
                     socket = -1;
                     break;
                 }
-                LOG_TRAFFIC("tcp->ble:%.*s\n", result, buffer);
+                logData("tcp->ble", buffer, result);
                 result = bleuartTransmitData(buffer, result);
                 if (result == BLEUART_ERROR_NOT_CONNECTED)
                 {
@@ -273,8 +271,8 @@ Error:
         close (socket);
     if (g_listenSocket != -1)
         close(g_listenSocket);
-    if (pLogFile)
-        fclose(pLogFile);
+    if (g_pLogFile)
+        fclose(g_pLogFile);
     bleuartDisconnect();
 }
 
@@ -333,4 +331,71 @@ static int socketHasDataToRead(int socket)
     if (result == -1)
         return 0;
     return result;
+}
+
+static void logData(const char* pDirection, uint8_t* pData, int dataLength)
+{
+    if ((g_params.flags & FLAG_VERBOSE) == 0 && g_pLogFile == NULL)
+    {
+        // No logging is enabled so just return.
+        return;
+    }
+
+    const char* pEscapedData = escapeData(pData, dataLength);
+    const char* formatString = "%s: %s\n";
+    if (g_params.flags & FLAG_VERBOSE)
+    {
+        printf(formatString, pDirection, pEscapedData);
+    }
+    if (g_pLogFile)
+    {
+        fprintf(g_pLogFile, formatString, pDirection, pEscapedData);
+    }
+}
+
+static const char* escapeData(const uint8_t* pBuffer, int bufferSize)
+{
+    static char escapedBuffer[1024*1024];
+    char* pDest = escapedBuffer;
+    size_t bytesLeft = sizeof(escapedBuffer) - 1;
+
+    while (bufferSize-- > 0)
+    {
+        uint8_t ch = *pBuffer;
+        if (isprint(ch))
+        {
+            if (bytesLeft < 1)
+            {
+                break;
+            }
+            *pDest++ = ch;
+        }
+        else
+        {
+            if (bytesLeft < 4)
+            {
+                break;
+            }
+            pDest[0] = '\\';
+            pDest[1] = 'x';
+            pDest[2] = hexDigit(ch >> 4);
+            pDest[3] = hexDigit(ch & 0xF);
+            pDest += 4;
+        }
+
+        pBuffer++;
+    }
+    *pDest++ = '\0';
+
+    return escapedBuffer;
+}
+
+static char hexDigit(uint8_t digit)
+{
+    char digits[] = "0123456789ABCDEF";
+    if (digit > 15)
+    {
+        return '?';
+    }
+    return digits[digit];
 }
