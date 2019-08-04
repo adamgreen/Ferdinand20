@@ -9,9 +9,48 @@ Tracking the build of my robot to compete in the
 [Notes about our 2014 bot](https://github.com/adamgreen/Ferdinand14#readme) <br>
 [Notes from my stalled 2016 attempt](https://github.com/adamgreen/Ferdinand16#readme) <br>
 [How to Clone GitHub Repository](#clone-this-repo-and-its-submodules) <br>
+[Sawppy the Rover Build Instructions](https://github.com/Roger-random/Sawppy_Rover#readme) <br>
 
 
 
+---
+## August 3rd, 2019
+### LX-16A Servo Couplers
+<img src="photos/20190803-01.jpg" alt="LX-16A Couplers Printed" width="320" height="240"/>
+
+I have now printed off 13 [LX-16A Servo Couplers](https://github.com/Roger-random/Sawppy_Rover/blob/master/STL/LX-16A%20-%20Coupler.stl) in PETG. I only need 10 for the [Sawppy Rover](https://github.com/Roger-random/Sawppy_Rover#readme) build but I wanted to have a few spares. I ended up printing 6 of these at a time which took 1.5 hours. A few notes about these prints:
+* I ended up just printing at 0.30mm layer resolution for all layers and not using the variable resolution slicing feature I mentioned in my previous post. Having these holes be a bit tighter fit around the heat set threaded inserts was actually an advantage.
+* I took the first seven couplers to the local makerspace on Thursday evening to post-process. The central holes are so close to 8mm that the reamer isn't really required but it did function to clean out any PETG strings on the inside of the couplers. The main [post-processing task](https://github.com/Roger-random/Sawppy_Rover/blob/master/docs/Print%20Servo%20Parts.md#coupler) to complete on these couplers was to install the heat set threaded inserts using a soldering iron.
+* I might have to straighten up these threaded inserts a bit in the future. They don't always go in completely square. It is a bit difficult to get fine control of the soldering iron when you are pushing these inserts in from the inside of the 8mm hole.
+* I have printed off another 6 of these couplers and will post-process them this upcoming week.
+
+### Wireless BLE based MRI Debugging Updates
+![BLEMRI Prototype](photos/20190720-01.jpg)
+
+While dogfooding my BLEMRI prototype over the last couple of weeks, I encountered a few issues that I addressed at the end of the week:
+*  Originally the BLEMRI firmware running on the nRF51 expected only GDB remote packets to be sent so it would buffer data until it was full or the end of a packet was received. I modified the code so that now it buffers up the data until the buffer is full or no UART data has been sent from the LPC1768 for 1.5 serial frames. This fixes an issue where it failed to send the GDB remote protocol ack ('+') for the continue command which resulted in GDB timing out and sending the continue command again. This would cause MRI to break into the running LPC1768 and broke wireless debugging of most applications.
+* The BLEMRI logs (file and stdout) on macOS now escape any bytes that aren't printable. Such bytes aren't common with GDB but they are very common when sending new firmware over to the LPC1768 using mriprog.
+* I added a [deployBLE script](https://github.com/adamgreen/Ferdinand20/blob/master/software/blemri/test/deployBLE) which can use my previously created [mriprog](https://github.com/adamgreen/bb-8/tree/master/mriprog) program to wirelessly upload new firmware into the LPC1768 using BLEMRI.
+* I found a few bugs in my previously created **mriprog** application while testing it with BLEMRI. I fixed those this week too.
+
+### What is mriprog?
+I mentioned my previously created [mriprog](https://github.com/adamgreen/bb-8/tree/master/mriprog) program in the last section and in previous posts but haven't really explained what it is. It's time I remedy that!
+
+**mriprog** is a program which uses my [MRI](https://github.com/adamgreen/mri#readme) debug monitor to reprogram the LPC1768. MRI is a library which is linked into your code to enable GDB debugging via the serial port. Since MRI is linked into your code and running out of FLASH, it doesn't have an easy way to contain code capable of erasing FLASH and overwriting itself. **mriprog** works around these limitation by making creative use of the debugging facilities that MRI does support:
+* The MRI debug monitor allows GDB to write to RAM, set registers, continue execution, etc.
+* You just give **mriprog** the filename of the .elf that you desire to have uploaded into the LPC1768 and it parses the .elf to find the sections that need to be uploaded to the FLASH of the device.
+* When **mriprog** first starts running, it pretends to be GDB and instructs MRI to write a [serial bootloader](https://github.com/adamgreen/bb-8/blob/master/mriprog/boot-lpc1768/main.c) into an area of RAM that it knows isn't being used by MRI for its stack or globals. Once the serial bootloader is loaded into RAM, the PC register (R15) is modified to point to the beginning of this bootloader. After the command is sent to resume execution, the serial bootloader will be running.
+* **mriprog** can now switch communication protocols to use the one understood by the serial bootloader. It uses this protocol to erase the FLASH, load the new program into FLASH, and then reset the device to start the new program running.
+* As long as the new code is always linked with the MRI debug monitor, **mriprog** should be able to upload new code into the device. This works great for wireless solutions like BLEMRI.
+
+### Next Steps
+* Print [Sawppy wheels](https://github.com/Roger-random/Sawppy_Rover/blob/master/STL/Wheel.stl). PrusaSlicer indicates that it will take 9.5 hours to print each of the six wheels.
+* Continue work on the [LX-16A Servo](http://www.lewansoul.com/product/detail-17.html) software. Now that I know I can successfully send them commands from my mbed based LPC1768, I want to write a half-duplex serial driver to enable 2-way communication with them.
+* Post process the last six [LX-16A Servo Couplers](https://github.com/Roger-random/Sawppy_Rover/blob/master/STL/LX-16A%20-%20Coupler.stl).
+
+
+
+---
 ## July 31st, 2019
 ### OpenMV Camera has Arrived!
 ![Just opened OpenMV](photos/20190730-01.jpg)
