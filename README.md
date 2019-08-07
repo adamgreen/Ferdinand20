@@ -14,6 +14,76 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## August 7th, 2019
+### Printed first Sawppy Wheel
+<img src="photos/20190804-02.jpg" alt="First Wheel after Sanding" width="320" height="240"/>
+
+I have printed the first of six Sawppy wheels. The wheel took 9.5 hours to print on my Prusa i3 MK3S. While it didn't look great when I first pulled it off the print bed, it didn't look too bad after some hand sanding.
+
+### String Theory for PETG
+This is what the wheel looked like when the print first completed:
+<br><img src="photos/20190804-01.jpg" alt="First Stringy Wheel on Print Bed" width="320" height="240"/><br>
+It contained a massive number of strings inside the wheel. Stringing is a common issue with PETG but I didn't expect it to be that bad. I looked through the Prusa forums and I didn't see anyone complain about PETG stringing issues like this.
+
+The wheel is functional but it needed some post-processing. I cut away some of the strings inside of the wheel with a X-acto knife. Once the really long strings were gone, I hand sanded the inside of the wheel to remove more of the strings and smooth out any imperfections they left on the inner surface. The few strings I found on the outside were easily melted away with 200C hot air.
+
+I spent Saturday evening and most of Sunday trying out different things in an attempt to address this stringing issue.
+* I started by trying to reproduce the problem on a smaller print that would allow for quicker iterations. To that end, I began by experimenting with these [Retraction Towers from Thingiverse](https://www.thingiverse.com/thing:2867033) created by user [jpasternack](https://www.thingiverse.com/jpasternack).
+  * This print (at 0.3mm layer resolution) had a few strings on it by the end of a print with default settings but it was nothing like the wheel. The most obvious abnormality were bumps on the inside of the towers where it appeared that strings had pulled away from the surface as the head moved away to the other tower.
+  * I tried increasing the retraction settings to 1.2mm at 40mm/s but this actually resulted in more obvious stringing, not less.
+  * I was going to try experimenting with a few lower temperatures on these retraction towers as well but ended up using a different test print for temperature testing. I will discuss that a bit later.
+* While researching PETG stringing, I came across [this great YouTube video](https://www.youtube.com/watch?v=8_adY2K-YIc) by [Thomas Sanladerer](https://www.youtube.com/channel/UCb8Rde3uRL1ohROUVg46h1A). It has some great recommendations on things to try tweaking for better PETG printing, including:
+  * Increasing retraction length.
+  * Modifying retraction speed. Try faster and even **SLOWER** speeds to see what impact they have.
+  * Lower extruder temperature.
+  * Dropping fan speed range to 20%-50%.
+  * Increasing the travel speed when moving from one point to another point while not actively extruding any plastic. He actually recommends that this be set to the maximum speed possible for your printer. When investigating this setting in PrusaSlicer, I realized that it was already set pretty high but my running of the printer in its *Stealth* mode was probably halving the rate actually achieved at print time. Based on this, I printed the retraction towers again with the printer in *normal* mode and the resulting print was very clean and just had the one string from the final pull away with no bumps on the insides of the towers.
+  <br><img src="photos/20190804-04.jpg" alt="Retraction Tower printed in Normal mode" width="320" height="240"/><br>
+* When Roger Cheng, the creator of the Sawppy Rover, first printed his PETG wheels, he too [saw massive stringing](https://newscrewdriver.com/2018/07/11/problems-printing-petg-with-monoprice-maker-select-wanhao-duplicator-i3/).
+<br><img src="https://newscrewdriver.files.wordpress.com/2018/05/first-complex-petg.jpg?w=700" alt="Roger's stringy wheel" width="320" height="307"/><br>
+He narrowed it down to bad layer adhesion and not retraction. Not only were his prints stringy, they were also weak and the layers separated easily. My prints appear to be quite strong but I still found one statement in his writeup that I think does apply to my situation, "Once this print gets above the first 20mm and no longer printing the center hub, it no longer performs any retracts – the wheel is printed in a continuous motion without retracts." I was seeing a large number of retracts all throughout the print. This caused me to go back and reread [his wheel printing notes](https://github.com/Roger-random/Sawppy_Rover/blob/master/docs/Print%20Wheel.md) to find this statement which I had previously just glossed over, "The wheel spoke and perimeter is an even multiple of nozzle diameter and should print in a few large continuous motions. But the thin dimensions could confuse some slicers. If it generates paths broken up into an excessive number of segments, adjust your slicer settings." I tried a number of things in [PrusaSlicer](https://www.prusa3d.com/prusaslicer/) but the 3 settings that worked to generate nice continuous motions and reduce retractions were:
+
+| Setting | Old Value | New Value
+|---------|-----------|-----------
+| Print_Settings/Advanced/Extrusion_Width/Perimeters | 0.5mm  | 0.47mm
+| Print_Settings/Advanced/Extrusion_Width/External_perimeters | 0.5mm | 0.47mm
+| Print_Settings/Speed/Gap_fill |40 | 0
+
+* During my experimentation, I switched to using these [Temperature Towers from Thingiverse](https://www.thingiverse.com/thing:2893943) created by [Simplify3D](https://www.thingiverse.com/Simplify3D) to see how temperature impacted the PETG printing process. The stringing experienced with this print was really bad over the 240-260C temperature range recommended for my PETG filament. No temperature made it better but the features on the tower sides were best at the 250C used by PrusaSlicer's PETG profile. To have different layers of this tower printed at different temperatures, I added the following to PrusaSlicer's Printer_Settings/Custom_G-code/After_layer_change_G-code setting:
+```
+{if layer_z==0.2}M104 S240{endif}
+{if layer_z==10.0}M104 S242{endif}
+{if layer_z==20.0}M104 S245{endif}
+{if layer_z==30.0}M104 S247{endif}
+{if layer_z==40.0}M104 S250{endif}
+{if layer_z==50.0}M104 S252{endif}
+{if layer_z==60.0}M104 S255{endif}
+{if layer_z==70.0}M104 S257{endif}
+```
+<br><img src="photos/20190804-03.jpg" alt="Bad at all temps" width="240" height="320"/><br>
+
+Based on what I have seen with the Retraction/Temperature Tower experiments and Sawppy Wheel prints I think it is the frequency of retractions which are the biggest contributor to my stringing issues. I think the Retraction Towers don't string much because the print head takes awhile to print one of the towers before it needs to retract and travel to the other. The Temperature Tower and poorly sliced versions of the wheel have frequent retractions and correspondingly the worst stringing. Maybe the hot filament doesn't like being compressed and then stretched multiple times when a print in undergoing frequent retractions?
+
+### Onward to More Wheels
+In the end I made a few changes before printing the subsequent wheels to improve the quality and speed of the print based on my day of experiments:
+
+* Modified a few PrusaSlicer settings:
+  * Print_Settings/Advanced/Extrusion_Width/Perimeters: 0.47mm
+  * Print_Settings/Advanced/Extrusion_Width/External_perimeters: 0.47mm
+  * Print_Settings/Speed/Gap_fill: 0 (disable)
+  * Print_Settings/Infill/Only_retract_when_crossing_perimeters: Enabled
+  * Print_Settings/Infill/Fill_pattern: Rectilinear - This improves print speed but I might find it makes the print weaker during future field testing.
+* Moved the printer into a room with less air movement.
+* Ran the printer in Normal mode instead of Stealth mode.
+
+The build time for each wheel is now down to just under 8 hours with minimal stringing. The inside of the wheels are now very smooth and shiny.
+
+<img src="photos/20190807-01.jpg" alt="Latest Wheel Print" width="320" height="240"/>
+
+
+
+
+---
 ## August 3rd, 2019
 ### LX-16A Servo Couplers
 <img src="photos/20190803-01.jpg" alt="LX-16A Couplers Printed" width="320" height="240"/>

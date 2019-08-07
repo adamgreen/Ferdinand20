@@ -23,3 +23,6 @@ LPC1768/
 
 # Log files.
 mri.log
+
+# Will commit .3mf instead of .gcode
+*.gcode
