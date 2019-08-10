@@ -14,6 +14,35 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## August 9th, 2019
+### More Sawppy Parts Printed
+![Sawppy parts printed so far](photos/20190809-02.jpg)<br>
+Once I figured out how to successfully slice and print Sawppy's wheels, I started printing some of the other Sawppy parts in between wheel prints. These included:
+* [LX-16A Servo Brackets](https://github.com/Roger-random/Sawppy_Rover/blob/master/STL/LX-16A%20-%20Bracket.stl)
+  * I have printed half of the 10 brackets required and will use a future print to produce the last 5 at once.
+  * I used my 3mmx0.5 thread tap to thread all 4 holes in these brackets.
+  * Only 2 holes on the same side needed to be tapped but I did all of them so that if something broke in the field, the other side would be ready as a backup.
+* [Wheel Hubs](https://github.com/Roger-random/Sawppy_Rover/blob/master/STL/Wheel%20Hub.stl)
+  * I installed the heated thread inserts for the set screws a bit differently than how the Sawppy documentation indicates they should be done since I had some issues keeping the threaded inserts aligned properly when I used that method for the [Servo Coupler](https://github.com/Roger-random/Sawppy_Rover/blob/master/STL/LX-16A%20-%20Coupler.stl):
+    * Instead of removing the M3 bolt once the inserts were started, I just loosened it up and used it to check alignment and help correct any misalignment.
+  * I used a proper [Heat-Set Insert Installation Tool](https://www.amazon.com/dp/B078K72615) instead of a standard soldering tip for installing the 3 other threaded inserts. I found this tool made it easier to maintain proper alignment of the insert during installation and made quick work of those inserts. <br><img src="photos/20190809-01.jpg" alt="Proper tool" width="320" height="240"/><br>
+* [Fixed Knuckles](https://github.com/Roger-random/Sawppy_Rover/blob/master/STL/Fixed%20Knuckle.stl)
+  * Two of these are required, with one being a mirror of the other.
+  * I successfully printed both but broke one along the layer separation while attempting to install the bearings. The other now has both of its bearings installed. I will need to print a replacement for the one I cracked.
+<br><img src="photos/20190809-03.jpg" alt="Cracked Knuckle" width="320" height="240"/><br>
+
+### Slicing Sawppy Fixed Knuckle
+Like the wheel, it looked like it would be best if I tweaked the slicer settings for the fixed knuckles to make sure that the walls were an even multiple of perimeter extrusions. The modified parameters included:
+* Print_Settings/Advanced/Perimeters: 0.47mm
+* Print_Settings/Advanced/External_perimeters: 0.47mm
+* I didn't disable gap fills on this print since they tended to be located in areas that looked like they would need strength such as around holes close to a perimeter. There were also a lot fewer gap fills needed after setting the perimeter extrusion widths to get an even number of perimeter extrusions.
+
+### Next Steps
+* I concentrated on 3D printing this week and let my software work items slide. This upcoming week, I want to continue work on the [LX-16A Servo](http://www.lewansoul.com/product/detail-17.html) software. Now that I know I can successfully send them commands from my mbed based LPC1768, I want to write a half-duplex serial driver to enable 2-way communication with them.
+
+
+
+---
 ## August 7th, 2019
 ### Printed first Sawppy Wheel
 <img src="photos/20190804-02.jpg" alt="First Wheel after Sanding" width="320" height="240"/>
