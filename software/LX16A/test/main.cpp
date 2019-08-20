@@ -32,6 +32,7 @@ static void displayVoltage();
 static void displayMotorState();
 static void displayLedState();
 static void displayLedFaultMask();
+static void exerciseServo();
 
 
 
@@ -59,7 +60,8 @@ int main()
         printf("17. Modify LED settings.\n");
         printf("18. Set LED fault mask.\n");
         printf("19. Display servo settings.\n");
-        int32_t selection = getSelection("Selection", 1, 19);
+        printf("20. Exercise servo.\n");
+        int32_t selection = getSelection("Selection", 1, 20);
         switch (selection)
         {
             case 1:
@@ -199,6 +201,11 @@ int main()
                 displayLedFaultMask();
                 break;
             }
+            case 20:
+            {
+                exerciseServo();
+                break;
+            }
             default:
             {
                 printf("error: Invalid selection\n");
@@ -317,4 +324,112 @@ static void displayLedFaultMask()
     printf("  LED Fault on over temperature = %s\n", (faultMask & 1) ? "Enabled" : "Disabled");
     printf("  LED Fault on over voltage = %s\n", (faultMask & 2) ? "Enabled" : "Disabled");
     printf("  LED Fault on stall = %s\n", (faultMask & 4) ? "Enabled" : "Disabled");
+}
+
+static void exerciseServo()
+{
+    Timer timer;
+    timer.start();
+
+    printf("\n  Detecting ID of servo connected to serial bus...\n");
+    uint8_t servoId = g_servoBus.discoverServoId();
+    printf("  Servo ID = %u\n", servoId);
+    g_servo.setServoId(servoId);
+
+    printf("\n  Rotating servo to an angle of 0 degrees...\n");
+    g_servo.setAngle(0, 5000);
+    wait_ms(5100);
+    int16_t position = g_servo.getPosition();
+    printf("  Position = %d (%.2f degrees)\n", position, position * 0.24f);
+    if (abs(position - 0) > 10)
+    {
+        printf("  error: Didn't rotate as expected.\n");
+        return;
+    }
+
+    printf("\n  Rotating servo to an angle of 240 degrees...\n");
+    g_servo.setAngle(1000, 5000);
+    wait_ms(5100);
+    position = g_servo.getPosition();
+    printf("  Position = %d (%.2f degrees)\n", position, position * 0.24f);
+    if (abs(position - 1000) > 10)
+    {
+        printf("  error: Didn't rotate as expected.\n");
+        return;
+    }
+
+    printf("\n  Spinning servo in positive direction...\n");
+    int16_t lastPosition = g_servo.getPosition();
+    g_servo.setRotationSpeed(500);
+    uint32_t increaseCount = 0;
+    uint32_t decreaseCount = 0;
+    timer.reset();
+    while (timer.read_ms() < 5000)
+    {
+        position = g_servo.getPosition();
+        printf("  Position = %d (%.2f degrees)\n", position, position * 0.24f);
+        if (position > lastPosition)
+        {
+            increaseCount++;
+        }
+        else
+        {
+            decreaseCount++;
+        }
+        lastPosition = position;
+    }
+    printf("  Increased %lu times.\n", increaseCount);
+    printf("  Decreased %lu times.\n", decreaseCount);
+    if (increaseCount  < ((increaseCount + decreaseCount) * 9) / 10)
+    {
+        printf("  error: Didn't rotate as expected.\n");
+        return;
+    }
+    g_servo.setRotationSpeed(0);
+    wait_ms(500);
+
+    printf("\n  Spinning servo in negative direction...\n");
+    lastPosition = g_servo.getPosition();
+    g_servo.setRotationSpeed(-500);
+    increaseCount = 0;
+    decreaseCount = 0;
+    timer.reset();
+    while (timer.read_ms() < 5000)
+    {
+        position = g_servo.getPosition();
+        printf("  Position = %d (%.2f degrees)\n", position, position * 0.24f);
+        if (position < lastPosition)
+        {
+            decreaseCount++;
+        }
+        else
+        {
+            increaseCount++;
+        }
+        lastPosition = position;
+    }
+    printf("  Increased %lu times.\n", increaseCount);
+    printf("  Decreased %lu times.\n", decreaseCount);
+    if (decreaseCount < ((increaseCount + decreaseCount) * 9) / 10)
+    {
+        printf("  error: Didn't rotate as expected.\n");
+        return;
+    }
+    g_servo.setRotationSpeed(0);
+    wait_ms(500);
+
+    printf("\n  Setting LED default state to off.\n");
+    g_servo.setLed(SERVO_LED_OFF);
+
+    printf("\n  Displaying current servo settings.\n");
+    displayPosition();
+    displayAngleOffset();
+    displayAngleLimits();
+    displayVoltage();
+    displayVoltageLimits();
+    displayTemperature();
+    displayTemperatureLimit();
+    displayMotorState();
+    displayLedState();
+    displayLedFaultMask();
 }
