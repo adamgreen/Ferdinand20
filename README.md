@@ -14,6 +14,92 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## August 21st, 2019
+### LewanSoul LX-16A Driver for mbed LPC1768
+It took me awhile to get back into this project last week but the weekly trip to the local Makerspace on Thursday evening helped to kick off the development of the driver code for the LewanSoul LX-16A Serial Bus Servos.
+
+#### Half Duplex Serial/UART driver for the LPC1768
+Since I am going to connect the LPC1768 directly to the LX-16A servos using their single wire serial protocol, I started this driver project by developing a half duplex serial driver for the LPC1768. At one time such a driver was part of the core mbed SDK but it has since been removed. I think this removal happened when they started adding support for more microcontrollers, some for which the driver might have been difficult to port. The original is still probably available somewhere on the mbed site but I decided to quickly code up my own version so that I would better understand its implementation, making it easier to add an async DMA mode in the future if needed. The source code for my driver can be found [here](software/HalfDuplexSerial). A few notes about its development:
+
+* The LPC1768 doesn't require external hardware to switch between transmitting and receiving on the same wire. That single signal wire from the LX-16A servo just needs to be connected to both the Rx and Tx pins of the UART.
+* When transmitting, both UART pins (Tx and Rx) will be connected to the UART peripheral. The bytes sent out on the Tx pin will loop back into the Rx pin. My driver reads these looped bytes and discards them while in transmit mode.
+* When receiving, the Tx pin is reconfigured by the driver to disconnect from the UART peripheral and connect to the GPIO block instead. The GPIO block configures the pin as an input with high impedance. Now the Rx pin will only receive the bytes sent from the LX-16A servo itself.
+* I might revisit this driver in the future to make it async using DMA. That way a large number of transmits to update servo positions / rotation speeds can be done with minimal CPU overhead.
+
+
+#### LX-16A Servo Driver
+Once I had a way to reliably communicate with the LX-16A servo using half duplex serial, I started the development of the LX-16A driver itself. The source code for this driver can be found [here](software/LX16A).
+
+* This driver was split into 2 classes:
+  * The LX16A_ServoBus class represents the serial bus to which 1 or more LX-16A servos are connected. A reference to an object of this class is passed into each LX16A_Servo object instantiated. It contains a few broadcasting methods which a developer might want to call directly.
+  * The LX16A_Servo class represents an abstraction for a particular LX-16A servo attached to the LX16A_ServoBus. A developer would instantiate one of these objects for each servo with which they want to communicate.
+* I tried to expose methods for all of the commands documented by LewanSoul for their LX-16A servos that I thought I might want to use or experiment with in the future. There are a few which weren't implemented but they should be easily added if the need arises.
+* I wrote a [test harness](software/LX16A/test) for the driver as well which shows how to use many of the LX-16A servo methods.
+
+### LX-16A Servo Observations
+#### Position Reading as Encoder?
+The LX-16A has a command, SERVO_POS_READ, for reading out the current servo position. The documentation indicates that this command returns a 16-bit **signed** integer. This made me wonder whether it would return position readings outside of the 0 - 240 degree range to which the servo can be commanded in angle mode so I gave it a shot once I had the basic driver functional. The following output shows the result of calling SERVO_POS_READ while commanding the LX-16A to spin continuously:
+```
+  Spinning servo in positive direction...
+  Position = 1002 (240.48 degrees)
+  Position = 1062 (254.88 degrees)
+  Position = 1138 (273.12 degrees)
+  Position = 1194 (286.56 degrees)
+  Position = -190 (-45.60 degrees)
+  Position = -107 (-25.68 degrees)
+  Position = -19 (-4.56 degrees)
+  Position = 67 (16.08 degrees)
+  Position = 147 (35.28 degrees)
+  Position = 229 (54.96 degrees)
+  Position = 305 (73.20 degrees)
+  Position = 383 (91.92 degrees)
+  Position = 465 (111.60 degrees)
+  Position = 551 (132.24 degrees)
+  Position = 636 (152.64 degrees)
+  Position = 720 (172.80 degrees)
+  Position = 799 (191.76 degrees)
+  Position = 883 (211.92 degrees)
+  Position = 968 (232.32 degrees)
+  Position = 1051 (252.24 degrees)
+  Position = 1136 (272.64 degrees)
+  Position = 1194 (286.56 degrees)
+  Position = -188 (-45.12 degrees)
+  Position = -96 (-23.04 degrees)
+  Position = -17 (-4.08 degrees)
+  Position = 69 (16.56 degrees)
+  Position = 151 (36.24 degrees)
+  Position = 232 (55.68 degrees)
+  Position = 310 (74.40 degrees)
+  Position = 392 (94.08 degrees)
+  Position = 473 (113.52 degrees)
+  Position = 560 (134.40 degrees)
+  Position = 652 (156.48 degrees)
+  Position = 733 (175.92 degrees)
+  Position = 812 (194.88 degrees)
+  Position = 899 (215.76 degrees)
+  Position = 986 (236.64 degrees)
+  Position = 1070 (256.80 degrees)
+  Position = 1154 (276.96 degrees)
+  Position = 1191 (285.84 degrees)
+  Position = -164 (-39.36 degrees)
+```
+These results show that the servo does return positions that exceed the 0 to 240 degree range. It would appear to exceed this range by +/- 45 degrees for a total range of -45 to 285 degrees. I had expected at least +/- 30 degrees since that is the range supported by the SERVO_ANGLE_OFFSET_ADJUST command. This leaves ~30 degrees of the full 360 degree swing unaccounted for. It is during this portion of the swing that it can return inconsistent readings. Many times it returns values close to the -45 or 285 extremes but occasionally it returns angles further away from its true location.
+
+It might be possible to use this position reading as an encoder substitute but it will need to be carefully filtered to predict and correct for the potentiometer discontinuity between 285 and 315 degrees.
+
+#### Continuous Rotation Mode is Open Loop
+The LX-16A uses its potentiometer to provide position feedback when running in angle mode but when in continuous rotation mode it appears to run open loop. The commanded rotation speed appears to dictate the PWM duty cycle used and not the actual desired angular velocity. This means that the rover wheels might not all be spinning at the correct speed for the desired turning direction and radius. I would think that this could put some strain on the turning servos. The best solution would probably be to add an encoder to each of the six wheels and use software on the LPC176 to close the loop using PID.
+
+### BLEMRI Dogfooding Results
+BLEMRI has worked a champ for wirelessly uploading and debugging the LX-16A servo driver test code. I never encountered any issues with its use during the development and testing of this driver. When I used the ESP8266 version on previous projects, I would sometimes hit issues where **mriprog** would fail to switch from the GDB protocol to the faster serial protocol used by the second stage bootloader. Maybe I corrected the issue when I fixed bugs found in **mriprog** during the development of BLEMRI.
+
+### Next Steps
+* Teardown one of my LX-16A servos and see what can be seen.
+* Start experimenting with my recently purchased OpenMV camera.
+
+
+
+---
 ## August 9th, 2019
 ### More Sawppy Parts Printed
 ![Sawppy parts printed so far](photos/20190809-02.jpg)<br>
