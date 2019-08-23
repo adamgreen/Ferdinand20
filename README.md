@@ -14,6 +14,64 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## August 22nd, 2019
+### LewanSoul LX-16A Servo Teardown
+Before reading the [Sawppy rover build instructions](https://github.com/Roger-random/Sawppy_Rover#readme), I hadn't heard of the LewanSoul LX-16A serial bus servos. After playing around with one during the recent development of the mbed driver, I was interested in opening one up to see what makes it tick inside!
+
+#### Screw Removal
+![Unscrew Servo](photos/20190822-01.jpg)<br>
+The servo is composed of three layers of plastic which are held together by 4 screws. The screws were easily removed with a 00 Phillips head screwdriver. The above photo highlights the location of the 4 screws to be removed.
+
+#### Metal Gear Train
+![Gear Train#1](photos/20190822-02.jpg)
+![Gear Train#2](photos/20190822-03.jpg)<br>
+The first thing I noticed after opening up the servo was its all metal gear train. Most of these gears are non-ferrous but there are some ferrous ones (the one which remained in the front face for example) in the mix as well. There is also an unsealed ball bearing in the front face to support the main drive shaft output.
+
+#### Top of PCB
+![PCB Top](photos/20190822-04.jpg)<br>
+Most of the electronics for the servo are located on the top surface of the PCB.
+
+##### Microcontroller
+![Microcontroller](photos/20190822-06.jpg)<br>
+The brains of the servo appears to be this ARM based 32-pin microcontroller. [This forum thread](https://www.rcgroups.com/forums/showthread.php?2278850-BradWii-revolution-%21%21-%28for-toy-quadcopters%29) indicates that the **HL004** marked part is a [Nuvoton Mini54ZAN](https://www.digikey.com/product-detail/en/nuvoton-technology-corporation-of-america/MINI54ZAN/MINI54ZAN-ND/2786710) compatible microcontroller that is also used in some Chinese made toy quad-copters. This is a 24MHz capable Cortex-M0 processor.
+<br>![Nuvoton datasheet IC Pinout Diagram](photos/20190822-07.png)<br>
+**Figure 3.2-2** from the **NuMicro(tm) Mini51 Series Data Sheet** shows the pinout of their 33-pin QFN package and there are a number of pins on the PCB which have been routed in a way consistent with this diagram:
+* The Vss pin, pin 12, appears to be routed to a large island of copper, consistent with a ground trace.
+* The Vdd pin, pin 28, is routed to a nearby filter capacitor.
+* The XTAL1 (pin 11) and XTAL2 (pin 10) pins appear to be routed to a resonator.
+
+![16MHz Resonator](photos/20190822-08.jpg)<br>
+I attached my oscilloscope to the resonator output and it appears to be running the microcontroller at 16MHz.
+
+##### Complementary MOSFET Drivers for Motor Control
+![4606 IC](photos/20190822-09.jpg)<br>
+The two **4606** marked parts appear to be [Complementary MOSFET drivers](http://www.aosmd.com/pdfs/datasheet/ao4606.pdf) which are used to drive each side of the motor high or low. The two 4606 ICs together form an H-Bridge motor controller.
+
+##### NPN Transistors
+![J3Y Transistor](photos/20190822-10.jpg)<br>
+The two **J3Y** marked parts appear to be [NPN Transistors](https://16748.lightstrade.com/view/516066/J3Y-NPN-SMD-Transistor-S8050.html). The base of one is connected to pin 17 (PWM3) and the other is connected to pin 14 (PWM0). The collectors of both are pulled-up to the battery voltage via 330 ohm resistors. I believe that these are used to translate the output voltage from the microcontroller PWM outputs destined for the gates of the p-channel MOSFETs. Without this translation, the p-channel MOSFETs would never shut-off since the gate to source voltage would always be negative enough to keep them on.
+
+##### UART Driver - Maybe
+![UART Driver](photos/20190822-11.jpg)<br>
+I tried searching for the part number of this 8-pin chip but never turned up anything conclusive. Here is what I suspect:
+* Some of its pins appear to be connected to the UART Rx and Tx pins on the microcontroller.
+* Maybe it is something like the [SN74LVC3G07 triple buffer/driver with open-drain outputs](http://www.ti.com/lit/ds/symlink/sn74lvc3g07.pdf).
+  * This [simpler buffer](https://www.alibaba.com/product-detail/74LVC1G125GV-SOT23-5-Silk-Screen-V25_60722199693.html?spm=a2700.7724857.normalList.52.342f925fbbDILz) has the same **V25** marking on it.
+  * This type of chip would be a good way to interface a 2-pin UART peripheral to the single wire half duplex serial wire.
+
+#### Bottom of PCB
+![Bottom of PCB](photos/20190822-05.jpg)<br>
+There are really only two things of note on this side of the PCB:
+* The [AMS1117 3.3 linear voltage regulator](http://www.advanced-monolithic.com/pdf/ds1117.pdf).
+* The ALPS continuous rotation potentiometer. This is the part which allows for the servo to run in both angular and continuous rotation modes. Most servos have pots with physical stops and continuous rotation requires mechanical disconnection of the pot. This is a more flexible solution as it supports continuous rotations. It however only gives consistent resistances through about 330 degrees of its rotation which is more than good enough for the angular positioning mode of this servo.
+
+#### Headers
+![Headers Labelled](photos/20190822-12.jpg)<br>
+There are two headers on the PCB. I traced out the pins on these headers to verify my suspicions that they brought out the battery power lines and the SWD debug signals. I have labeled the pins in the above diagram.
+
+
+
+---
 ## August 21st, 2019
 ### LewanSoul LX-16A Driver for mbed LPC1768
 It took me awhile to get back into this project last week but the weekly trip to the local Makerspace on Thursday evening helped to kick off the development of the driver code for the LewanSoul LX-16A Serial Bus Servos.
