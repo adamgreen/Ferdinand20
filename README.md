@@ -14,6 +14,31 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## August 31st, 2019
+### OpenMV - First Look
+![OpenMV IDE Screenshot](photos/20190830-01.png)<br>
+I took the [OpenMV H7 camera](https://openmv.io/collections/cams/products/openmv-cam-h7) with me to this week's makerspace meetup and started experimenting with it. It is definitely an impressive little device! Here are a few things that I really like about this camera:
+* It supports many more computer vision algorithms than the PixyCam.
+  * They even have samples that demo the use of machine learning algorithms. Might it be possible to train a traffic cone recognition network?
+* Makes it easy to perform lower level camera setting tweaking such as manually setting or disabling features like the following which caused me some problems on the PixyCam:
+  * auto white balance
+  * auto gain
+  * auto exposure
+* Has uSD support which can be used to perform data logging for later analysis or testing of new software.
+* Has a way to frame synchronize multiple cameras, making stereo vision possible in the future.
+
+Other interesting OpenMV camera features include:
+* It uses the LAB color space for color blob tracking. In theory this should be an improvement over YUV.
+* They sell a [Polarizing Filter](https://openmv.io/collections/lenses/products/polarizing-filter) which will probably improve outdoor performance.
+
+I hadn't managed to make a lot of progress with the PixyCam on my previous [Ferdinand16 attempt](https://github.com/adamgreen/Ferdinand16#readme) so I think it makes sense to switch and instead use the OpenMV camera for Ferdinand20.
+
+### Next Steps
+* Code review and get back up to speed on the dead reckoning code that I previously started for [Ferdinand16](https://github.com/adamgreen/Ferdinand16/tree/master/firmware/robot). I can then continue developing and testing this code using my existing Arlo platform inside and outside on smoother terrain until I complete my new [Sawppy](https://github.com/Roger-random/Sawppy_Rover#readme) based chassis.
+
+
+
+---
 ## August 22nd, 2019
 ### LewanSoul LX-16A Servo Teardown
 Before reading the [Sawppy rover build instructions](https://github.com/Roger-random/Sawppy_Rover#readme), I hadn't heard of the LewanSoul LX-16A serial bus servos. After playing around with one during the recent development of the mbed driver, I was interested in opening one up to see what makes it tick inside!
