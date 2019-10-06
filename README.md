@@ -22,7 +22,7 @@ I can't believe that I managed to get through all of September without documenti
 I made no real progress on the software side of things but I do hope to make up for that this month.
 
 ### Robothon 2019
-The Robothon 2019 running of the Robo-Magellan competition occurred today down in Seattle Center, in the shadow of the Space Needle. There were two competitors with great bots for today's run: David Mier and Bob Cook.
+The Robothon 2019 running of the Robo-Magellan competition occurred today down in Seattle Center, in the shadow of the Space Needle. There were two competitors with great bots for today's run: Dave Mier and Bob Cook.
 ![David's Bot](photos/20191005-02.jpg)
 ![Bob's Bot](photos/20191005-01.jpg)
 
