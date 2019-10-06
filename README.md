@@ -14,6 +14,27 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## October 5th, 2019
+I can't believe that I managed to get through all of September without documenting any progress here! I was out of town for a few weeks so that definitely cut into my robot building time. I did however continue to 3D print and post-process more Sawppy parts over the last month.
+
+![Printed Parts](photos/20191005-03.jpg)
+
+I made no real progress on the software side of things but I do hope to make up for that this month.
+
+### Robothon 2019
+The Robothon 2019 running of the Robo-Magellan competition occurred today down in Seattle Center, in the shadow of the Space Needle. There were two competitors with great bots for today's run: David Mier and Bob Cook.
+![David's Bot](photos/20191005-02.jpg)
+![Bob's Bot](photos/20191005-01.jpg)
+
+While watching today's run, I took some notes of things that I should address with my bot:
+* I should have the ability to mark areas on the map as no go areas, such as around trees.
+* It would be good to have modes which indicate that the bot should follow asphalt or concrete when going between some waypoints if the camera can be used for such terrain detection.
+* Be able to set facing direction at different waypoints since the traffic cone could be behind something you just drove past.
+  * They like to hide cones behind rocks, posts, etc.
+
+
+
+---
 ## August 31st, 2019
 ### OpenMV - First Look
 ![OpenMV IDE Screenshot](photos/20190830-01.png)<br>
@@ -272,7 +293,8 @@ In the end I made a few changes before printing the subsequent wheels to improve
   * Print_Settings/Infill/Only_retract_when_crossing_perimeters: Enabled
   * Print_Settings/Infill/Fill_pattern: Rectilinear - This improves print speed but I might find it makes the print weaker during future field testing.
 * Moved the printer into a room with less air movement.
-* Ran the printer in Normal mode instead of Stealth mode.
+* ~~Ran the printer in Normal mode instead of Stealth mode.~~<br>
+*Later experimentation has since shown that this modification isn't required.*
 
 The build time for each wheel is now down to just under 8 hours with minimal stringing. The inside of the wheels are now very smooth and shiny.
 
