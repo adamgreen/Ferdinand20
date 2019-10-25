@@ -14,6 +14,48 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## October 25th, 2019
+In preparation for actually starting the Sawppy build, I have spent the last couple of weeks finishing the preparation of the required parts:
+
+### Soldered Prototype for Servo Test Setup
+![BLEMRI Prototype](photos/20190720-01.jpg)<br>
+Originally I was using a solderless breadboard with wires hanging off of it for the servo test setup. This prototype included the mbed-LPC1768 microcontroller, Nordic nRF51 based BLE debug interface, LiPo battery hookup, and LX-16A servo connection.
+
+![Soldered Prototype](photos/20191024-01.jpg)<br>
+I wanted a more robust solution for this prototype to use while configuring and testing the required 10 servos for the build. To accomplish this goal I created a soldered solution and used an [Adafruit Proto Shield for Arduino](https://www.adafruit.com/product/2077) as its main component. The mbed-LPC1768 was soldered to this shield which then allows it to be easily connected to the Arduino compatible headers on the Nordic nRF51 Development Kit while powering both microcontrollers and the servo from the same LiPo battery. The 3.3V regulation for both microcontrollers is provided by the regulator built into the mbed-LPC1768 board.
+
+### Finished 3D Printing
+I finished 3D printing  the last of the parts for the Sawppy build:
+* [Differential Parts](https://github.com/Roger-random/Sawppy_Rover/blob/master/docs/Print%20Differential.md)
+* [Main Body Box Corners](https://github.com/Roger-random/Sawppy_Rover/blob/master/docs/Print%20Body%20Box%20Corners.md)
+* [M3 Nut Installation Tools](https://github.com/Roger-random/Sawppy_Rover/blob/master/docs/Print%20M3%20Installation%20Tool.md)
+
+### Cut Misumi Extruded Aluminum
+![Cut Misumi Lengths](photos/20191024-02.jpg)<br>
+I used a hacksaw to manually cut all of the required lengths from 2 x [2 meter lengths of Misumi 15mm aluminum extrusion](https://us.misumi-ec.com/vona2/detail/110300465870/).
+
+| First Misumi Piece | Second Misumi Piece |
+|--------------------|---------------------|
+| 385mm              | 245mm
+| 385mm              | 245mm
+| 385mm              | 245mm
+| 385mm              | 238mm
+| 245mm              | 182mm
+| 182mm              | 161mm
+|                    | 161mm
+|                    | 122mm
+|                    | 122mm
+|                    | 117mm
+|                    | 117mm
+| Total: 1967mm      | Total: 1955mm
+
+### Cut and Groove 8mm Steel Rods
+![Cut 8mm Rods](photos/20191024-03.jpg)<br>
+Using a hacksaw I manually cut the 300mm differential segment from one of the [3' lengths of 8mm steel rod](https://www.mcmaster.com/8920k26-8920K263). I cut all of the other required segments from a second 3' length of 8mm rod. I then used a drill press and hacksaw blade to cut the required grooves into the rods.
+
+
+
+---
 ## October 5th, 2019
 I can't believe that I managed to get through all of September without documenting any progress here! I was out of town for a few weeks so that definitely cut into my robot building time. I did however continue to 3D print and post-process more Sawppy parts over the last month.
 
@@ -23,7 +65,7 @@ I made no real progress on the software side of things but I do hope to make up 
 
 ### Robothon 2019
 The Robothon 2019 running of the Robo-Magellan competition occurred today down in Seattle Center, in the shadow of the Space Needle. There were two competitors with great bots for today's run: Dave Mier and Bob Cook.
-![David's Bot](photos/20191005-02.jpg)
+![Dave's Bot](photos/20191005-02.jpg)
 ![Bob's Bot](photos/20191005-01.jpg)
 
 While watching today's run, I took some notes of things that I should address with my bot:
