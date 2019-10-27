@@ -14,6 +14,17 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## October 26th, 2019
+![Parts at Makerspace](photos/20191025-01.jpg)<br>
+Once I had all of the parts required for the Sawppy build ready, I packed them up and took them with me to the weekly makerspace meetup on Thursday. I used this meetup as an opportunity to kick off the final build process and managed to complete the [Servo Actuator Module Assemblies](https://github.com/Roger-random/Sawppy_Rover/blob/master/docs/AssembleActuatorModule.md) while there.
+
+Some notes from building the servo actuator modules:
+* I will definitely need to order [longer screws](https://www.mcmaster.com/98685a220) for attaching the servo shaft couplers to the servo horns. I am using the short screws packaged with the LX-16A servos for now but they won't be robust enough for actually running the bot.
+* The 2 holes in the servo shaft coupler adjacent to where the threaded heat insert was installed are bulged out a bit and block the installation of the servo horn screws. The bulging appears to have been caused by the process of installing the threaded heat insert. I had to file the holes out for the screws to more easily fit.
+
+
+
+---
 ## October 25th, 2019
 In preparation for actually starting the Sawppy build, I have spent the last couple of weeks finishing the preparation of the required parts:
 
