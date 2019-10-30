@@ -68,6 +68,7 @@ int main()
             {
                 uint8_t servoId = g_servoBus.discoverServoId();
                 printf("  Servo ID = %u\n", servoId);
+                g_servo.setServoId(servoId);
                 break;
             }
             case 2:
