@@ -14,6 +14,19 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## October 29th, 2019
+![Sawppy Mechanical Build Completed](photos/20191029-01.jpg)<br>
+I finished my [Sawppy build](https://github.com/Roger-random/Sawppy_Rover/tree/master/docs#readme) over the weekend though I still have to work on the electronics before I can test having it move around.
+
+### Next Steps
+* Design and implement a wiring harness for the 10 LewanSoul LX-16A servo actuators.
+* Finish the mechanical build by taking the moving pieces apart and filing flat the areas of the 8mm rods where the setscrews make contact.
+* Connect my existing mbed-LPC1768 soldered prototype board to the LX-16A servos and port Roger Cheng's existing [Arduino sample code](https://github.com/Roger-random/Sawppy_Rover/tree/master/arduino_sawppy) to run on it.
+* Code review and get back up to speed on the dead reckoning code that I previously started for [Ferdinand16](https://github.com/adamgreen/Ferdinand16/tree/master/firmware/robot). I can then continue developing and testing this code using my existing Arlo platform inside and outside on smoother terrain until I complete my new [Sawppy](https://github.com/Roger-random/Sawppy_Rover#readme) based chassis.
+
+
+
+---
 ## October 26th, 2019
 ![Parts at Makerspace](photos/20191025-01.jpg)<br>
 Once I had all of the parts required for the Sawppy build ready, I packed them up and took them with me to the weekly makerspace meetup on Thursday. I used this meetup as an opportunity to kick off the final build process and managed to complete the [Servo Actuator Module Assemblies](https://github.com/Roger-random/Sawppy_Rover/blob/master/docs/AssembleActuatorModule.md) while there.
