@@ -1,4 +1,4 @@
-![SRS Logo](https://raw.githubusercontent.com/adamgreen/Ferdinand16/master/photos/srslogo.gif)
+<img src="photos/20191029-01.jpg" alt="Sawppy Rover" width="320"/><br>
 Tracking the build of my robot to compete in the
 [Seattle Robotics Society's Robo-Magellan](https://robothon.org/rules-robo-magellan/) competition.
 
@@ -10,6 +10,57 @@ Tracking the build of my robot to compete in the
 [Notes from my stalled 2016 attempt](https://github.com/adamgreen/Ferdinand16#readme) <br>
 [How to Clone GitHub Repository](#clone-this-repo-and-its-submodules) <br>
 [Sawppy the Rover Build Instructions](https://github.com/Roger-random/Sawppy_Rover#readme) <br>
+
+
+
+---
+## November 4th, 2019
+### Completing the Sawppy Mechanical Build
+There were just a couple of things left to finish with my Sawppy build and to perform them, I had to take the steering and drive portions of the rover apart. These final build steps included:
+
+#### Replacing Servo Coupler Screws
+When I first read through the [Sawppy build instructions](https://github.com/Roger-random/Sawppy_Rover), I missed the [note](https://github.com/Roger-random/Sawppy_Rover/blob/master/docs/AssembleActuatorModule.md#install-shaft-coupler) about needing to purchase longer screws for attaching Sawppy's servo couplers to the LX-16A's servo horns. I initially used the short screws that came with the servos since I hadn't ordered the longer ones in my original McMaster-Carr order but they barely gripped the servo horn at all. Once I had completed my initial Sawppy build and knew that I wasn't missing any other parts, I ordered up the missing [longer screws](https://www.mcmaster.com/98685a220). They arrived a few days later and I was able to get them installed.
+![Longer screws in servo couples](photos/20191104-01.jpg)
+
+#### Filing 8mm Rods for Set-Screws
+The Sawppy build instructions recommend filing flat areas in the 8mm rods so that the set-screws can get better purchase. I didn't perform this step while initially cutting and grooving the rods since I didn't know for sure where the flats should be placed on the rods. I instead put the rover together, including tightening down the set-screws so that they left impressions on the rods. I then used the location of these impressions as indicators where I should file the flats into the rods once I had the drive portions of the rover disassembled.
+
+![Filing axles for set-screws](photos/20191104-02.jpg)<br>
+![Axles after filing](photos/20191104-03.jpg)<br>
+
+### Custom Wiring Harness Plans
+The wires included with the LewanSoul LX-16A servos are way too short for use on the Sawppy rover. I spent some time this week doing some research to figure out how to best create neat custom length wiring harnesses for these servos. I thought at first that standard servo cable connectors were compatible with these servos and while they probably could be forced into the sockets, they aren't really the correct polarized shape. While further researching this topic, I came across [this forum post on the LewanSoul website](http://www.lewansoul.com/forum/forum.php?mod=viewthread&tid=11277) that describes the actual type of connectors used on these servos. It turns out that they are from the Molex Mini-SPOX™ Low Profile Wire-to-Board Connector System.
+
+| Part | Description |
+|------|-------------|
+| [CONN HOUSING 3POS 2.5MM SHROUD](https://www.digikey.com/product-detail/en/molex/0050375033/WM18874-ND/280419) | 3-pin connector housing at end of cables |
+| [CONN SOCKET 22-28AWG CRIMP TIN](https://www.digikey.com/product-detail/en/molex/0039000160/WM9661CT-ND/3904983) | Pins to be crimped onto wires and pushed into the connector housing listed above |
+| [CONN HEADER VERT 3POS 2.5MM](https://www.digikey.com/product-detail/en/molex/0022035035/900-0022035035-ND/403302) | Mating connector for PCB mounting and also found on the LX-16A servos themselves |
+
+For my cable harness I have decided to:
+* Reuse the connector housings from the cables that came with the LX-16A servos. The pins/wires already in them are easily removed with a set of tweezers.
+* Use the largest wire size supported by the pins, 22 AWG, to minimize the resistance in these longer wires.
+* Purchase 6-conductor ribbon cable that I can 'zip' apart to produce two 3-conductor ribbon cables. A 5 foot roll will therefore result in 10 feet of 3-conductor cable which should be enough for this project.
+* Have 4 mating connectors on the control PCB. I will have one set of wires that go to the rockers on either side and another set of wires that go to the bogies on either side.
+
+#### Digikey Parts
+| Quantity | Part |
+|----------|------|
+| 60       | [CONN SOCKET 22-28AWG CRIMP TIN](https://www.digikey.com/product-detail/en/molex/0039000160/WM9661CT-ND/3904983) |
+| 4        | [CONN HEADER VERT 3POS 2.5MM](https://www.digikey.com/product-detail/en/molex/0022035035/900-0022035035-ND/403302) |
+| 1        | [CBL RIBN 6COND 0.100 GRAY 5'](https://www.digikey.com/product-detail/en/3m/8124-06-100/3M155851-5-ND/8257535) |
+
+#### Pololu Crimper
+I decided to order a ratcheting action crimper from Pololu. It seemed like the most appropriate combination of price and robustness for this project:
+
+| Quantity | Part |
+|----------|------|
+| 1        | [Crimping Tool: 0.1-1.0 mm² Capacity, 16-28 AWG](https://www.pololu.com/product/1928) |
+
+### Next Steps
+* Implement the new wiring harness for the 10 LewanSoul LX-16A servo actuators once the required parts arrive.
+* Connect my existing mbed-LPC1768 soldered prototype board to the LX-16A servos and port Roger Cheng's existing [Arduino sample code](https://github.com/Roger-random/Sawppy_Rover/tree/master/arduino_sawppy) to run on it.
+* I have decided to ignore the [Ferdinand16](https://github.com/adamgreen/Ferdinand16/tree/master/firmware/robot) code for now and concentrate on fleshing out the electronics for this rover now that I have the initial mechanical build completed. I want to leave the bulk of the software coding until later in the project and instead concentrate on the parts that I am less experienced with and usually get stuck on (ie. mechanical and electronics).
 
 
 
@@ -697,6 +748,7 @@ Ordered from [McMaster-Carr](https://www.mcmaster.com):
 * 1 x [100 pack of Retaining Rings](https://www.mcmaster.com/97431a310)
 * 1 x [8mm Reamer](https://www.mcmaster.com/8851a23)
 * 4 x [Loctite 242 - Single Use](https://www.mcmaster.com/91458a111)
+* 1 x [100 pack of 1/4" Long #2 Brass Phillips Decorative Rounded Head Screws](https://www.mcmaster.com/98685a220)
 
 Tools that I already had and didn't need to order:
 * Drill and/or drill press
