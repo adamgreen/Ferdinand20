@@ -1,6 +1,6 @@
 <img src="photos/20191029-01.jpg" alt="Sawppy Rover" width="320"/><br>
 Tracking the build of my robot to compete in the
-[Seattle Robotics Society's Robo-Magellan](https://robothon.org/rules-robo-magellan/) competition.
+[Seattle Robotics Society's Robo-Magellan](https://robothon.org/rules-robo-magellan/) competition to be held on October 3rd, 2020 at the Seattle Center.
 
 
 
@@ -10,6 +10,67 @@ Tracking the build of my robot to compete in the
 [Notes from my stalled 2016 attempt](https://github.com/adamgreen/Ferdinand16#readme) <br>
 [How to Clone GitHub Repository](#clone-this-repo-and-its-submodules) <br>
 [Sawppy the Rover Build Instructions](https://github.com/Roger-random/Sawppy_Rover#readme) <br>
+
+
+
+---
+## November 25th, 2019
+Last week I started working on the custom wiring harness for the [LewanSoul LX-16A servos](http://www.lewansoul.com/product/detail-17.html) on my [Sawppy rover](https://github.com/Roger-random/Sawppy_Rover#readme). I completed most of the required segments and I thought I would take some time to document my cable building process here so that I have something to refer back to when I next create more cables for these servos or just need to use the crimping tool again.
+<br>![Wire Harness Supplies](photos/20191122-01.jpg)
+<br>![Cable attached to Sawppy](photos/20191122-03.jpg)
+
+### Prepare Ribbon Cable
+I originally ordered 5 feet of the 6-conductor ribbon cable but it turned out that I should have ordered the [10 foot length of ribbon cable](https://www.digikey.com/product-detail/en/3m/8125-06-100/ML06G-10-ND/2658729) instead. 6-conductor cable was chosen as it was easy to get in the 22AWG conductor size that I wanted and is easily 'zipped' in half to produce two 3-conductor cables. I cut segments of the necessary length from the ribbon cable, as documented in the following table:
+
+| Cable | Length |
+|-------|--------|
+| Rocker - Front wheel drive servo to front steering servo | 26cm |
+| Rocker - Front wheel steering to microcontroller | 43cm |
+| Boogie - Rear wheel drive servo to rear steering servo | 26cm |
+| Boogie - Rear steering servo to middle fixed wheel drive servo | 48cm |
+| Boogie - Middle fixed wheel drive servo to microcontroller | 41cm |
+
+Once I had a segment cut to length, I pulled back the flat white portion of the ribbon cable, separating it from the 3 individual conductors. I did this to reveal 25mm of free conductors as seen in the following photo.
+
+![Strip Ribbon Cable](photos/20191122-02.jpg)<br>
+
+I then cut the excess flat portion of the ribbon cable away and stripped 2mm of the insulation off each of the 3 conductors. This 2mm length was chosen to match the portion of the crimp pin that is supposed to make contact with the bare conductor without being too long and passing into the portion of the pin which later makes contact with the male pins in the LX-16A servo.
+
+![Stripped ribbon cable](photos/20191122-04.jpg)<br>
+
+### Crimping Tool
+The [SN-28B ratcheting crimping tool](https://www.pololu.com/product/1928) that I ordered from Pololu arrived a few weeks ago. This is the first time that I have attempted to use such a crimping tool. I found a few videos online that gave me an idea of how to use it:
+* [YouTube Video: SN-28B Crimping tutorial for DuPont pins.](https://www.youtube.com/watch?v=-u1t7Cdf6RE)
+* [YouTube Video: Pololu Crimper - How to by Ewan](https://www.youtube.com/watch?&v=K7Qb3DzIX3s)
+
+I am not sure that every crimper that I see in videos have the die oriented the same way as mine. Each of the die are held in the crimping tool with a single screw which can be removed so that the die can be reoriented to best accommodate the most current project. To get a feel for which way the pin should be placed in the crimper, I squeezed the tool down through the 5 ratcheting clicks and looked at the die when fully closed. When this is done, it is easy to see that one side squeezes down the pin flaps more than the other:
+
+**Smaller side of die used to squeeze pin around conductor**
+![Conductor Side of Crimping Tool](photos/20191122-05.jpg)
+
+**Larger side of die used to squeeze pin around insulation**
+![Insulation Side of Crimping Tool](photos/20191122-06.jpg)<br>
+
+### Crimping Pins to Prepared Ribbon Cables
+The steps I used for crimping my ribbon cable pins:
+* Hold the part of the crimp pin that doesn't take wire in left hand.
+* Hold crimper in right hand with larger insulation side of crimping tool facing user.
+* Place the crimp in from far side of crimper and let the insulation tabs hook on the top ('M' shaped) part of the crimper where the separation between wire and insulation portion of the die is found.
+  * I used the smallest die pattern for the 22 AWG wire, even though Pololu documentation says to use the middle one for this gauge of wire. Using the middle slot resulted in crimped pins that didn't slide into the pin housing properly.
+![Pin in Crimper](photos/20191122-07.jpg)
+* Ratchet down for 3 clicks to grip the pin.
+* Pull on the pin from the other side of the crimper to make sure that the pin is properly seated up against the edge between the insulation and conductor portion of the die.
+![Pin in Crimper](photos/20191122-08.jpg)
+* Push wire in from larger insulation side of the crimper. Wiggle wire around to make sure that you can just see the ends of the conductors from far side of crimper but not so far that insulation ends up under the tabs that should fold around conductor.
+![Wire into Pin](photos/20191122-09.jpg)
+* Ratchet down 2 more clicks and continue to squeeze until the tool pops back open. The pin is now complete.
+![Crimped Pin](photos/20191122-10.jpg)
+
+### Housings for End of Ribbon Cables
+Instead of buying new [3 position housings](https://www.digikey.com/product-detail/en/molex/0050375033/WM18874-ND/280419) to hold the pins at the end of the cables, I reused the ones on the cables that originally shipped with the LX-16A servos. Pushing down on the pins already in the housings made it easy to pull out the existing cables.
+<br>![Reusing Header](photos/20191122-11.jpg)<br>
+I was then able to insert the crimped pins from the new cables into these housings.
+<br>![New Cable](photos/20191122-12.jpg)<br>
 
 
 
@@ -48,7 +109,7 @@ For my cable harness I have decided to:
 |----------|------|
 | 60       | [CONN SOCKET 22-28AWG CRIMP TIN](https://www.digikey.com/product-detail/en/molex/0039000160/WM9661CT-ND/3904983) |
 | 4        | [CONN HEADER VERT 3POS 2.5MM](https://www.digikey.com/product-detail/en/molex/0022035035/900-0022035035-ND/403302) |
-| 1        | [CBL RIBN 6COND 0.100 GRAY 5'](https://www.digikey.com/product-detail/en/3m/8124-06-100/3M155851-5-ND/8257535) |
+| 1        | [CBL RIBN 6COND 0.100 GRAY 10'](https://www.digikey.com/product-detail/en/3m/8125-06-100/ML06G-10-ND/2658729) |
 
 #### Pololu Crimper
 I decided to order a ratcheting action crimper from Pololu. It seemed like the most appropriate combination of price and robustness for this project:
