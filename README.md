@@ -14,6 +14,36 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## December 18th, 2019
+I haven't been working directly on my Robo-Magellan bot for the last few weeks but I have a good excuse...I promise :) Since I got the [Prusa i3 MK3S printer](https://www.prusa3d.com/original-prusa-i3-mk3/) earlier this year, I have only used it to print existing designs that I downloaded from the Internet, most of which were [Sawppy Rover parts](https://github.com/Roger-random/Sawppy_Rover). I decided to now take the time to learn [openSCAD](https://www.openscad.org) so that I can design and print my own parts.
+
+### openSCAD
+![OpenSCAD Cookbook](photos/20191217-02.jpg)<br>
+
+I have skimmed the openSCAD documentation in the past but it is really best used as a reference and isn't really compatible with my learning style. I found that the ["OpenSCAD Cookbook - OpenSCAD Recipes for learning 3D modeling" by John Clark Craig](https://www.amazon.com/OpenSCAD-Cookbook-Recipes-learning-modeling/dp/1790273919)  to be a good introduction for a beginner like myself. It only took me two evenings to read through it and at the end of the second night, I was starting to work on my own designs. When I needed to dig into openSCAD even more I found that the [openSCAD cheat sheet](https://www.openscad.org/cheatsheet), easily launched from within openSCAD's "Help" menu, was a great resource for further learning.
+
+### openSCAD Projects
+#### Bose Speaker Stand Plug Replacement
+One of the stands for my Bose speakers hasn't been useable for over a decade because of one little cracked plastic plug that mates the vertical rod of the speaker with its base. The first project I tackled after learning openSCAD was to design a replacement for this broken piece. The following photos show the design preview in openSCAD and the final 3D printed object installed in the now fixed speaker stand (black ring where rod meets base).<br>
+![Plug design in openSCAD](photos/20191217-04.png)<br>
+![Photo of plug installed](photos/20191217-03.jpg)<br>
+The plug is now functional but there are a few things that I might improve in the future:
+* Use a white PETG filament that more closely matches the colour of the speaker stand. Currently the only PETG filament that I have on hand is the black PETG that I used for the Sawppy parts. I have white PLA but the part needed to be a bit more flexible than PLA allows.
+* The outer diameter at the top and bottom of the cylinder could be further reduced to allow for a better fit in the speaker base.
+
+#### 2D Calligraphy in 3D
+When my Prusa i3 MK3S arrived, it had a black and white print of a "Prusa" name plate on the print bed. It was printed with two different colours of filament which was accomplished by first printing the background in white, pausing the print so that the user could manually unload the white filament to load in the black filament, and then continuing to print the text itself in black. I thought it would be cool to do the same for some of my wife's calligraphy projects so my next project was to load a 2D scan of one such project and extrude it into a 3D print as seen in the following images:<br>
+![Screenshot of Hope Calligraphy](photos/20191217-05.png)<br>
+![Photo of Hope Calligraphy](photos/20191217-01.jpg)
+
+#### NeoPixel Christmas Tree Updates
+![Previous NeoPixel Tree Version](https://raw.githubusercontent.com/adamgreen/NeoPixelTree/master/images/20181011-01.gif)<br>
+Last year I built a [NeoPixel Christmas tree](https://github.com/adamgreen/NeoPixelTree#readme) that I really liked the look of but I wasn't completely satisfied with the robustness of the branches and their connections to the LEDs. This year I wanted to design a more robust version and I thought that the 3D printer might be able to play a part in the redesign. The following photo shows the 2-piece cone that I printed out on my printer to provide the form for this new version of the tree. The holes in the cone will be used to hold the [premade strand of NeoPixel LEDs](https://www.amazon.com/WESIRI-Diffused-Individually-Addressable-Waterproof/dp/B075T84ZR3) in place and I plan to cover that all up with artificial pine rope.<br>
+![Photo of Tree Cone](photos/20191217-06.jpg)
+
+
+
+---
 ## November 25th, 2019
 Last week I started working on the custom wiring harness for the [LewanSoul LX-16A servos](http://www.lewansoul.com/product/detail-17.html) on my [Sawppy rover](https://github.com/Roger-random/Sawppy_Rover#readme). I completed most of the required segments and I thought I would take some time to document my cable building process here so that I have something to refer back to when I next create more cables for these servos or just need to use the crimping tool again.
 <br>![Wire Harness Supplies](photos/20191122-01.jpg)
