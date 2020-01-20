@@ -14,6 +14,29 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## January 19th, 2020
+I took some time off from this project over the holidays but now I am jumping back in where I left off at the end of 2019.
+
+### Current Reading List
+![Photos of books I am reading](photos/20200118-01.jpg)
+
+I am currently in the process of reading two books that are related to autonomous vehicles. One about earthbound vehicles and the other about a vehicle currently roaming the surface of Mars:
+* [The Design and Engineering of Curiosity: How the Mars Rover Performs Its Job by Emily Lakdawalla](https://www.amazon.com/Design-Engineering-Curiosity-Performs-Springer/dp/3319681443)
+* [Creating Autonomous Vehicle Systems by Shaoshan Liu et al.](https://www.amazon.com/Creating-Autonomous-Synthesis-Lectures-Computer/dp/1681730073)
+
+### 4 to 1 Serial Servo Adapter
+![My 4 to 1 adapter for LX-16A serial connections](photos/20200118-02.jpg)
+
+During initial testing of my LX-16A serial servo driver code, I only needed a single 3-pin connection from the LPC1768 microcontroller. Now that I have completed the wiring harnesses for the robot, I need to connect 4 such serial cables to the microcontroller. The photo above shows the single female 1x3 header to four male 1x3 header adapter board that I built with a small piece of PCB protoboard. With this in place, I can now send commands and receive responses from all 10 of the LX-16A servos on my [Sawppy rover](https://github.com/Roger-random/Sawppy_Rover).
+
+### My Electronics Mounting Hack
+![Mounting Hack](photos/20200118-03.jpg)
+
+The above photo shows how I have hacked the batteries and my current electronics onto the Sawppy base with foam board, tape, and elastic bands. This should suffice for my initial testing.
+
+
+
+---
 ## December 18th, 2019
 I haven't been working directly on my Robo-Magellan bot for the last few weeks but I have a good excuse...I promise :) Since I got the [Prusa i3 MK3S printer](https://www.prusa3d.com/original-prusa-i3-mk3/) earlier this year, I have only used it to print existing designs that I downloaded from the Internet, most of which were [Sawppy Rover parts](https://github.com/Roger-random/Sawppy_Rover). I decided to now take the time to learn [openSCAD](https://www.openscad.org) so that I can design and print my own parts.
 
