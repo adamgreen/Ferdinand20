@@ -1,4 +1,4 @@
-/*  Copyright (C) 2019  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2020  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -18,6 +18,12 @@
 #include <assert.h>
 #include <HalfDuplexSerial.h>
 
+
+
+// Constants used to convert angle in degrees or radians to the corresponding LX-16A servo angle integer value.
+#define LX16A_DEGREE_TO_SERVO_VALUE (1.0f / 0.24f)
+#define LX16A_RADIAN_TO_DEGREE (180.0f/M_PI)
+#define LX16A_RADIAN_TO_SERVO_VALUE (LX16A_RADIAN_TO_DEGREE * LX16A_DEGREE_TO_SERVO_VALUE)
 
 
 
