@@ -99,7 +99,8 @@ static void loop()
     printf("\n");
     printf("1. Drive\n");
     printf("2. Turn In Place\n");
-    int32_t selection = getSelection("Selection", 1, 2);
+    printf("3. Do the Twist!\n");
+    int32_t selection = getSelection("Selection", 1, 3);
     switch (selection)
     {
         case 1:
@@ -111,6 +112,24 @@ static void loop()
         case 2:
             steering = getSelection("Steering (%)", -100, 100);
             duration = getSelection("Duration (msec)", 0, 60000);
+            state = turnInPlace;
+            break;
+        case 3:
+            // Get the wheels turned to the right angle but don't rotate yet.
+            g_drive.turnInPlace(0);
+            wait_ms(500);
+            // Twist clockwise.
+            g_drive.turnInPlace(100);
+            wait_ms(1000);
+            // Short pause before changing direction.
+            g_drive.stopAll();
+            wait_ms(250);
+            // Twist counter-clockwise.
+            g_drive.turnInPlace(-100);
+            wait_ms(1000);
+            // Let rest of code continue running with a 0 velocity turn in place.
+            steering = 0;
+            duration = 0;
             state = turnInPlace;
             break;
     }
