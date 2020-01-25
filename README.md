@@ -13,6 +13,18 @@ Tracking the build of my robot to compete in the
 
 
 
+
+---
+## January 24th, 2020
+![Sawppy Turning InPlace](photos/20200124-01.gif)
+
+This week I was able to use [Roger Cheng's](https://github.com/Roger-random) Arduino based control code to implement my own [mbed based SawppyDrive driver](https://github.com/adamgreen/Ferdinand20/tree/master/software/SawppyDrive). The above animation shows this new driver in action. So far the only test code I have is a command line interface that works through the GDB console when remotely connected to Sawppy via BLE but that is enough to already see some nice progress being made on this project:
+* The BLE based firmware upload and debugging has proven to be very useful for the development of the code running on the Sawppy so far! I am happy that I put the effort into implementing that functionality earlier in the project.
+* It is very cool to see the Sawppy rover actually moving around after having put all that work into building the mechanics over the last couple of months. I was already impressed with Roger's design before but now I am even more impressed as I see my rover actually moving around on its own.
+* At this point I consider myself mostly done with the mechanical portions of this project and I will now start concentrating on the electronics.
+
+
+
 ---
 ## January 19th, 2020
 I took some time off from this project over the holidays but now I am jumping back in where I left off at the end of 2019.
