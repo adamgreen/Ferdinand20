@@ -13,6 +13,25 @@ Tracking the build of my robot to compete in the
 
 
 
+---
+## January 31st, 2020
+### Power Distribution Board
+One thing that I really liked about the [Parallax Arlo Platform](https://www.parallax.com/product/arlo-robotic-platform-system) that I used for my 2016 Robo-Magellan attempt was its [Power Distribution Board](https://www.parallax.com/downloads/arlo-power-distribution-board-product-guide). This board allowed for the separate switching of the main electronic components (microcontrollers, sensors, etc) from that of the power for the motors so that the rest of the electronics could be tested while keeping the bot stationary. It also had fuses for protecting the various circuits.
+
+I would like to have a similar power distribution board (PDB) for my Sawppy rover. My desired feature list includes:
+* **Wireless Deadman Switch:** Instead of a physical switch to disable power to the motors, I want it to be wireless instead. To be compliant with the [Robo-Magellan rules](https://robothon.org/rules-robo-magellan/) this switch should be a deadman switch that requires me to actively engage the switch for the rover to enable the power to the motors via a relay. Losing power on the wireless switch, losing wireless connectivity, dropping the switch, or otherwise releasing the switch should disable the motor power.
+* **Wireless Joystick for Manual Control:** It would be nice if the same wireless device containing the deadman switch also contained a joystick which could be used for manually driving the rover around. There could be a switch on the power distribution board that enables this manual driving mode and then have some UI on the rover which makes it clear to me and the judges that it isn't in this mode during competition.
+* **Nordic nRF51 Powered:** The power distribution board should have built-in intelligence provided by a Nordic nRF5 BLE capable microcontroller. This microcontroller would not only manage the BLE connection to the deadman switch/remote but also monitor the battery voltage, communicate power state to the main microcontroller, and update an onboard screen.
+* **LiPO Battery Connector:** A 2S 7.2V LiPo battery would be connected to this power distribution board to provide all of the power required by the bot. This battery input will be fused at 15A.
+* **Power outputs:** It should provide terminals for motor power and another set of terminals to power the rest of the electronics. Both outputs will be fused: 10A for the motor terminals and 2A for the electronic terminals.
+* **Power Switch:** The power distribution board should have one switch which enables the power to the built-in nRF51 microcontroller and the other electronics but not the motors. That means it doesn't need to switch that much current (would probably be fused at 2A).
+* **Motor Power Relay:** By default switching on the power to the bot would only provide power to the electronics and not the motors. To provide power to the motors, the deadman switch must be wirelessly connected and depressed. This would enable the relay controlling power to the motor terminals.
+* **Manual Override Switch:** Should also have a switch that allows the joystick on the deadman switch to be used for manually controlling the bot. The fact that the bot is in this mode should be prominently displayed on the screen. When in this mode, the nRF51 microcontroller in the PDB will send joystick update messages to the main microcontroller via the UART connection.
+* **Screen:** The power distribution board should have a LCD or OLED screen visible from behind the bot where it will be more visible to judges and me. It will display important status such as LiPo battery voltage, remote control battery voltage, manual/auto drive mode, motor power state, and status messages sent from the main microcontroller via the UART connection.
+* **LiPo Battery Monitoring:** The nRF51 microcontroller on the PDB should monitor the LiPo battery voltage. It should report the voltage to the attached screen and automatically warn the user via the onboard screen and disable motor power when the voltage gets too low.
+* **Serial Connectivity:** There should be a UART connection between the nRF51 microcontroller on the PDB and the main microcontroller. It will use this connection to send the current deadman switch state on a regular basis (>10 times per second) and joystick status when in manual drive to the main microcontroller. Main microcontroller could even watchdog off of this to send a stop command to all motors if it stopped receiving messages from the PDB. The main microcontroller should also be able to send status text back to the PDB via this UART so that it can be displayed on the screen.
+
+
 
 ---
 ## January 24th, 2020
