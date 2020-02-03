@@ -3,11 +3,11 @@
 *.zip
 
 # Makefile installs Nordic's nRF5x SDK here.
-/software/blemri/firmware/sdk/
+/software/nrfSDK/
 
 # User should install Nordic tools in this folder.
-/software/blemri/firmware/tools/mergehex
-/software/blemri/firmware/tools/nrfjprog
+/software/nrfTools/mergehex
+/software/nrfTools/nrfjprog
 
 # Build output for nRF5x firmware builds.
 _build/
@@ -25,6 +25,9 @@ LPC1768/
 mri.log
 blemri.log
 socket.log
+
+# VSCode projects
+.vscode/
 
 # Will commit .3mf instead of .gcode
 *.gcode
