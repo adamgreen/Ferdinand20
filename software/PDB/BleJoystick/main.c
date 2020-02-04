@@ -585,6 +585,10 @@ static void startTimers(void)
 
     errorCode = app_timer_start(g_joystickMeasurementTimer, JOYSTICK_MEAS_INTERVAL, NULL);
     APP_ERROR_CHECK(errorCode);
+
+    // Force the battery voltage measurement to take place immediately so that we don't need to wait for the first
+    // timeout to occur before having a valid measurement.
+    batteryMeasurementTimeoutHandler(NULL);
 }
 
 static void enterLowPowerModeUntilNextEvent(void)
