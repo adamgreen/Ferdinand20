@@ -14,6 +14,19 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## February 3rd, 2020
+### BLE Joystick Prototype
+![Photo of BLEJoystick Prototype](photos/20200203-01.jpg)
+
+Last week I started working on a prototype of the remote portion of the Power Distribution Board (PDB). The current prototype uses a [micro:bit development board](https://microbit.org) that I already had on hand. It is able to read the joystick status (x/y coordinates and switch status) and the battery voltage level to send wirelessly via BLE back to a central device (like the PDB in the future). The current prototype doesn't contain the deadman switch yet but it will be added once I have a an easier way to access another of the micro:bit's GPIO pins.
+
+Source code for this prototype has already been pushed to this repository:
+* The source code for this prototype's firmware can be found [here on GitHub](software/PDB/BleJoystick).
+* The source code for a simple console application that runs on macOS and can display the packets sent from the BleJoystick prototype can be found [here on GitHub](software/PDB/macosTest).
+
+
+
+---
 ## January 31st, 2020
 ### Power Distribution Board
 One thing that I really liked about the [Parallax Arlo Platform](https://www.parallax.com/product/arlo-robotic-platform-system) that I used for my 2016 Robo-Magellan attempt was its [Power Distribution Board](https://www.parallax.com/downloads/arlo-power-distribution-board-product-guide). This board allowed for the separate switching of the main electronic components (microcontrollers, sensors, etc) from that of the power for the motors so that the rest of the electronics could be tested while keeping the bot stationary. It also had fuses for protecting the various circuits.
