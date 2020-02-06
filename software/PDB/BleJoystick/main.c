@@ -69,18 +69,14 @@
 #define PERIPHERAL_LINK_COUNT           1
 
 
-// UUID type for the Nordic UART Service (vendor specific).
-#define NUS_SERVICE_UUID_TYPE           BLE_UUID_TYPE_VENDOR_BEGIN
-
 // The advertising interval (in units of 0.625 ms. This value corresponds to 40 ms).
 #define APP_ADV_INTERVAL                64
 // The advertising timeout (in units of seconds).
 #define APP_ADV_TIMEOUT_IN_SECONDS      180
 
-// UNDONE: Can this queue size be decreased to 2 instead of 4?
-// Value of the RTC1 PRESCALER register.
+// Value of the RTC1 PRESCALER register used by application timer.
 #define APP_TIMER_PRESCALER             0
-// Size of timer operation queues.
+// Size of timer operation queues. Includes room for BSP specific timers and ones used by this application.
 #define APP_TIMER_OP_QUEUE_SIZE         4
 
 // Timings for how often peripheral and central should communicate over the link. The shorter the interval, the more
@@ -115,8 +111,8 @@ static ble_nus_t                    g_nordicUartService;
 // Current BLE connection.
 static uint16_t                     g_currBleConnection = BLE_CONN_HANDLE_INVALID;
 
-// UUIDS returned in advertising scan response.
-static ble_uuid_t                   g_advertiseUuids[] = {{BLEJOY_ADVERTISE, NUS_SERVICE_UUID_TYPE}};
+// UUIDS returned in advertising scan response for BleJoystick devices.
+static ble_uuid_t                   g_advertiseUuids[] = {{BLEJOY_ADVERTISE_UUID, BLEJOY_ADVERTISE_UUID_TYPE}};
 
 // Latest battery voltage measurement.
 static uint8_t                      g_latestBatteryMeasurement;

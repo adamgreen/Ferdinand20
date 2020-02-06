@@ -10,14 +10,15 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 */
-/* This header contains the information about the BleJoy firmware that needs to be shared with the
+/* This header contains the information about the BleJoystick firmware that needs to be shared with the
    Central code that connects to it.
 */
 #ifndef BLE_JOY_SHARED_H_
 #define BLE_JOY_SHARED_H_
 
-// This is the vendor UUID offset to be advertised by BLEJOY devices.
-#define BLEJOY_ADVERTISE                0xADA4
+// This is the vendor UUID offset and type to be advertised by BleJoyStick devices.
+#define BLEJOY_ADVERTISE_UUID           0xADA4
+#define BLEJOY_ADVERTISE_UUID_TYPE      BLE_UUID_TYPE_VENDOR_BEGIN
 
 // Bits that can be set in BleJoyData::buttons.
 //  Joystick stick is pressed.

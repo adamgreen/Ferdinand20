@@ -1,4 +1,4 @@
-/*  Copyright (C) 2019  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2020  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -415,7 +415,7 @@ Error:
     }
     else
     {
-        NSString* bleJoyUuid = [NSString stringWithFormat:@BLEJOY_UUID_FORMAT, BLEJOY_ADVERTISE];
+        NSString* bleJoyUuid = [NSString stringWithFormat:@BLEJOY_UUID_FORMAT, BLEJOY_ADVERTISE_UUID];
         [manager scanForPeripheralsWithServices:[NSArray arrayWithObject:[CBUUID UUIDWithString:bleJoyUuid]]
                  options:nil];
     }
