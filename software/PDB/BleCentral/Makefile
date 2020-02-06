@@ -239,7 +239,7 @@ erase:
 SDK_VER := nRF5_SDK_12.3.0_d7731ad
 SDK_ZIP := $(SDK_VER).zip
 SDK_URL := https://developer.nordicsemi.com/nRF5_SDK/pieces/nRF5_SDK_v12.x.x/$(SDK_ZIP)
-SDK_ZIP_PATH = $(dir $(SDK_ROOT))/$(SDK_ZIP)
+SDK_ZIP_PATH = $(dir $(SDK_ROOT))$(SDK_ZIP)
 
 # sdk target is used to download SDK from the Nordic website.
 sdk: $(SDK_ROOT)
@@ -250,7 +250,7 @@ $(SDK_ROOT): $(SDK_ZIP_PATH)
 	$(NO_ECHO)unzip -d $@ $<
 	$(NO_ECHO)mv $(SDK_ROOT)/$(SDK_VER)/* $(SDK_ROOT)
 	$(NO_ECHO)rm -d $(SDK_ROOT)/$(SDK_VER)
-	$(NO_ECHO)patch -d $(SDK_ROOT) -p1 <sdk.patch
+	$(NO_ECHO)patch -d $(SDK_ROOT) -p1 <$(dir $(SDK_ROOT))sdk.patch
 
 # Download SDK archive from the Nordic website.
 $(SDK_ZIP_PATH):
