@@ -14,11 +14,37 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## February 12th, 2020
+### BLE Central Prototype
+#### Basic BLE Central Connectivity to Joystick
+![Photo of central prototype connected to laptop](photos/20200212-01.jpg)<br>
+After completing the initial proof of concept for the BLE joystick/deadman switch last week, I started writing code to implement a prototype for the BLE central counterpart which will live on the Power Distribution Board (PDB) itself. So far I have only implemented enough code to wirelessly connect to the joystick module and forward the received packets out over the UART. The code for this initial prototype can be found [here on GitHub](software/PDB/BleCentral).
+
+#### Further Progress Stalled
+Once I had basic BLE connectivity to the joystick/deadman switch working, I turned my attention to [this 1.5" OLED screen from Adafruit](https://www.adafruit.com/product/1431). Luckily Adafruit has already written a few nice Arduino graphic drivers that work together to drive this display:
+* https://github.com/adafruit/Adafruit-SSD1351-library
+* https://github.com/adafruit/Adafruit-GFX-Library
+
+I have finished my initial porting attempt to get these Arduino libraries working with the nRF51 SDK and now have them building successfully. When I went to test this code, I hit my first hiccup which I knew was coming at some point. It is easy to connect up to 3 of the GPIO pins on the micro:bit using alligator clips but the rest are smaller card edge connectors. While I could easily solder hookup wires to them, I would like to reuse these micro:bit boards for other projects in the future. Adafruit sells an adapter board that makes it easy to plug the micro:bit into a breadboard. I want to get one of those in my hands before I continue working on this part of the Ferdinand20 project. I also want to order a relay board from Sparkfun to use for prototyping the switching of the motor supply. To this end, I have ordered the following 2 parts to allow for the continuation of this part of the project:
+* [Adafruit DragonTail for micro:bit](https://www.adafruit.com/product/3695)
+* [SparkFun Beefcake Relay Control Kit (Ver. 2.0)](https://www.sparkfun.com/products/13815)
+
+I will continue working on the PDB prototype again once these parts arrive next week.
+
+### Current Reading List
+![Photos of books I am currently reading](photos/20200212-02.jpg)<br>
+I plan to use the behavior-based approach for programming this robot. To that end, I am currently rereading these 2 books:
+* [Robot Programming : A Practical Guide to Behavior-Based Robotics by Joe Jones](https://www.amazon.com/Robot-Programming-Practical-Behavior-Based-Robotics/dp/0071427783)
+* [Cambrian Intelligence: The Early History of the New AI by Rodney A. Brooks](https://www.amazon.com/Cambrian-Intelligence-Early-History-New/dp/0262522632)
+
+
+
+---
 ## February 3rd, 2020
 ### BLE Joystick Prototype
 ![Photo of BLEJoystick Prototype](photos/20200203-01.jpg)
 
-Last week I started working on a prototype of the remote portion of the Power Distribution Board (PDB). The current prototype uses a [micro:bit development board](https://microbit.org) that I already had on hand. It is able to read the joystick status (x/y coordinates and switch status) and the battery voltage level to send wirelessly via BLE back to a central device (like the PDB in the future). The current prototype doesn't contain the deadman switch yet but it will be added once I have a an easier way to access another of the micro:bit's GPIO pins.
+Last week I started working on a prototype of the remote portion of the Power Distribution Board (PDB). The current prototype uses a [micro:bit development board](https://microbit.org) that I already had on hand. It is able to read the joystick status (x/y coordinates and switch status) and the battery voltage level to send wirelessly via BLE back to a central device (like the PDB in the future). The current prototype doesn't contain the deadman switch yet but it will be added once I have an easier way to access another of the micro:bit's GPIO pins.
 
 Source code for this prototype has already been pushed to this repository:
 * The source code for this prototype's firmware can be found [here on GitHub](software/PDB/BleJoystick).
