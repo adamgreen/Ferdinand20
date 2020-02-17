@@ -14,6 +14,16 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## February 17th, 2020
+### Received Sparkfun Order
+![Sparkfun order arrived](photos/20200217-01.jpg)<br>
+This weekend I received the relay parts that I recently ordered from Sparkun and quickly got down to soldering up the [SparkFun Beefcake Relay Control Kit (Ver. 2.0)](https://www.sparkfun.com/products/13815).
+<br>![Relay Kit all soldered up](photos/20200217-02.jpg)<br>
+I am still waiting for the parts from Adafruit to arrive.
+
+
+
+---
 ## February 12th, 2020
 ### BLE Central Prototype
 #### Basic BLE Central Connectivity to Joystick
