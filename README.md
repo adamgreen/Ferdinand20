@@ -14,6 +14,18 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## February 20th, 2020
+### Adafruit Order Received
+![Adafruit order arrived](photos/20200219-01.jpg)<br>
+I received my Adafruit order earlier this week. This order included the two [Adafruit DragonTail micro:bit adapters](https://www.adafruit.com/product/3695) that I have been waiting for. These will make it easier for me to interface the OLED screen and relay to my micro:bit board and complete the Power Distribution Board prototype.
+
+This order also included a [1.54" 240x240 Wide Angle TFT LCD Display](https://www.adafruit.com/product/3787) to compare with the [OLED display that I already have](https://www.adafruit.com/product/1431). I am interested to see which one is better for viewing outside in the sun.
+
+I also ordered a [Slamtec RPLIDAR A1 - 360 Laser Range Scanner](https://www.adafruit.com/product/4010). This LIDAR unit is similar to the one that Xandon used on our [Ferdinand14 attempt](https://github.com/adamgreen/Ferdinand14#robopeak-rplidar-sample-in-processing-on-os-x). I don't currently plan to use this unit for 2020 but I saw it on the Adafruit site and thought it would be good to have for future experimentation.
+
+
+
+---
 ## February 17th, 2020
 ### Received Sparkfun Order
 ![Sparkfun order arrived](photos/20200217-01.jpg)<br>
