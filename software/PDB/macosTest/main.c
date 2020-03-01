@@ -104,8 +104,9 @@ static void controlCHandler(int arg)
 
 static void dumpJoyData(const BleJoyData* pJoyData)
 {
-    printf("% 4d,% 4d\t%s\t%.1fV\n",
+    printf("% 4d,% 4d  %s %s %.1fV\n",
            pJoyData->x, pJoyData->y,
            (pJoyData->buttons & BLEJOY_BUTTONS_JOYSTICK) ? "JOYSTICK_BUTTON" : "               ",
+           (pJoyData->buttons & BLEJOY_BUTTONS_DEADMAN) ? "DEADMAN_SWITCH" : "              ",
            pJoyData->batteryVoltage / 10.0f);
 }

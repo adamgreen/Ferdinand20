@@ -19,6 +19,7 @@
           1             JOYSTICK_PRESS_PIN  Connected to the joystick's button. Active low w/ software pull-up.
           3 (AIN4)      JOYSTICK_X_PIN      Connected to the X potentiometer wiper of the joystick.
           2 (AIN3)      JOYSTICK_Y_PIN      Connected to the Y potentiometer wiper of the joystick.
+          17            DEADMAN_PRESS_PIN   Connected to the deadman switch. Active low w/ external pull-up.
 
    This sample is heavily influenced by Nordic's BLE UART Service (ble_app_uart) SDK sample.
 */
@@ -41,6 +42,9 @@
 // The switch that goes low when the joystick itself is depressed is connected to this pin. It will be pulled high in
 // software.
 #define JOYSTICK_PRESS_PIN  1
+// UNDONE: Can use internal pull-up later but currently using micro:bit switch with external pull-up.
+// The switch that goes low when the deadman switch is depressed is connected to this pin.
+#define DEADMAN_PRESS_PIN   17
 
 
 
@@ -217,7 +221,7 @@ static void joystickMeasurementTimeoutHandler(void* pvContext)
     // Setup to sample 1/3 analog input and compare to 1/3Vdd.
     nrf_adc_configure((nrf_adc_config_t *)&adcConfig);
 
-    // Perform a blocking ADC reads and convert to -2048 to 2047 range expected for mouse.
+    // Perform a blocking ADC reads and convert to 10-bit signed value (-512 to 511).
     int32_t horizontalReading = nrf_adc_convert_single(JOYSTICK_X_PIN);
     joyData.x = horizontalReading - 512;
     ASSERT ( joyData.x >= -512 && joyData.x <= 511 );
@@ -226,12 +230,17 @@ static void joystickMeasurementTimeoutHandler(void* pvContext)
     joyData.y = verticalReading - 512;
     ASSERT ( joyData.y >= -512 && joyData.y <= 511 );
 
-    // UNDONE: Check the deadman switch as well.
-    joyData.buttons = 0;
+    // Read the button (deadman and joystick) state.
     uint32_t joystickPressed = nrf_gpio_pin_read(JOYSTICK_PRESS_PIN);
+    uint32_t deadmanPressed = nrf_gpio_pin_read(DEADMAN_PRESS_PIN);
+    joyData.buttons = 0;
     if (joystickPressed == 0)
     {
         joyData.buttons |= BLEJOY_BUTTONS_JOYSTICK;
+    }
+    if (deadmanPressed == 0)
+    {
+        joyData.buttons |= BLEJOY_BUTTONS_DEADMAN;
     }
 
     // Copy latest battery voltage measurement over to send as well.
@@ -265,6 +274,8 @@ static void initButtonsAndLeds(bool * pEraseBonds)
 
     // Configure the pin connected to the joystick switch as an input with pull-up.
     nrf_gpio_cfg_input(JOYSTICK_PRESS_PIN, NRF_GPIO_PIN_PULLUP);
+    // UNDONE: Use pull-up here later when using own hardware.
+    nrf_gpio_cfg_input(DEADMAN_PRESS_PIN, NRF_GPIO_PIN_NOPULL);
 
     *pEraseBonds = (startupEvent == BSP_EVENT_CLEAR_BONDING_DATA);
 }
