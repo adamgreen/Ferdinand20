@@ -16,90 +16,136 @@
  *
  * BSD license, all text here must be included in any redistribution.
  */
+// Updated to work with nRF5 SDK in 2020 by Adam Green (https://github.com/adamgreen)
 
 #ifndef _ADAFRUIT_SPITFT_H_
 #define _ADAFRUIT_SPITFT_H_
 
-#if !defined(__AVR_ATtiny85__) // Not for ATtiny, at all
-
 #include "Adafruit_GFX.h"
-#include <SPI.h>
+#include <stdint.h>
+#include <nrf_drv_spi.h>
+#include <nrf_gpio.h>
+#include <nrf_assert.h>
 
-// HARDWARE CONFIG ---------------------------------------------------------
 
-#if defined(__AVR__)
-typedef uint8_t ADAGFX_PORT_t;       ///< PORT values are 8-bit
-#define USE_FAST_PINIO               ///< Use direct PORT register access
-#elif defined(ARDUINO_STM32_FEATHER) // WICED
-typedef class HardwareSPI SPIClass;        ///< SPI is a bit odd on WICED
-typedef uint32_t ADAGFX_PORT_t;            ///< PORT values are 32-bit
-#elif defined(__arm__)
-#if defined(ARDUINO_ARCH_SAMD)
-// Adafruit M0, M4
-typedef uint32_t ADAGFX_PORT_t; ///< PORT values are 32-bit
-#define USE_FAST_PINIO   ///< Use direct PORT register access
-#define HAS_PORT_SET_CLR ///< PORTs have set & clear registers
-#elif defined(CORE_TEENSY)
-// PJRC Teensy 4.x
-#if defined(__IMXRT1052__) || defined(__IMXRT1062__) // Teensy 4.x
-typedef uint32_t ADAGFX_PORT_t; ///< PORT values are 32-bit
-                                // PJRC Teensy 3.x
-#else
-typedef uint8_t ADAGFX_PORT_t; ///< PORT values are 8-bit
-#endif
-#define USE_FAST_PINIO   ///< Use direct PORT register access
-#define HAS_PORT_SET_CLR ///< PORTs have set & clear registers
-#else
-// Arduino Due?
-typedef uint32_t ADAGFX_PORT_t; ///< PORT values are 32-bit
-// USE_FAST_PINIO not available here (yet)...Due has a totally different
-// GPIO register set and will require some changes elsewhere (e.g. in
-// constructors especially).
-#endif
-#else                                      // !ARM
-// Probably ESP8266 or ESP32. USE_FAST_PINIO is not available here (yet)
-// but don't worry about it too much...the digitalWrite() implementation
-// on these platforms is reasonably efficient and already RAM-resident,
-// only gotcha then is no parallel connection support for now.
-typedef uint32_t ADAGFX_PORT_t; ///< PORT values are 32-bit
-#endif                                     // end !ARM
-typedef volatile ADAGFX_PORT_t *PORTreg_t; ///< PORT register type
+// The SPI data is queued up in this circular buffer so that small operations can be queued up here from the main
+// thread and then pulled out and transmitted later from an ISR.
+template <uint32_t BUFFER_SIZE>
+class CircularBuffer {
+public:
+    CircularBuffer()
+    {
+        m_read = 0;
+        m_write = 0;
+        m_state = None;
+        // BUFFER_SIZE must be a power of 2.
+        ASSERT ( 0 == (BUFFER_SIZE & (BUFFER_SIZE - 1)) );
+    }
 
-#if defined(__AVR__)
-#define DEFAULT_SPI_FREQ 8000000L ///< Hardware SPI default speed
-#else
-#define DEFAULT_SPI_FREQ 16000000L ///< Hardware SPI default speed
-#endif
+    bool isEmpty()
+    {
+        return m_read == m_write;
+    }
 
-#if defined(ADAFRUIT_PYPORTAL) || defined(ADAFRUIT_PYBADGE_M4_EXPRESS) ||      \
-    defined(ADAFRUIT_PYGAMER_M4_EXPRESS) ||                                    \
-    defined(ADAFRUIT_MONSTER_M4SK_EXPRESS) || defined(NRF52_SERIES) ||         \
-    defined(ADAFRUIT_CIRCUITPLAYGROUND_M0)
-#define USE_SPI_DMA ///< Auto DMA
-#else
-                                           //#define USE_SPI_DMA ///< If set,
-                                           // use DMA if available
-#endif
-// Another "oops" name -- this now also handles parallel DMA.
-// If DMA is enabled, Arduino sketch MUST #include <Adafruit_ZeroDMA.h>
-// Estimated RAM usage:
-// 4 bytes/pixel on display major axis + 8 bytes/pixel on minor axis,
-// e.g. 320x240 pixels = 320 * 4 + 240 * 8 = 3,200 bytes.
+    bool isFull()
+    {
+        return wrapIndex(m_write + 1) == m_read;
+    }
 
-#if defined(USE_SPI_DMA) && (defined(__SAMD51__) || defined(ARDUINO_SAMD_ZERO))
-#include <Adafruit_ZeroDMA.h>
-#endif
+    void start()
+    {
+        m_state = Start;
+    }
 
-// This is kind of a kludge. Needed a way to disambiguate the software SPI
-// and parallel constructors via their argument lists. Originally tried a
-// bool as the first argument to the parallel constructor (specifying 8-bit
-// vs 16-bit interface) but the compiler regards this as equivalent to an
-// integer and thus still ambiguous. SO...the parallel constructor requires
-// an enumerated type as the first argument: tft8 (for 8-bit parallel) or
-// tft16 (for 16-bit)...even though 16-bit isn't fully implemented or tested
-// and might never be, still needed that disambiguation from soft SPI.
-/*! For first arg to parallel constructor */
-enum tftBusWidth { tft8bitbus, tft16bitbus };
+    void writeCommand(uint8_t command)
+    {
+        writeByteAndFlag(command, m_state | Command);
+    }
+
+    void writeData(uint8_t data)
+    {
+        writeByteAndFlag(data, m_state);
+    }
+
+    void writeData(uint16_t data)
+    {
+        writeByteAndFlag((data >> 8) & 0xFF, m_state);
+        writeByteAndFlag(data & 0xFF, m_state);
+    }
+
+    void end()
+    {
+        writeByteAndFlag(0x00, End);
+    }
+
+    // Returns array of bytes that have the same flags set.
+    bool readBytes(uint8_t** ppBytes, uint32_t* pLen, uint8_t* pFlags)
+    {
+        if (isEmpty())
+        {
+            return false;
+        }
+        *ppBytes = &m_bytes[m_read];
+        uint8_t  flags = m_flags[m_read];
+        uint32_t len = 1;
+        m_read = wrapIndex(m_read + 1);
+        while (!isEmpty() && m_flags[m_read] == flags && m_read > 0) {
+            m_read = wrapIndex(m_read + 1);
+            len++;
+        }
+        *pLen = len;
+        *pFlags = flags;
+
+        return true;
+    }
+
+    bool isStart(uint8_t flags)
+    {
+        return flags & Start;
+    }
+
+    bool isCommand(uint8_t flags)
+    {
+        return flags & Command;
+    }
+
+    bool isEnd(uint8_t flags)
+    {
+        return flags & End;
+    }
+
+protected:
+    void writeByteAndFlag(uint8_t byte, uint8_t flags)
+    {
+        while (isFull()) {
+            // Busy wait.
+        }
+        m_bytes[m_write] = byte;
+        m_flags[m_write] = flags;
+        m_write = wrapIndex(m_write + 1);
+        m_state = None;
+    }
+
+    uint32_t wrapIndex(uint32_t index)
+    {
+        return index & (BUFFER_SIZE - 1);
+    }
+
+    enum State {
+        None = 0,
+        Start = (1 << 0),
+        Command = (1 << 1),
+        End = (1 << 2)
+    };
+
+    volatile uint32_t   m_write;
+    volatile uint32_t   m_read;
+    State               m_state;
+    uint8_t             m_bytes[BUFFER_SIZE];
+    uint8_t             m_flags[BUFFER_SIZE];
+};
+
+
 
 // CLASS DEFINITION --------------------------------------------------------
 
@@ -121,38 +167,12 @@ class Adafruit_SPITFT : public Adafruit_GFX {
 public:
   // CONSTRUCTORS --------------------------------------------------------
 
-  // Software SPI constructor: expects width & height (at default rotation
-  // setting 0), 4 signal pins (cs, dc, mosi, sclk), 2 optional pins
-  // (reset, miso). cs argument is required but can be -1 if unused --
-  // rather than moving it to the optional arguments, it was done this way
-  // to avoid breaking existing code (-1 option was a later addition).
-  Adafruit_SPITFT(uint16_t w, uint16_t h, int8_t cs, int8_t dc, int8_t mosi,
-                  int8_t sck, int8_t rst = -1, int8_t miso = -1);
-
-  // Hardware SPI constructor using the default SPI port: expects width &
-  // height (at default rotation setting 0), 2 signal pins (cs, dc),
-  // optional reset pin. cs is required but can be -1 if unused -- rather
-  // than moving it to the optional arguments, it was done this way to
-  // avoid breaking existing code (-1 option was a later addition).
-  Adafruit_SPITFT(uint16_t w, uint16_t h, int8_t cs, int8_t dc,
-                  int8_t rst = -1);
-
-#if !defined(ESP8266) // See notes in .cpp
   // Hardware SPI constructor using an arbitrary SPI peripheral: expects
-  // width & height (rotation 0), SPIClass pointer, 2 signal pins (cs, dc)
-  // and optional reset pin. cs is required but can be -1 if unused.
-  Adafruit_SPITFT(uint16_t w, uint16_t h, SPIClass *spiClass, int8_t cs,
-                  int8_t dc, int8_t rst = -1);
-#endif // end !ESP8266
-
-  // Parallel constructor: expects width & height (rotation 0), flag
-  // indicating whether 16-bit (true) or 8-bit (false) interface, 3 signal
-  // pins (d0, wr, dc), 3 optional pins (cs, rst, rd). 16-bit parallel
-  // isn't even fully implemented but the 'wide' flag was added as a
-  // required argument to avoid ambiguity with other constructors.
-  Adafruit_SPITFT(uint16_t w, uint16_t h, tftBusWidth busWidth, int8_t d0,
-                  int8_t wr, int8_t dc, int8_t cs = -1, int8_t rst = -1,
-                  int8_t rd = -1);
+  // width & height (rotation 0), SPI pointer, 4 signal pins (mosi, sck,
+  // cs, dc) and optional reset pin.
+  Adafruit_SPITFT(uint16_t width, uint16_t height, nrf_drv_spi_t* pSpi,
+                  uint8_t mosiPin, uint8_t sckPin, uint8_t csPin, uint8_t dcPin,
+                  uint8_t rstPin = NRF_DRV_SPI_PIN_NOT_USED);
 
   // CLASS MEMBER FUNCTIONS ----------------------------------------------
 
@@ -160,9 +180,9 @@ public:
 
   /*!
       @brief  Display-specific initialization function.
-      @param  freq  SPI frequency, in hz (or 0 for default or unused).
+      @param  frequency  SPI frequency - one of NRF_DRV_SPI_FREQ_*.
   */
-  virtual void begin(uint32_t freq) = 0;
+  virtual void begin(nrf_drv_spi_frequency_t frequency) = 0;
 
   /*!
       @brief  Set up the specific display hardware's "address window"
@@ -184,24 +204,14 @@ public:
   // Brief comments here...documented more thoroughly in .cpp file.
 
   // Subclass' begin() function invokes this to initialize hardware.
-  // freq=0 to use default SPI speed. spiMode must be one of the SPI_MODEn
-  // values defined in SPI.h, which are NOT the same as 0 for SPI_MODE0,
-  // 1 for SPI_MODE1, etc...use ONLY the SPI_MODEn defines! Only!
-  // Name is outdated (interface may be parallel) but for compatibility:
-  void initSPI(uint32_t freq = 0, uint8_t spiMode = SPI_MODE0);
-  void setSPISpeed(uint32_t freq);
+  // frequency must be one of NRF_DRV_SPI_FREQ_* values. spiMode must
+  // be one of the NRF_DRV_SPI_MODE_n values.
+  void initSPI(nrf_drv_spi_frequency_t frequency = NRF_DRV_SPI_FREQ_8M, nrf_drv_spi_mode_t mode = NRF_DRV_SPI_MODE_0);
   // Chip select and/or hardware SPI transaction start as needed:
   void startWrite(void);
   // Chip deselect and/or hardware SPI transaction end as needed:
   void endWrite(void);
-  void sendCommand(uint8_t commandByte, uint8_t *dataBytes,
-                   uint8_t numDataBytes);
-  void sendCommand(uint8_t commandByte, const uint8_t *dataBytes = NULL,
-                   uint8_t numDataBytes = 0);
-  void sendCommand16(uint16_t commandWord, const uint8_t *dataBytes = NULL,
-                     uint8_t numDataBytes = 0);
-  uint8_t readcommand8(uint8_t commandByte, uint8_t index = 0);
-  uint16_t readcommand16(uint16_t addr);
+  void sendCommand(uint8_t commandByte, const uint8_t *dataBytes = NULL, uint8_t numDataBytes = 0);
 
   // These functions require a chip-select and/or SPI transaction
   // around them. Higher-level graphics primitives might start a
@@ -210,11 +220,9 @@ public:
   // before ending the transaction. It's more efficient than starting a
   // transaction every time.
   void writePixel(int16_t x, int16_t y, uint16_t color);
-  void writePixels(uint16_t *colors, uint32_t len, bool block = true,
-                   bool bigEndian = false);
+  void writePixels(const uint16_t *colors, uint32_t len, bool block = true, bool bigEndian = false);
   void writeColor(uint16_t color, uint32_t len);
-  void writeFillRect(int16_t x, int16_t y, int16_t w, int16_t h,
-                     uint16_t color);
+  void writeFillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);
   void writeFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color);
   void writeFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color);
   // This is a new function, similar to writeFillRect() except that
@@ -222,11 +230,7 @@ public:
   // primitives can handle their own sorting/clipping, it avoids repeating
   // such operations in the low-level code, making it potentially faster.
   // CALLING THIS WITH UNCLIPPED OR NEGATIVE VALUES COULD BE DISASTROUS.
-  inline void writeFillRectPreclipped(int16_t x, int16_t y, int16_t w,
-                                      int16_t h, uint16_t color);
-  // Another new function, companion to the new non-blocking
-  // writePixels() variant.
-  void dmaWait(void);
+  inline void writeFillRectPreclipped(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);
 
   // These functions are similar to the 'write' functions above, but with
   // a chip-select and/or SPI transaction built-in. They're typically used
@@ -236,286 +240,51 @@ public:
   void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);
   void drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color);
   void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color);
-  // A single-pixel push encapsulated in a transaction. I don't think
-  // this is used anymore (BMP demos might've used it?) but is provided
-  // for backward compatibility, consider it deprecated:
-  void pushColor(uint16_t color);
 
   using Adafruit_GFX::drawRGBBitmap; // Check base class first
-  void drawRGBBitmap(int16_t x, int16_t y, uint16_t *pcolors, int16_t w,
-                     int16_t h);
+  void drawRGBBitmap(int16_t x, int16_t y, uint16_t *pcolors, int16_t w, int16_t h);
 
   void invertDisplay(bool i);
   uint16_t color565(uint8_t r, uint8_t g, uint8_t b);
 
-  // Despite parallel additions, function names kept for compatibility:
   void spiWrite(uint8_t b);          // Write single byte as DATA
+  void spiWrite16(uint16_t h);       // Write 16-bit value as DATA
   void writeCommand(uint8_t cmd);    // Write single byte as COMMAND
-  uint8_t spiRead(void);             // Read single byte of data
-  void write16(uint16_t w);          // Write 16-bit value as DATA
-  void writeCommand16(uint16_t cmd); // Write 16-bit value as COMMAND
-  uint16_t read16(void);             // Read single 16-bit value
-
-  // Most of these low-level functions were formerly macros in
-  // Adafruit_SPITFT_Macros.h. Some have been made into inline functions
-  // to avoid macro mishaps. Despite the addition of code for a parallel
-  // display interface, the names have been kept for backward
-  // compatibility (some subclasses may be invoking these):
-  void SPI_WRITE16(uint16_t w); // Not inline
-  void SPI_WRITE32(uint32_t l); // Not inline
-  // Old code had both a spiWrite16() function and SPI_WRITE16 macro
-  // in addition to the SPI_WRITE32 macro. The latter two have been
-  // made into functions here, and spiWrite16() removed (use SPI_WRITE16()
-  // instead). It looks like most subclasses had gotten comfortable with
-  // SPI_WRITE16 and SPI_WRITE32 anyway so those names were kept rather
-  // than the less-obnoxious camelcase variants, oh well.
-
-  // Placing these functions entirely in the class definition inlines
-  // them implicitly them while allowing their use in other code:
-
-  /*!
-      @brief  Set the chip-select line HIGH. Does NOT check whether CS pin
-              is set (>=0), that should be handled in calling function.
-              Despite function name, this is used even if the display
-              connection is parallel.
-  */
-  void SPI_CS_HIGH(void) {
-#if defined(USE_FAST_PINIO)
-#if defined(HAS_PORT_SET_CLR)
-#if defined(KINETISK)
-    *csPortSet = 1;
-#else  // !KINETISK
-    *csPortSet = csPinMask;
-#endif // end !KINETISK
-#else  // !HAS_PORT_SET_CLR
-    *csPort |= csPinMaskSet;
-#endif // end !HAS_PORT_SET_CLR
-#else  // !USE_FAST_PINIO
-    digitalWrite(_cs, HIGH);
-#endif // end !USE_FAST_PINIO
-  }
-
-  /*!
-      @brief  Set the chip-select line LOW. Does NOT check whether CS pin
-              is set (>=0), that should be handled in calling function.
-              Despite function name, this is used even if the display
-              connection is parallel.
-  */
-  void SPI_CS_LOW(void) {
-#if defined(USE_FAST_PINIO)
-#if defined(HAS_PORT_SET_CLR)
-#if defined(KINETISK)
-    *csPortClr = 1;
-#else  // !KINETISK
-    *csPortClr = csPinMask;
-#endif // end !KINETISK
-#else  // !HAS_PORT_SET_CLR
-    *csPort &= csPinMaskClr;
-#endif // end !HAS_PORT_SET_CLR
-#else  // !USE_FAST_PINIO
-    digitalWrite(_cs, LOW);
-#endif // end !USE_FAST_PINIO
-  }
-
-  /*!
-      @brief  Set the data/command line HIGH (data mode).
-  */
-  void SPI_DC_HIGH(void) {
-#if defined(USE_FAST_PINIO)
-#if defined(HAS_PORT_SET_CLR)
-#if defined(KINETISK)
-    *dcPortSet = 1;
-#else  // !KINETISK
-    *dcPortSet = dcPinMask;
-#endif // end !KINETISK
-#else  // !HAS_PORT_SET_CLR
-    *dcPort |= dcPinMaskSet;
-#endif // end !HAS_PORT_SET_CLR
-#else  // !USE_FAST_PINIO
-    digitalWrite(_dc, HIGH);
-#endif // end !USE_FAST_PINIO
-  }
-
-  /*!
-      @brief  Set the data/command line LOW (command mode).
-  */
-  void SPI_DC_LOW(void) {
-#if defined(USE_FAST_PINIO)
-#if defined(HAS_PORT_SET_CLR)
-#if defined(KINETISK)
-    *dcPortClr = 1;
-#else  // !KINETISK
-    *dcPortClr = dcPinMask;
-#endif // end !KINETISK
-#else  // !HAS_PORT_SET_CLR
-    *dcPort &= dcPinMaskClr;
-#endif // end !HAS_PORT_SET_CLR
-#else  // !USE_FAST_PINIO
-    digitalWrite(_dc, LOW);
-#endif // end !USE_FAST_PINIO
-  }
 
 protected:
-  // A few more low-level member functions -- some may have previously
-  // been macros. Shouldn't have a need to access these externally, so
-  // they've been moved to the protected section. Additionally, they're
-  // declared inline here and the code is in the .cpp file, since outside
-  // code doesn't need to see these.
-  inline void SPI_MOSI_HIGH(void);
-  inline void SPI_MOSI_LOW(void);
-  inline void SPI_SCK_HIGH(void);
-  inline void SPI_SCK_LOW(void);
-  inline bool SPI_MISO_READ(void);
-  inline void SPI_BEGIN_TRANSACTION(void);
-  inline void SPI_END_TRANSACTION(void);
-  inline void TFT_WR_STROBE(void); // Parallel interface write strobe
-  inline void TFT_RD_HIGH(void);   // Parallel interface read high
-  inline void TFT_RD_LOW(void);    // Parallel interface read low
-
   // CLASS INSTANCE VARIABLES --------------------------------------------
+    nrf_drv_spi_t*          m_pSpi;
+    uint8_t                 m_mosiPin;
+    uint8_t                 m_sckPin;
+    uint8_t                 m_rstPin;             ///< Reset pin # (or -1)
+    uint8_t                 m_csPin;              ///< Chip select pin # (or -1)
+    uint8_t                 m_dcPin;              ///< Data/command pin #
 
-  // Here be dragons! There's a big union of three structures here --
-  // one each for hardware SPI, software (bitbang) SPI, and parallel
-  // interfaces. This is to save some memory, since a display's connection
-  // will be only one of these. The order of some things is a little weird
-  // in an attempt to get values to align and pack better in RAM.
+    int16_t                 _xstart = 0;          ///< Internal framebuffer X offset
+    int16_t                 _ystart = 0;          ///< Internal framebuffer Y offset
+    uint8_t                 invertOnCommand = 0;  ///< Command to enable invert mode
+    uint8_t                 invertOffCommand = 0; ///< Command to disable invert mode
 
-#if defined(USE_FAST_PINIO)
-#if defined(HAS_PORT_SET_CLR)
-  PORTreg_t csPortSet; ///< PORT register for chip select SET
-  PORTreg_t csPortClr; ///< PORT register for chip select CLEAR
-  PORTreg_t dcPortSet; ///< PORT register for data/command SET
-  PORTreg_t dcPortClr; ///< PORT register for data/command CLEAR
-#else                  // !HAS_PORT_SET_CLR
-  PORTreg_t csPort;                 ///< PORT register for chip select
-  PORTreg_t dcPort;                 ///< PORT register for data/command
-#endif                 // end HAS_PORT_SET_CLR
-#endif                 // end USE_FAST_PINIO
-#if defined(__cplusplus) && (__cplusplus >= 201100)
-  union {
-#endif
-    struct {          //   Values specific to HARDWARE SPI:
-      SPIClass *_spi; ///< SPI class pointer
-#if defined(SPI_HAS_TRANSACTION)
-      SPISettings settings; ///< SPI transaction settings
-#else
-    uint32_t _freq; ///< SPI bitrate (if no SPI transactions)
-#endif
-      uint32_t _mode; ///< SPI data mode (transactions or no)
-    } hwspi;          ///< Hardware SPI values
-    struct {          //   Values specific to SOFTWARE SPI:
-#if defined(USE_FAST_PINIO)
-      PORTreg_t misoPort; ///< PORT (PIN) register for MISO
-#if defined(HAS_PORT_SET_CLR)
-      PORTreg_t mosiPortSet; ///< PORT register for MOSI SET
-      PORTreg_t mosiPortClr; ///< PORT register for MOSI CLEAR
-      PORTreg_t sckPortSet;  ///< PORT register for SCK SET
-      PORTreg_t sckPortClr;  ///< PORT register for SCK CLEAR
-#if !defined(KINETISK)
-      ADAGFX_PORT_t mosiPinMask; ///< Bitmask for MOSI
-      ADAGFX_PORT_t sckPinMask;  ///< Bitmask for SCK
-#endif                           // end !KINETISK
-#else                            // !HAS_PORT_SET_CLR
-      PORTreg_t mosiPort;           ///< PORT register for MOSI
-      PORTreg_t sckPort;            ///< PORT register for SCK
-      ADAGFX_PORT_t mosiPinMaskSet; ///< Bitmask for MOSI SET (OR)
-      ADAGFX_PORT_t mosiPinMaskClr; ///< Bitmask for MOSI CLEAR (AND)
-      ADAGFX_PORT_t sckPinMaskSet;  ///< Bitmask for SCK SET (OR bitmask)
-      ADAGFX_PORT_t sckPinMaskClr;  ///< Bitmask for SCK CLEAR (AND)
-#endif                           // end HAS_PORT_SET_CLR
-#if !defined(KINETISK)
-      ADAGFX_PORT_t misoPinMask; ///< Bitmask for MISO
-#endif                           // end !KINETISK
-#endif                           // end USE_FAST_PINIO
-      int8_t _mosi;              ///< MOSI pin #
-      int8_t _miso;              ///< MISO pin #
-      int8_t _sck;               ///< SCK pin #
-    } swspi;                     ///< Software SPI values
-    struct {                     //   Values specific to 8-bit parallel:
-#if defined(USE_FAST_PINIO)
+    CircularBuffer<256>     m_buffer;
+    volatile uint32_t       m_startCount;
+    volatile uint32_t       m_finCount;
 
-#if defined(__IMXRT1052__) || defined(__IMXRT1062__) // Teensy 4.x
-      volatile uint32_t *writePort; ///< PORT register for DATA WRITE
-      volatile uint32_t *readPort;  ///< PORT (PIN) register for DATA READ
-#else
-      volatile uint8_t *writePort;  ///< PORT register for DATA WRITE
-      volatile uint8_t *readPort;   ///< PORT (PIN) register for DATA READ
-#endif
-#if defined(HAS_PORT_SET_CLR)
-      // Port direction register pointers are always 8-bit regardless of
-      // PORTreg_t -- even if 32-bit port, we modify a byte-aligned 8 bits.
-#if defined(__IMXRT1052__) || defined(__IMXRT1062__) // Teensy 4.x
-      volatile uint32_t *dirSet; ///< PORT byte data direction SET
-      volatile uint32_t *dirClr; ///< PORT byte data direction CLEAR
-#else
-      volatile uint8_t *dirSet; ///< PORT byte data direction SET
-      volatile uint8_t *dirClr; ///< PORT byte data direction CLEAR
-#endif
-      PORTreg_t wrPortSet; ///< PORT register for write strobe SET
-      PORTreg_t wrPortClr; ///< PORT register for write strobe CLEAR
-      PORTreg_t rdPortSet; ///< PORT register for read strobe SET
-      PORTreg_t rdPortClr; ///< PORT register for read strobe CLEAR
-#if !defined(KINETISK)
-      ADAGFX_PORT_t wrPinMask; ///< Bitmask for write strobe
-#endif                         // end !KINETISK
-      ADAGFX_PORT_t rdPinMask; ///< Bitmask for read strobe
-#else                          // !HAS_PORT_SET_CLR
-      // Port direction register pointer is always 8-bit regardless of
-      // PORTreg_t -- even if 32-bit port, we modify a byte-aligned 8 bits.
-      volatile uint8_t *portDir;  ///< PORT direction register
-      PORTreg_t wrPort;           ///< PORT register for write strobe
-      PORTreg_t rdPort;           ///< PORT register for read strobe
-      ADAGFX_PORT_t wrPinMaskSet; ///< Bitmask for write strobe SET (OR)
-      ADAGFX_PORT_t wrPinMaskClr; ///< Bitmask for write strobe CLEAR (AND)
-      ADAGFX_PORT_t rdPinMaskSet; ///< Bitmask for read strobe SET (OR)
-      ADAGFX_PORT_t rdPinMaskClr; ///< Bitmask for read strobe CLEAR (AND)
-#endif                         // end HAS_PORT_SET_CLR
-#endif                         // end USE_FAST_PINIO
-      int8_t _d0;              ///< Data pin 0 #
-      int8_t _wr;              ///< Write strobe pin #
-      int8_t _rd;              ///< Read strobe pin # (or -1)
-      bool wide = 0;           ///< If true, is 16-bit interface
-    } tft8;                    ///< Parallel interface settings
-#if defined(__cplusplus) && (__cplusplus >= 201100)
-  }; ///< Only one interface is active
-#endif
-#if defined(USE_SPI_DMA) &&                                                    \
-    (defined(__SAMD51__) ||                                                    \
-     defined(ARDUINO_SAMD_ZERO))     // Used by hardware SPI and tft8
-  Adafruit_ZeroDMA dma;              ///< DMA instance
-  DmacDescriptor *dptr = NULL;       ///< 1st descriptor
-  DmacDescriptor *descriptor = NULL; ///< Allocated descriptor list
-  uint16_t *pixelBuf[2];             ///< Working buffers
-  uint16_t maxFillLen;               ///< Max pixels per DMA xfer
-  uint16_t lastFillColor = 0;        ///< Last color used w/fill
-  uint32_t lastFillLen = 0;          ///< # of pixels w/last fill
-  uint8_t onePixelBuf;               ///< For hi==lo fill
-#endif
-#if defined(USE_FAST_PINIO)
-#if defined(HAS_PORT_SET_CLR)
-#if !defined(KINETISK)
-  ADAGFX_PORT_t csPinMask; ///< Bitmask for chip select
-  ADAGFX_PORT_t dcPinMask; ///< Bitmask for data/command
-#endif                     // end !KINETISK
-#else                      // !HAS_PORT_SET_CLR
-  ADAGFX_PORT_t csPinMaskSet;     ///< Bitmask for chip select SET (OR)
-  ADAGFX_PORT_t csPinMaskClr;     ///< Bitmask for chip select CLEAR (AND)
-  ADAGFX_PORT_t dcPinMaskSet;     ///< Bitmask for data/command SET (OR)
-  ADAGFX_PORT_t dcPinMaskClr;     ///< Bitmask for data/command CLEAR (AND)
-#endif                     // end HAS_PORT_SET_CLR
-#endif                     // end USE_FAST_PINIO
-  uint8_t connection;      ///< TFT_HARD_SPI, TFT_SOFT_SPI, etc.
-  int8_t _rst;             ///< Reset pin # (or -1)
-  int8_t _cs;              ///< Chip select pin # (or -1)
-  int8_t _dc;              ///< Data/command pin #
+    static Adafruit_SPITFT* g_pSingleton;
 
-  int16_t _xstart = 0;          ///< Internal framebuffer X offset
-  int16_t _ystart = 0;          ///< Internal framebuffer Y offset
-  uint8_t invertOnCommand = 0;  ///< Command to enable invert mode
-  uint8_t invertOffCommand = 0; ///< Command to disable invert mode
+    static void _spiHandler(nrf_drv_spi_evt_t const * pEvent)
+    {
+        g_pSingleton->spiHandler(pEvent);
+    }
+    void spiHandler(nrf_drv_spi_evt_t const * pEvent);
 
-  uint32_t _freq = 0; ///< Dummy var to keep subclasses happy
+    void startTransmission()
+    {
+        if (m_finCount == m_startCount) {
+            // All SPI transmits have been completed so call spiHandler manually to kick-off a new block of
+            // transmits.
+            spiHandler(NULL);
+        }
+    }
 };
 
-#endif // end __AVR_ATtiny85__
 #endif // end _ADAFRUIT_SPITFT_H_

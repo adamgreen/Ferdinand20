@@ -26,17 +26,12 @@
  *
  * BSD license, all text above must be included in any redistribution.
  */
+// Updated to work with nRF5 SDK in 2020 by Adam Green (https://github.com/adamgreen)
 
 #ifndef _Adafruit_SSD1351_H_
 #define _Adafruit_SSD1351_H_
 
 #include <Adafruit_SPITFT.h>
-
-// These #defines are DEPRECATED but present for older code compatibility:
-#define SSD1351WIDTH  128 ///< DEPRECATED screen width
-#define SSD1351HEIGHT 128 ///< DEPRECATED screen height, set to 96 for 1.27"
-// (NEW CODE SHOULD IGNORE THIS, USE THE CONSTRUCTORS THAT ACCEPT WIDTH
-// AND HEIGHT ARGUMENTS).
 
 #define SSD1351_CMD_SETCOLUMN      0x15 ///< See datasheet
 #define SSD1351_CMD_SETROW         0x75 ///< See datasheet
@@ -76,29 +71,18 @@
 */
 class Adafruit_SSD1351 : public Adafruit_SPITFT {
   public:
-    // NEW CONSTRUCTORS -- recommended for new projects
-    // 6-7 args using soft SPI (reset optional)
-    Adafruit_SSD1351(uint16_t width, uint16_t height, int8_t cs_pin,
-      int8_t dc_pin, int8_t mosi_pin, int8_t sclk_pin,
-      int8_t rst_pin = -1);
     // 5-6 args using hardware SPI (must specify peripheral) (reset optional)
-    Adafruit_SSD1351(uint16_t width, uint16_t height,
-      SPIClass *spi, int8_t cs_pin, int8_t dc_pin, int8_t rst_pin = -1);
-
-    // DEPRECATED CONSTRUCTORS for back compatibility, avoid in new projects
-    // 4-5 args using soft SPI (reset optional)
-    Adafruit_SSD1351(int8_t cs_pin, int8_t dc_pin, int8_t mosi_pin,
-      int8_t sclk_pin, int8_t rst_pin = -1);
-    // 2-3 args using default hardware SPI peripheral (reset optional)
-    Adafruit_SSD1351(int8_t cs_pin, int8_t dc_pin, int8_t rst_pin = -1);
+    Adafruit_SSD1351(uint16_t width, uint16_t height, nrf_drv_spi_t* pSpi,
+                     uint8_t mosiPin, uint8_t sckPin, uint8_t csPin, uint8_t dcPin,
+                     uint8_t rstPin = NRF_DRV_SPI_PIN_NOT_USED);
 
     ~Adafruit_SSD1351(void);
 
-    void begin(uint32_t freq = 0),
+    void begin(nrf_drv_spi_frequency_t frequency = NRF_DRV_SPI_FREQ_8M),
          setRotation(uint8_t r),
-         invertDisplay(boolean i), // Preferred syntax (same as other screens)
-         invert(boolean i),        // For compatibility with old code
-         enableDisplay(boolean enable),
+         invertDisplay(bool i), // Preferred syntax (same as other screens)
+         invert(bool i),        // For compatibility with old code
+         enableDisplay(bool enable),
          setAddrWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
 };
 

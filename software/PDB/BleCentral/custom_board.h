@@ -79,8 +79,8 @@ extern "C" {
 
 #define RX_PIN_NUMBER  25
 #define TX_PIN_NUMBER  24
-#define CTS_PIN_NUMBER -1
-#define RTS_PIN_NUMBER -1
+#define CTS_PIN_NUMBER 0xFFFFFFFF
+#define RTS_PIN_NUMBER 0xFFFFFFFF
 #define HWFC           APP_UART_FLOW_CONTROL_DISABLED
 
 

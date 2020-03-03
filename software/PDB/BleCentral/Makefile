@@ -32,7 +32,7 @@ SRC_FILES += \
   $(SDK_ROOT)/components/libraries/bsp/bsp.c \
   $(SDK_ROOT)/components/libraries/bsp/bsp_btn_ble.c \
   $(SDK_ROOT)/components/libraries/bsp/bsp_nfc.c \
-  $(PROJ_DIR)/main.c \
+  $(PROJ_DIR)/main.cpp \
   $(SDK_ROOT)/external/segger_rtt/RTT_Syscalls_GCC.c \
   $(SDK_ROOT)/external/segger_rtt/SEGGER_RTT.c \
   $(SDK_ROOT)/external/segger_rtt/SEGGER_RTT_printf.c \
@@ -44,6 +44,10 @@ SRC_FILES += \
   $(SDK_ROOT)/components/toolchain/system_nrf51.c \
   $(SDK_ROOT)/components/ble/ble_services/ble_nus_c/ble_nus_c.c \
   $(SDK_ROOT)/components/softdevice/common/softdevice_handler/softdevice_handler.c \
+  $(SDK_ROOT)/components/drivers_nrf/spi_master/nrf_drv_spi.c \
+  ../../../external/Adafruit-GFX-Library/Adafruit_GFX.cpp \
+  ../../../external/Adafruit-GFX-Library/Adafruit_SPITFT.cpp \
+  ../../../external/Adafruit-SSD1351-library/Adafruit_SSD1351.cpp \
 
 # Include folders common to all targets
 INC_FOLDERS += \
@@ -150,6 +154,8 @@ INC_FOLDERS += \
   $(SDK_ROOT)/components/softdevice/common/softdevice_handler \
   $(SDK_ROOT)/components/ble/ble_services/ble_hrs \
   $(SDK_ROOT)/components/libraries/log/src \
+  ../../../external/Adafruit-GFX-Library \
+  ../../../external/Adafruit-SSD1351-library \
 
 # Libraries common to all targets
 LIB_FILES += \
@@ -175,7 +181,7 @@ CFLAGS += -ffunction-sections -fdata-sections -fno-strict-aliasing
 CFLAGS += -fno-builtin --short-enums
 
 # C++ flags common to all targets
-CXXFLAGS += \
+CXXFLAGS += -fno-rtti
 
 # Assembler flags common to all targets
 ASMFLAGS += -x assembler-with-cpp

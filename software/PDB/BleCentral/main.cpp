@@ -44,7 +44,10 @@
 #include <ble_nus_c.h>
 #include <softdevice_handler.h>
 #include "../BleJoyShared.h"
-
+#include <Adafruit_GFX.h>
+#include <Adafruit_SPITFT.h>
+#include <Adafruit_SSD1351.h>
+#include <nrf_delay.h>
 
 
 // This firmware acts as a BLE central with a single link to the BleJoystick peripheral.
@@ -115,9 +118,6 @@ static const ble_gap_conn_params_t g_bleConnectionParameters =
 static const ble_gap_scan_params_t g_bleScanParameters =
 {
     .active   = 1,
-    .interval = SCAN_INTERVAL,
-    .window   = SCAN_WINDOW,
-    .timeout  = SCAN_TIMEOUT,
 #if (NRF_SD_BLE_API_VERSION == 2)
     .selective   = SCAN_SELECTIVE,
     .p_whitelist = NULL,
@@ -125,7 +125,11 @@ static const ble_gap_scan_params_t g_bleScanParameters =
 #if (NRF_SD_BLE_API_VERSION == 3)
     .use_whitelist = SCAN_SELECTIVE,
 #endif
+    .interval = SCAN_INTERVAL,
+    .window   = SCAN_WINDOW,
+    .timeout  = SCAN_TIMEOUT,
 };
+
 
 // Only BleJoystick devices reporting this UUID in their advertisement scan data will be connected to.
 static const ble_uuid_t g_bleJoystickUuid =
@@ -153,6 +157,7 @@ static void nordicUartServiceClientEventHandler(ble_nus_c_t* pNordicUartServiceC
 static void dumpJoyData(const BleJoyData* pJoyData);
 static void startScanningForNordicUartPeripherals(void);
 static void enterLowPowerModeUntilNextEvent(void);
+static void testScreen(void);
 
 
 
@@ -162,6 +167,10 @@ int main(void)
 
     initUart();
     initButtonsAndLeds();
+
+    // UNDONE:
+    testScreen();
+
     initDatabaseDiscoveryModule();
     initBleStack();
     initNordicUartServiceClient();
@@ -182,9 +191,9 @@ static void initUart(void)
     {
         .rx_pin_no    = RX_PIN_NUMBER,
         .tx_pin_no    = TX_PIN_NUMBER,
-        .rts_pin_no   = RTS_PIN_NUMBER,
-        .cts_pin_no   = CTS_PIN_NUMBER,
-        .flow_control = HWFC,
+        .rts_pin_no   = UART_PIN_DISCONNECTED,
+        .cts_pin_no   = UART_PIN_DISCONNECTED,
+        .flow_control = APP_UART_FLOW_CONTROL_DISABLED,
         .use_parity   = false,
         .baud_rate    = UART_BAUDRATE_BAUDRATE_Baud115200
     };
@@ -196,6 +205,9 @@ static void initUart(void)
                        APP_IRQ_PRIORITY_LOWEST,
                        errorCode);
     APP_ERROR_CHECK(errorCode);
+
+    // Enable pull-up on Rx pin so that we don't get framing errors if nothing is connected.
+    nrf_gpio_cfg_input(RX_PIN_NUMBER, NRF_GPIO_PIN_PULLUP);
 }
 
 static void uartEventHandler(app_uart_evt_t* pEvent)
@@ -571,4 +583,321 @@ static void enterLowPowerModeUntilNextEvent(void)
 void app_error_fault_handler(uint32_t id, uint32_t pc, uint32_t info)
 {
     { __asm volatile ("bkpt #0"); }
+}
+
+
+
+
+void testlines(uint16_t color);
+void testdrawtext(const char *text, uint16_t color);
+void testfastlines(uint16_t color1, uint16_t color2);
+void testdrawrects(uint16_t color);
+void testfillrects(uint16_t color1, uint16_t color2);
+void testfillcircles(uint8_t radius, uint16_t color);
+void testdrawcircles(uint8_t radius, uint16_t color);
+void testtriangles();
+void testroundrects();
+void tftPrintTest();
+void mediabuttons();
+void lcdTestPattern(void);
+
+
+// Screen dimensions
+#define SCREEN_WIDTH  128
+#define SCREEN_HEIGHT 128 // Change this to 96 for 1.27" OLED.
+
+// You can use any (4 or) 5 pins
+#define SCLK_PIN 23 // P13
+#define MOSI_PIN 21 // P15
+#define DC_PIN   22 // P14
+#define CS_PIN   16 // P16
+#define RST_PIN  20 // P12
+
+// Color definitions
+#define	BLACK           0x0000
+#define	BLUE            0x001F
+#define	RED             0xF800
+#define	GREEN           0x07E0
+#define CYAN            0x07FF
+#define MAGENTA         0xF81F
+#define YELLOW          0xFFE0
+#define WHITE           0xFFFF
+
+// Option 1: use any pins but a little slower
+nrf_drv_spi_t g_spi = NRF_DRV_SPI_INSTANCE(0);
+Adafruit_SSD1351 tft = Adafruit_SSD1351(SCREEN_WIDTH, SCREEN_HEIGHT, &g_spi, MOSI_PIN, SCLK_PIN, CS_PIN, DC_PIN, RST_PIN);
+
+// Option 2: must use the hardware SPI pins
+// (for UNO thats sclk = 13 and sid = 11) and pin 10 must be
+// an output. This is much faster - also required if you want
+// to use the microSD card (see the image drawing example)
+//Adafruit_SSD1351 tft = Adafruit_SSD1351(SCREEN_WIDTH, SCREEN_HEIGHT, &SPI, CS_PIN, DC_PIN, RST_PIN);
+
+float p = 3.1415926;
+
+void testScreen(void) {
+  printf("hello!\r\n");
+
+  tft.begin(NRF_DRV_SPI_FREQ_8M);
+
+  printf("init\r\n");
+
+  // You can optionally rotate the display by running the line below.
+  // Note that a value of 0 means no rotation, 1 means 90 clockwise,
+  // 2 means 180 degrees clockwise, and 3 means 270 degrees clockwise.
+  //tft.setRotation(1);
+  // NOTE: The test pattern at the start will NOT be rotated!  The code
+  // for rendering the test pattern talks directly to the display and
+  // ignores any rotation.
+
+  tft.fillRect(0, 0, 128, 128, BLACK);
+
+  nrf_delay_ms(500);
+
+  lcdTestPattern();
+  nrf_delay_ms(500);
+
+  tft.invert(true);
+  nrf_delay_ms(500);
+  tft.invert(false);
+  nrf_delay_ms(500);
+
+  tft.fillScreen(BLACK);
+  testdrawtext("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur adipiscing ante sed nibh tincidunt feugiat. Maecenas enim massa, fringilla sed malesuada et, malesuada sit amet turpis. Sed porttitor neque ut ante pretium vitae malesuada nunc bibendum. Nullam aliquet ultrices massa eu hendrerit. Ut sed nisi lorem. In vestibulum purus a tortor imperdiet posuere. ", WHITE);
+  nrf_delay_ms(500);
+
+  // tft print function!
+  tftPrintTest();
+  nrf_delay_ms(500);
+
+  //a single pixel
+  tft.drawPixel(tft.width()/2, tft.height()/2, GREEN);
+  nrf_delay_ms(500);
+
+  // line draw test
+  testlines(YELLOW);
+  nrf_delay_ms(500);
+
+  // optimized lines
+  testfastlines(RED, BLUE);
+  nrf_delay_ms(500);
+
+
+  testdrawrects(GREEN);
+  nrf_delay_ms(1000);
+
+  testfillrects(YELLOW, MAGENTA);
+  nrf_delay_ms(1000);
+
+  tft.fillScreen(BLACK);
+  testfillcircles(10, BLUE);
+  testdrawcircles(10, WHITE);
+  nrf_delay_ms(1000);
+
+  testroundrects();
+  nrf_delay_ms(500);
+
+  testtriangles();
+  nrf_delay_ms(500);
+
+  printf("done\r\n");
+  nrf_delay_ms(1000);
+}
+
+void testlines(uint16_t color) {
+   tft.fillScreen(BLACK);
+   for (uint16_t x=0; x < tft.width()-1; x+=6) {
+     tft.drawLine(0, 0, x, tft.height()-1, color);
+   }
+   for (uint16_t y=0; y < tft.height()-1; y+=6) {
+     tft.drawLine(0, 0, tft.width()-1, y, color);
+   }
+
+   tft.fillScreen(BLACK);
+   for (uint16_t x=0; x < tft.width()-1; x+=6) {
+     tft.drawLine(tft.width()-1, 0, x, tft.height()-1, color);
+   }
+   for (uint16_t y=0; y < tft.height()-1; y+=6) {
+     tft.drawLine(tft.width()-1, 0, 0, y, color);
+   }
+
+   tft.fillScreen(BLACK);
+   for (uint16_t x=0; x < tft.width()-1; x+=6) {
+     tft.drawLine(0, tft.height()-1, x, 0, color);
+   }
+   for (uint16_t y=0; y < tft.height()-1; y+=6) {
+     tft.drawLine(0, tft.height()-1, tft.width()-1, y, color);
+   }
+
+   tft.fillScreen(BLACK);
+   for (uint16_t x=0; x < tft.width()-1; x+=6) {
+     tft.drawLine(tft.width()-1, tft.height()-1, x, 0, color);
+   }
+   for (uint16_t y=0; y < tft.height()-1; y+=6) {
+     tft.drawLine(tft.width()-1, tft.height()-1, 0, y, color);
+   }
+
+}
+
+void testdrawtext(const char *text, uint16_t color) {
+  tft.setCursor(0,0);
+  tft.setTextColor(color);
+  tft.print(text);
+}
+
+void testfastlines(uint16_t color1, uint16_t color2) {
+   tft.fillScreen(BLACK);
+   for (uint16_t y=0; y < tft.height()-1; y+=5) {
+     tft.drawFastHLine(0, y, tft.width()-1, color1);
+   }
+   for (uint16_t x=0; x < tft.width()-1; x+=5) {
+     tft.drawFastVLine(x, 0, tft.height()-1, color2);
+   }
+}
+
+void testdrawrects(uint16_t color) {
+ tft.fillScreen(BLACK);
+ for (uint16_t x=0; x < tft.height()-1; x+=6) {
+   tft.drawRect((tft.width()-1)/2 -x/2, (tft.height()-1)/2 -x/2 , x, x, color);
+ }
+}
+
+void testfillrects(uint16_t color1, uint16_t color2) {
+ tft.fillScreen(BLACK);
+ for (uint16_t x=tft.height()-1; x > 6; x-=6) {
+   tft.fillRect((tft.width()-1)/2 -x/2, (tft.height()-1)/2 -x/2 , x, x, color1);
+   tft.drawRect((tft.width()-1)/2 -x/2, (tft.height()-1)/2 -x/2 , x, x, color2);
+ }
+}
+
+void testfillcircles(uint8_t radius, uint16_t color) {
+  for (uint8_t x=radius; x < tft.width()-1; x+=radius*2) {
+    for (uint8_t y=radius; y < tft.height()-1; y+=radius*2) {
+      tft.fillCircle(x, y, radius, color);
+    }
+  }
+}
+
+void testdrawcircles(uint8_t radius, uint16_t color) {
+  for (uint8_t x=0; x < tft.width()-1+radius; x+=radius*2) {
+    for (uint8_t y=0; y < tft.height()-1+radius; y+=radius*2) {
+      tft.drawCircle(x, y, radius, color);
+    }
+  }
+}
+
+void testtriangles() {
+  tft.fillScreen(BLACK);
+  int color = 0xF800;
+  int t;
+  int w = tft.width()/2;
+  int x = tft.height();
+  int y = 0;
+  int z = tft.width();
+  for(t = 0 ; t <= 15; t+=1) {
+    tft.drawTriangle(w, y, y, x, z, x, color);
+    x-=4;
+    y+=4;
+    z-=4;
+    color+=100;
+  }
+}
+
+void testroundrects() {
+  tft.fillScreen(BLACK);
+  int color = 100;
+
+  int x = 0;
+  int y = 0;
+  int w = tft.width();
+  int h = tft.height();
+  for(int i = 0 ; i <= 24; i++) {
+    tft.drawRoundRect(x, y, w, h, 5, color);
+    x+=2;
+    y+=3;
+    w-=4;
+    h-=6;
+    color+=1100;
+    // UNDONE: Serial.println(i);
+  }
+}
+
+void tftPrintTest() {
+  tft.fillScreen(BLACK);
+  tft.setCursor(0, 5);
+  tft.setTextColor(RED);
+  tft.setTextSize(1);
+  tft.print("Hello World!\n");
+  tft.setTextColor(YELLOW);
+  tft.setTextSize(2);
+  tft.print("Hello World!\n");
+#ifdef UNDONE
+  tft.setTextColor(BLUE);
+  tft.setTextSize(3);
+  tft.print("1234.567");
+  nrf_delay_ms(1500);
+  tft.setCursor(0, 5);
+  tft.fillScreen(BLACK);
+  tft.setTextColor(WHITE);
+  tft.setTextSize(0);
+  tft.print("Hello World!\n");
+  tft.setTextSize(1);
+  tft.setTextColor(GREEN);
+  tft.print("3.14159");
+  tft.print(" Want pi?\n");
+  tft.print(" \n");
+  tft.print(8675309, HEX); // print 8,675,309 out in HEX!
+  tft.print(" Print HEX!\n");
+  tft.print(" \n");
+  tft.setTextColor(WHITE);
+  tft.println("Sketch has been");
+  tft.println("running for: ");
+  tft.setTextColor(MAGENTA);
+  tft.print(millis() / 1000);
+  tft.setTextColor(WHITE);
+  tft.print(" seconds.");
+#endif // UNDONE
+}
+
+void mediabuttons() {
+ // play
+  tft.fillScreen(BLACK);
+  tft.fillRoundRect(25, 10, 78, 60, 8, WHITE);
+  tft.fillTriangle(42, 20, 42, 60, 90, 40, RED);
+  nrf_delay_ms(500);
+  // pause
+  tft.fillRoundRect(25, 90, 78, 60, 8, WHITE);
+  tft.fillRoundRect(39, 98, 20, 45, 5, GREEN);
+  tft.fillRoundRect(69, 98, 20, 45, 5, GREEN);
+  nrf_delay_ms(500);
+  // play color
+  tft.fillTriangle(42, 20, 42, 60, 90, 40, BLUE);
+  nrf_delay_ms(50);
+  // pause color
+  tft.fillRoundRect(39, 98, 20, 45, 5, RED);
+  tft.fillRoundRect(69, 98, 20, 45, 5, RED);
+  // play color
+  tft.fillTriangle(42, 20, 42, 60, 90, 40, GREEN);
+}
+
+/**************************************************************************/
+/*!
+    @brief  Renders a simple test pattern on the screen
+*/
+/**************************************************************************/
+void lcdTestPattern(void)
+{
+  static const uint16_t colors[] =
+    { RED, YELLOW, GREEN, CYAN, BLUE, MAGENTA, BLACK, WHITE };
+
+  for(uint8_t c=0; c<8; c++) {
+    tft.fillRect(0, tft.height() * c / 8, tft.width(), tft.height() / 8, colors[c]);
+  }
+}
+
+// Need to get some C++ code to build.
+extern "C" void __cxa_pure_virtual()
+{
+    ASSERT ( 0 );
+    abort();
 }
