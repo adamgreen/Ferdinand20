@@ -14,6 +14,16 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## March 7th, 2020
+### Catching the Dragon by its Tail
+![PDB Prototype using Adafruit DragonTails](photos/20200303-01.jpg)\
+I had some time this weekend, while I was between other projects, to switch my micro:bit based Power Distribution Board (PDB) prototypes over to use my recently received [Adafruit DragonTail micro:bit adapters](https://www.adafruit.com/product/3695). I must say that those are really cool additions for prototyping with the micro:bits. I was able to get the joystick module switched over in just a few minutes. Gone were the alligator clips that were barely holding on. Now I had something that I could actually carry around in my hand and use for initial testing. I also added the actual deadman switch to the bottom of the breadboard since I now had access to enough GPIO pins to add it.
+
+Switching the BLE central module over to the DragonTail meant that I now had access to the 5 GPIO pins that I needed to properly connect my [1.5" OLED screen from Adafruit](https://www.adafruit.com/product/1431). Once I had it connected, I was able to finish porting and testing the drivers ([SSD13351](https://github.com/adafruit/Adafruit-SSD1351-library) and [GFX](https://github.com/adafruit/Adafruit-GFX-Library)) for the OLED. My ports of the drivers can be found [here](https://github.com/adamgreen/Ferdinand20/tree/master/external/Adafruit-GFX-Library) and [here](https://github.com/adamgreen/Ferdinand20/tree/master/external/Adafruit-SSD1351-library). Currently I just have it running one of the Adafruit samples. I will later update the code to have the screen show the actual information of interest.
+
+
+
+---
 ## February 20th, 2020
 ### Adafruit Order Received
 ![Adafruit order arrived](photos/20200219-01.jpg)<br>
