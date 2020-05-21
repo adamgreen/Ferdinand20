@@ -14,6 +14,23 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## May 21st, 2020
+Wow! It has been around 2.5 months since I last did any work on my Robot-Magellan bot. Now that I have completed my other embedded project, I can turn my attention back to this bot.
+
+### Current Reading List
+![KiCAD Like a Pro](photos/20200520-01.jpg)<br>
+I have always used [Eagle](https://www.autodesk.com/products/eagle/overview) for designing PCBs for my hobby projects in the past. This project is just as much about learning new things as it is about building a robot to compete in the SRS Robo-Magellan competition. Therefore I think this is a good time to learn [KiCad](https://kicad-pcb.org) and use it for the design of Ferdinand20's custom PCBs. I have started reading [KiCad Like a Pro by Dr. Peter Dalmaris](https://www.amazon.com/dp/B07M9HH2WW) so that I will be ready to make the switch from Eagle by the time I start work on the first PCB for this bot.
+
+### Next Steps
+I have a few more things that I want to experiment with before I start designing the PCB for the Power Distribution Board:
+* Implement a nRF51 driver for [Adafruit's 1.54" 240x240 TFT Display](https://www.adafruit.com/product/3787) so that I can compare its  performance in sunlight to [Adafruit's 1.5" OLED Display](https://www.adafruit.com/product/1431).
+<br>![Adafruit 1.54" TFT Breakout](photos/20200520-02.jpg)
+* Implement code to switch the motor voltage from the LiPo batteries using [SparkFun's Beefcake Relay Control Kit (Ver. 2.0)](https://www.sparkfun.com/products/13815) and verify that it works as expected.
+<br>![Relay Kit all soldered up](photos/20200217-02.jpg)
+
+
+
+---
 ## March 7th, 2020
 ### Catching the Dragon by its Tail
 ![PDB Prototype using Adafruit DragonTails](photos/20200303-01.jpg)\
