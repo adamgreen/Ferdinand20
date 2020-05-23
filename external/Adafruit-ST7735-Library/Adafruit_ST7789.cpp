@@ -50,7 +50,7 @@ static const uint8_t
       0,             //     YSTART = 0
       320>>8,
       320&0xFF,  //     YEND = 320
-    ST77XX_INVON  ,   ST_CMD_DELAY,  //  7: hack
+    ST77XX_INVOFF  ,   ST_CMD_DELAY,  //  7: hack
       10,
     ST77XX_NORON  ,   ST_CMD_DELAY, //  8: Normal display on, no args, w/delay
       10,                           //     10 ms delay
