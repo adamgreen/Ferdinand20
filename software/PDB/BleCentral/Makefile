@@ -48,6 +48,8 @@ SRC_FILES += \
   ../../../external/Adafruit-GFX-Library/Adafruit_GFX.cpp \
   ../../../external/Adafruit-GFX-Library/Adafruit_SPITFT.cpp \
   ../../../external/Adafruit-SSD1351-library/Adafruit_SSD1351.cpp \
+  ../../../external/Adafruit-ST7735-Library/Adafruit_ST77xx.cpp \
+  ../../../external/Adafruit-ST7735-Library/Adafruit_ST7789.cpp \
 
 # Include folders common to all targets
 INC_FOLDERS += \
@@ -156,6 +158,7 @@ INC_FOLDERS += \
   $(SDK_ROOT)/components/libraries/log/src \
   ../../../external/Adafruit-GFX-Library \
   ../../../external/Adafruit-SSD1351-library \
+  ../../../external/Adafruit-ST7735-Library \
 
 # Libraries common to all targets
 LIB_FILES += \

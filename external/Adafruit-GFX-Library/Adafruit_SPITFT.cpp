@@ -647,6 +647,12 @@ void Adafruit_SPITFT::spiWrite16(uint16_t w)
     startTransmission();
 }
 
+void Adafruit_SPITFT::spiWrite32(uint32_t w)
+{
+    m_buffer.writeData(w);
+    startTransmission();
+}
+
 /*!
     @brief  Write a single command byte to the display. Chip-select and
             transaction must have been previously set -- this ONLY sets

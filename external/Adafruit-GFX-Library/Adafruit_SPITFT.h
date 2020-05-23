@@ -73,6 +73,14 @@ public:
         writeByteAndFlag(data & 0xFF, m_state);
     }
 
+    void writeData(uint32_t data)
+    {
+        writeByteAndFlag((data >> 24) & 0xFF, m_state);
+        writeByteAndFlag((data >> 16) & 0xFF, m_state);
+        writeByteAndFlag((data >> 8) & 0xFF, m_state);
+        writeByteAndFlag(data & 0xFF, m_state);
+    }
+
     void end()
     {
         writeByteAndFlag(0x00, End);
@@ -249,6 +257,7 @@ public:
 
   void spiWrite(uint8_t b);          // Write single byte as DATA
   void spiWrite16(uint16_t h);       // Write 16-bit value as DATA
+  void spiWrite32(uint32_t h);       // Write 32-bit value as DATA
   void writeCommand(uint8_t cmd);    // Write single byte as COMMAND
 
 protected:

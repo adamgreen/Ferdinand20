@@ -25,11 +25,8 @@
 #ifndef _ADAFRUIT_ST77XXH_
 #define _ADAFRUIT_ST77XXH_
 
-#include "Arduino.h"
-#include "Print.h"
 #include <Adafruit_GFX.h>
 #include <Adafruit_SPITFT.h>
-#include <Adafruit_SPITFT_Macros.h>
 
 #define ST7735_TFTWIDTH_128 128  // for 1.44 and mini
 #define ST7735_TFTWIDTH_80 80    // for mini
@@ -88,27 +85,21 @@
 /// Subclass of SPITFT for ST77xx displays (lots in common!)
 class Adafruit_ST77xx : public Adafruit_SPITFT {
 public:
-  Adafruit_ST77xx(uint16_t w, uint16_t h, int8_t _CS, int8_t _DC, int8_t _MOSI,
-                  int8_t _SCLK, int8_t _RST = -1, int8_t _MISO = -1);
-  Adafruit_ST77xx(uint16_t w, uint16_t h, int8_t CS, int8_t RS,
-                  int8_t RST = -1);
-#if !defined(ESP8266)
-  Adafruit_ST77xx(uint16_t w, uint16_t h, SPIClass *spiClass, int8_t CS,
-                  int8_t RS, int8_t RST = -1);
-#endif // end !ESP8266
+    Adafruit_ST77xx(uint16_t width, uint16_t height, nrf_drv_spi_t* pSpi,
+                    uint8_t mosiPin, uint8_t sckPin, uint8_t csPin, uint8_t dcPin,
+                    uint8_t rstPin = NRF_DRV_SPI_PIN_NOT_USED);
 
   void setAddrWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
   void setRotation(uint8_t r);
-  void enableDisplay(boolean enable);
-  void enableTearing(boolean enable);
+  void enableDisplay(bool enable);
+  void enableTearing(bool enable);
 
 protected:
-  uint8_t _colstart = 0,   ///< Some displays need this changed to offset
-      _rowstart = 0,       ///< Some displays need this changed to offset
-      spiMode = SPI_MODE0; ///< Certain display needs MODE3 instead
+  uint8_t _colstart = 0;   ///< Some displays need this changed to offset
+  uint8_t _rowstart = 0;   ///< Some displays need this changed to offset
 
-  void begin(uint32_t freq = 0);
-  void commonInit(const uint8_t *cmdList);
+  void begin(nrf_drv_spi_frequency_t frequency = NRF_DRV_SPI_FREQ_8M);
+  void commonInit(const uint8_t *cmdList, nrf_drv_spi_frequency_t frequency);
   void displayInit(const uint8_t *addr);
   void setColRowStart(int8_t col, int8_t row);
 };

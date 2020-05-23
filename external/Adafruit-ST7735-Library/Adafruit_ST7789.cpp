@@ -11,31 +11,12 @@
     @param  sclk  SPI Clock pin #
     @param  rst   Reset pin # (optional, pass -1 if unused)
 */
-Adafruit_ST7789::Adafruit_ST7789(int8_t cs, int8_t dc, int8_t mosi, int8_t sclk,
-                                 int8_t rst)
-    : Adafruit_ST77xx(240, 320, cs, dc, mosi, sclk, rst) {}
-
-/*!
-    @brief  Instantiate Adafruit ST7789 driver with hardware SPI
-    @param  cs   Chip select pin #
-    @param  dc   Data/Command pin #
-    @param  rst  Reset pin # (optional, pass -1 if unused)
-*/
-Adafruit_ST7789::Adafruit_ST7789(int8_t cs, int8_t dc, int8_t rst)
-    : Adafruit_ST77xx(240, 320, cs, dc, rst) {}
-
-#if !defined(ESP8266)
-/*!
-    @brief  Instantiate Adafruit ST7789 driver with selectable hardware SPI
-    @param  spiClass  Pointer to an SPI device to use (e.g. &SPI1)
-    @param  cs        Chip select pin #
-    @param  dc        Data/Command pin #
-    @param  rst       Reset pin # (optional, pass -1 if unused)
-*/
-Adafruit_ST7789::Adafruit_ST7789(SPIClass *spiClass, int8_t cs, int8_t dc,
-                                 int8_t rst)
-    : Adafruit_ST77xx(240, 320, spiClass, cs, dc, rst) {}
-#endif // end !ESP8266
+Adafruit_ST7789::Adafruit_ST7789(uint16_t width, uint16_t height, nrf_drv_spi_t* pSpi,
+                                 uint8_t mosiPin, uint8_t sckPin, uint8_t csPin, uint8_t dcPin,
+                                 uint8_t rstPin)
+    : Adafruit_ST77xx(width, height, pSpi, mosiPin, sckPin, csPin, dcPin, rstPin)
+{
+}
 
 // SCREEN INITIALIZATION ***************************************************
 
@@ -47,7 +28,7 @@ Adafruit_ST7789::Adafruit_ST7789(SPIClass *spiClass, int8_t cs, int8_t dc,
 
 // clang-format off
 
-static const uint8_t PROGMEM
+static const uint8_t
   generic_st7789[] =  {                // Init commands for 7789 screens
     9,                              //  9 commands in list:
     ST77XX_SWRESET,   ST_CMD_DELAY, //  1: Software reset, no args, w/delay
@@ -88,25 +69,13 @@ static const uint8_t PROGMEM
                    the defines only, the values are NOT the same!)
 */
 /**************************************************************************/
-void Adafruit_ST7789::init(uint16_t width, uint16_t height, uint8_t mode) {
-  // Save SPI data mode. commonInit() calls begin() (in Adafruit_ST77xx.cpp),
-  // which in turn calls initSPI() (in Adafruit_SPITFT.cpp), passing it the
-  // value of spiMode. It's done this way because begin() really should not
-  // be modified at this point to accept an SPI mode -- it's a virtual
-  // function required in every Adafruit_SPITFT subclass and would require
-  // updating EVERY such library...whereas, at the moment, we know that
-  // certain ST7789 displays are the only thing that may need a non-default
-  // SPI mode, hence this roundabout approach...
-  spiMode = mode;
-  // (Might get added similarly to other display types as needed on a
-  // case-by-case basis.)
+void Adafruit_ST7789::init(nrf_drv_spi_frequency_t frequency) {
+  commonInit(NULL, frequency);
 
-  commonInit(NULL);
-
-  if ((width == 240) && (height == 240)) { // 1.3" and 1.54" displays
+  if ((_width == 240) && (_height == 240)) { // 1.3" and 1.54" displays
     _colstart = 0;
     _rowstart = 80;
-  } else if ((width == 135) && (height == 240)) { // 1.13" display
+  } else if ((_width == 135) && (_height == 240)) { // 1.13" display
     _colstart = 53;
     _rowstart = 40;
   } else {
@@ -114,12 +83,12 @@ void Adafruit_ST7789::init(uint16_t width, uint16_t height, uint8_t mode) {
     _rowstart = 0;
   }
 
-  windowWidth = width;
-  windowHeight = height;
+  windowWidth = _width;
+  windowHeight = _height;
 
   displayInit(generic_st7789);
 
-  if ((width == 135) && (height == 240)) {
+  if ((_width == 135) && (_height == 240)) {
     setRotation(0);
   } else {
     setRotation(0);
