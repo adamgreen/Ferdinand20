@@ -46,7 +46,7 @@
 #include "../BleJoyShared.h"
 #include <Adafruit_GFX.h>
 #include <Adafruit_SPITFT.h>
-#include <Adafruit_SSD1351.h>
+#include <Adafruit_ST7789.h>
 #include <nrf_delay.h>
 
 
@@ -603,10 +603,10 @@ void lcdTestPattern(void);
 
 
 // Screen dimensions
-#define SCREEN_WIDTH  128
-#define SCREEN_HEIGHT 128 // Change this to 96 for 1.27" OLED.
+#define SCREEN_WIDTH  240
+#define SCREEN_HEIGHT 240
 
-// You can use any (4 or) 5 pins
+// You can use any 5 pins.
 #define SCLK_PIN 23 // P13
 #define MOSI_PIN 21 // P15
 #define DC_PIN   22 // P14
@@ -625,7 +625,7 @@ void lcdTestPattern(void);
 
 // Option 1: use any pins but a little slower
 nrf_drv_spi_t g_spi = NRF_DRV_SPI_INSTANCE(0);
-Adafruit_SSD1351 tft = Adafruit_SSD1351(SCREEN_WIDTH, SCREEN_HEIGHT, &g_spi, MOSI_PIN, SCLK_PIN, CS_PIN, DC_PIN, RST_PIN);
+Adafruit_ST7789 tft = Adafruit_ST7789(SCREEN_WIDTH, SCREEN_HEIGHT, &g_spi, MOSI_PIN, SCLK_PIN, CS_PIN, DC_PIN, RST_PIN);
 
 // Option 2: must use the hardware SPI pins
 // (for UNO thats sclk = 13 and sid = 11) and pin 10 must be
@@ -638,7 +638,7 @@ float p = 3.1415926;
 void testScreen(void) {
   printf("hello!\r\n");
 
-  tft.begin(NRF_DRV_SPI_FREQ_8M);
+  tft.init(NRF_DRV_SPI_FREQ_8M);
 
   printf("init\r\n");
 
@@ -650,16 +650,16 @@ void testScreen(void) {
   // for rendering the test pattern talks directly to the display and
   // ignores any rotation.
 
-  tft.fillRect(0, 0, 128, 128, BLACK);
+  tft.fillRect(0, 0, tft.width(), tft.height(), BLACK);
 
   nrf_delay_ms(500);
 
   lcdTestPattern();
   nrf_delay_ms(500);
 
-  tft.invert(true);
+  tft.invertDisplay(true);
   nrf_delay_ms(500);
-  tft.invert(false);
+  tft.invertDisplay(false);
   nrf_delay_ms(500);
 
   tft.fillScreen(BLACK);
@@ -742,6 +742,7 @@ void testlines(uint16_t color) {
 void testdrawtext(const char *text, uint16_t color) {
   tft.setCursor(0,0);
   tft.setTextColor(color);
+  tft.setTextSize(2);
   tft.print(text);
 }
 
@@ -771,16 +772,16 @@ void testfillrects(uint16_t color1, uint16_t color2) {
 }
 
 void testfillcircles(uint8_t radius, uint16_t color) {
-  for (uint8_t x=radius; x < tft.width()-1; x+=radius*2) {
-    for (uint8_t y=radius; y < tft.height()-1; y+=radius*2) {
+  for (int16_t x=radius; x < tft.width()-1; x+=radius*2) {
+    for (int16_t y=radius; y < tft.height()-1; y+=radius*2) {
       tft.fillCircle(x, y, radius, color);
     }
   }
 }
 
 void testdrawcircles(uint8_t radius, uint16_t color) {
-  for (uint8_t x=0; x < tft.width()-1+radius; x+=radius*2) {
-    for (uint8_t y=0; y < tft.height()-1+radius; y+=radius*2) {
+  for (int16_t x=0; x < tft.width()-1+radius; x+=radius*2) {
+    for (int16_t y=0; y < tft.height()-1+radius; y+=radius*2) {
       tft.drawCircle(x, y, radius, color);
     }
   }
