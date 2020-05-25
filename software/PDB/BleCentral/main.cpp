@@ -50,6 +50,9 @@
 #include <nrf_delay.h>
 
 
+// The output pin used to turn control the motor power relay.
+#define MOTOR_RELAY_PIN         18  // P8 on microbit.
+
 // This firmware acts as a BLE central with a single link to the BleJoystick peripheral.
 #define CENTRAL_LINK_COUNT      1
 // This application doesn't need to act as a BLE peripheral.
@@ -236,6 +239,12 @@ static void initButtonsAndLeds(void)
     // Pull column1 of the LED matrix low so that LED will light up when Row1 goes high.
     nrf_gpio_cfg_output(4);
     nrf_gpio_pin_clear(4);
+
+    // Configure the output pin to drive the motor power relay via a NPN BJT.
+    // Needs to be able to source 5mA to the BJT gate when high.
+    nrf_gpio_pin_clear(MOTOR_RELAY_PIN);
+    nrf_gpio_cfg(MOTOR_RELAY_PIN, NRF_GPIO_PIN_DIR_OUTPUT, NRF_GPIO_PIN_INPUT_DISCONNECT, NRF_GPIO_PIN_NOPULL,
+                 NRF_GPIO_PIN_S0H1, NRF_GPIO_PIN_NOSENSE);
 
     bsp_event_t startupEvent;
     uint32_t errorCode = bsp_init(BSP_INIT_LED,
@@ -557,6 +566,8 @@ static void dumpJoyData(const BleJoyData* pJoyData)
            (pJoyData->buttons & BLEJOY_BUTTONS_JOYSTICK) ? "JOY" : "   ",
            pJoyData->batteryVoltage / 10,
            pJoyData->batteryVoltage % 10);
+    // UNDONE: Do this from a timer which also checks for BLE connection and uC watchdog.
+    nrf_gpio_pin_write(MOTOR_RELAY_PIN, pJoyData->buttons & BLEJOY_BUTTONS_DEADMAN);
 }
 
 static void startScanningForNordicUartPeripherals(void)
@@ -623,23 +634,16 @@ void lcdTestPattern(void);
 #define YELLOW          0xFFE0
 #define WHITE           0xFFFF
 
-// Option 1: use any pins but a little slower
 nrf_drv_spi_t g_spi = NRF_DRV_SPI_INSTANCE(0);
 Adafruit_ST7789 tft = Adafruit_ST7789(SCREEN_WIDTH, SCREEN_HEIGHT, &g_spi, MOSI_PIN, SCLK_PIN, CS_PIN, DC_PIN, RST_PIN);
 
-// Option 2: must use the hardware SPI pins
-// (for UNO thats sclk = 13 and sid = 11) and pin 10 must be
-// an output. This is much faster - also required if you want
-// to use the microSD card (see the image drawing example)
-//Adafruit_SSD1351 tft = Adafruit_SSD1351(SCREEN_WIDTH, SCREEN_HEIGHT, &SPI, CS_PIN, DC_PIN, RST_PIN);
-
 float p = 3.1415926;
 
-void testScreen(void) {
-  printf("hello!\r\n");
-
+void testScreen(void)
+{
   tft.init(NRF_DRV_SPI_FREQ_8M);
 
+#ifdef UNDONE
   printf("init\r\n");
 
   // You can optionally rotate the display by running the line below.
@@ -696,12 +700,15 @@ void testScreen(void) {
 
   testroundrects();
   nrf_delay_ms(500);
+#endif // UNDONE
 
   testtriangles();
   nrf_delay_ms(500);
 
+#ifdef UNDONE
   printf("done\r\n");
   nrf_delay_ms(1000);
+#endif // UNDONE
 }
 
 void testlines(uint16_t color) {
