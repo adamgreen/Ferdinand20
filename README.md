@@ -14,6 +14,31 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## May 24th, 2020
+It feels good to get back into this bot building project and crossing off two work items this week.
+
+![Photo of ST7789 Display and Relay](photos/20200524-01.jpg)
+### ST7789 LCD Driver Port
+I completed the port of [Adafruit's ST77xx driver](https://github.com/adafruit/Adafruit-ST7735-Library) to the nRF51. It can be found [here](https://github.com/adamgreen/Ferdinand20/tree/master/external/Adafruit-ST7735-Library). The above photo shows this driver being used to run a simple test program on [Adafruit's 1.54" 240x240 TFT Display](https://www.adafruit.com/product/3787).
+
+I ran the simple test program on this display and [Adafruit's 1.5" OLED Display](https://www.adafruit.com/product/1431) outside in sunlight to compare their performance. I have a few observations based on my indoor and outdoor testing:
+* The TFT LCD display has almost 3.5x the resolution of the OLED.
+  * This results in much better image quality.
+  * It also results in a slower refresh rate as it takes longer to push the larger number of pixel updates out over the 8MHz SPI bus.
+* While the OLED appears brighter indoors, it washes out in the sunlight.
+* The TFT LCD isn't quite as bright indoors but outdoors it is still quite visible and only disappears in direct sunlight. Using my hand as shade made the TFT LCD visible again but had minimal impact on the OLED.
+* The OLED breakout was supposed to support a Vcc supply of 3 - 6V but in my testing the display blinked a lot when connected to anything less than 5V. I think this was an issue with the regulator used by Adafruit on that breakout. The TFT LCD breakout was successfully powered from the 3.3V supply of the micro:bit.
+
+Based on my testing, I have decided to use the TFT LCD for the Power Distribution Board.
+
+### Motor Power Relay
+I wired up the [SparkFun Beefcake Relay Control Kit (Ver. 2.0)](https://www.sparkfun.com/products/13815) and implemented code to energize the relay when the remote BLE deadman switch was depressed. I did need to do two things to get the required 5mA from the nRF51 to the base of the BJT used to energize the relay:
+* I had to configure the output pin for high current drive when in the 1 state: ```nrf_gpio_cfg(MOTOR_RELAY_PIN, ..., NRF_GPIO_PIN_S0H1, ...);```
+* I replaced R2, the 1k ohm base current limiting resistor, with a 680 ohm resistor to handle the 3.3V digital signal level from the nRF51 instead of the 5V expected in the original Beefcake design.
+
+
+
+---
 ## May 21st, 2020
 Wow! It has been around 2.5 months since I last did any work on my Robot-Magellan bot. Now that I have completed my other embedded project, I can turn my attention back to this bot.
 
