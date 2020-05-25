@@ -238,8 +238,8 @@ $(foreach target, $(TARGETS), $(call define_target, $(target)))
 # Flash the program
 flash: $(OUTPUT_DIRECTORY)/nrf51422_xxac.hex
 	@echo Flashing: $<
-	tools/nrfjprog/nrfjprog --program $< -f nrf51 --sectorerase
-	tools/nrfjprog/nrfjprog --reset -f nrf51
+	$(NRF51_TOOL_PATH)/nrfjprog/nrfjprog --program $< -f nrf51 --sectorerase
+	$(NRF51_TOOL_PATH)/nrfjprog/nrfjprog --reset -f nrf51
 
 # Flash softdevice
 flash_softdevice: erase

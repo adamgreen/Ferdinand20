@@ -227,13 +227,13 @@ static void initUart(void)
     uint32_t                     errorCode;
     const app_uart_comm_params_t commParams =
     {
-        UART_RX_PIN,
-        UART_TX_PIN,
-        0xFF, // RTS not used
-        0xFF, // CTS not used
-        APP_UART_FLOW_CONTROL_DISABLED,
-        false,
-        UART_BAUD_RATE_NRF_BITMASK
+        .rx_pin_no = UART_RX_PIN,
+        .tx_pin_no = UART_TX_PIN,
+        .rts_pin_no = UART_PIN_DISCONNECTED,
+        .cts_pin_no = UART_PIN_DISCONNECTED,
+        .flow_control = APP_UART_FLOW_CONTROL_DISABLED,
+        .use_parity = false,
+        .baud_rate = UART_BAUD_RATE_NRF_BITMASK
     };
 
     APP_UART_FIFO_INIT(&commParams,
