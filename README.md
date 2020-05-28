@@ -14,6 +14,38 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## May 28th, 2020
+I decided to order the parts for the Power Distribution Board before I even start the design so that I can verify footprints as I am new to KiCAD and even more likely than usual to mess up some footprints. To facilitate that verification, I have completed my initial swag at a BOM and ordered up the parts from [Amazon](https://www.amazon.com), [Sparkfun](https://www.sparkfun.com), and [Digikey](https://www.digikey.com).
+
+### Amazon Order
+* [Blade Fuse Assortment Kit](https://www.amazon.com/dp/B077RXSWVH) - This assortment includes the 2A (digital electronics switched by main power switch and not relay), 10A (motor power switched by relay), and 15A (maximum overall battery current) valued fuses that I currently plan to use for protecting this project.
+
+### Sparkfun Order
+* [Metal Pushbutton - Latching (16mm, Green)](https://www.sparkfun.com/products/11973) - Use as the main power switch.
+* [Toggle Switch and Cover - Illuminated (Red)](https://www.sparkfun.com/products/11310) - Use to enable the manual driving mode. This type of switch makes it hard to put it into manual driving mode by mistake and makes it easy for judges and me to see if it is running in manual driving mode.
+* [Thumb Joystick](https://www.sparkfun.com/products/9032) - This is the same thumb joystick that I am using in my current breadboard prototype of the remote control.
+* [Tactile Button - SMD (6mm)](https://www.sparkfun.com/products/12992) - Use for dead man switch on the remote control.
+* [XT60 Connectors - Male/Female Pair](https://www.sparkfun.com/products/10474) - Use to connect the 2S LiPo battery to the Power Distribution Board.
+
+### Digikey Order
+* 3 x [Fuse Holder 20A 1 Circuit Blade Surface Mount](https://www.digikey.com/product-detail/en/3587TR/36-3587CT-ND) - Use to hold the 3 blade fuses I plan to use on the Power Distribution Board. These are surface mount versions.
+* 3 x [Fuse Block 30A 500V 1 Circuit Blade Through Hole](https://www.digikey.com/product-detail/en/3557-2/36-3557-2-ND) - These are through hole versions of the above blade fuses holders. I ordered both to see which I prefer for this project.
+* 1 x [Linear Voltage Regulator IC 1 Output 150mA SOT-23-5](https://www.digikey.com/product-detail/en/MIC5205-3.3YM5-TR/576-1259-1-ND) - Use on the PDB to provide 3.3V to the nRF51 and TFT display from the 2S LiPo battery. I measured the current being used by the existing prototype to see how much the micro:bit and TFT LCD use together and it was about 60mA. The final electronics will probably be a bit lower as the micro:bit has an extra USB interface chip which won't be included in the final project. The 150mA provided by this regulator should be more than enough for the 3.3V electronics on the PDB itself.
+* 1 x [Linear Voltage Regulator IC 1 Output 250mA 8-SO](https://www.digikey.com/product-detail/en/L4931ABD50-TR/497-1156-1-ND) - Use on the PDB to provide 5V for the relay coil. The coil needs around 150mA so this 250mA regulator should be sufficient.
+* 1 x [Bipolar (BJT) Transistor NPN 40V 600mA 300MHz 300mW Surface Mount SOT-23-3 (TO-236)](https://www.digikey.com/product-detail/en/MMBT2222ALT3G/MMBT2222ALT3GOSCT-ND) - This switches the 5V to the relay coil based on the state of a nRF51 GPIO pin.
+* 1 x [Zener Diode 9.1V 1W ±5% Surface Mount DO-214AC (SMA)](https://www.digikey.com/product-detail/en/SMAJ4739A-TP/SMAJ4739A-TPCT-ND) - Part of the relay coil support circuitry on the PDB.
+* 1 x [Diode Standard 75V 200mA Surface Mount SOD-523F](https://www.digikey.com/product-detail/en/1N4148WT/1N4148WTCT-ND) - Part of the relay coil support circuitry on the PDB.
+* 1 x [DEANS CONNECTOR - M/F PAIR](https://www.digikey.com/product-detail/en/PRT-11864/1568-1659-ND) - Use to connect the PDB to the motors.
+* 30 x [Socket Contact Tin 22-28 AWG Crimp](https://www.digikey.com/product-detail/en/0039000160/WM9661CT-ND) - I purchased more crimp pins than I need for the below connectors to make sure that I have plenty of spares.
+* 2 x [Connector Header Through Hole 3 position 0.098" (2.50mm)](https://www.digikey.com/product-detail/en/0022035035/900-0022035035-ND) - These will be used to connect the two panel mounted switches (power and manual override) to the PDB.
+* 2 x [3 Rectangular Connectors - Housings Receptacle  0.098" (2.50mm)](https://www.digikey.com/product-detail/en/0050375033/WM18874-ND)
+* 2 x [Connector Header Through Hole 4 position 0.098" (2.50mm)](https://www.digikey.com/product-detail/en/0022035045/WM18888-ND) - These will be used to connect power and UART signals lines from the PDB to the main microcontroller.
+* 2 x [4 Rectangular Connectors - Housings Receptacle  0.098" (2.50mm)](https://www.digikey.com/product-detail/en/0050375043/WM17405-ND)
+* 2 x [Bluetooth Bluetooth v4.1 Transceiver Module 2.4GHz Integrated, Trace Surface Mount](https://www.digikey.com/product-detail/en/N5150M5CD/1094-1021-ND) - I have used these nRF51422 based modules in the past. Both the PDB and the remote control will need one of these.
+
+
+
+---
 ## May 24th, 2020
 It feels good to get back into this bot building project and crossing off two work items this week.
 
