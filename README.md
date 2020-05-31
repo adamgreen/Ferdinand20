@@ -14,6 +14,15 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## May 30th, 2020
+![Digikey parts](photos/20200530-01.jpg)
+
+### Amazon & Digikey Orders Have Arrived
+The parts that I ordered earlier this week from Amazon and Digikey have already arrived and the order from Sparkfun shipped today. I now have all of the parts for which I would want to validate footprints so it is definitely time to get cracking on that PCB design for the Power Distribution Board.
+
+
+
+---
 ## May 28th, 2020
 I decided to order the parts for the Power Distribution Board before I even start the design so that I can verify footprints as I am new to KiCAD and even more likely than usual to mess up some footprints. To facilitate that verification, I have completed my initial swag at a BOM and ordered up the parts from [Amazon](https://www.amazon.com), [Sparkfun](https://www.sparkfun.com), and [Digikey](https://www.digikey.com).
 
