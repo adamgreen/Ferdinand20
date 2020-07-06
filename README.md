@@ -14,6 +14,21 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## July 6th, 2020
+I have now learned enough KiCAD to complete version 1 of the Power Distribution Board, PDB, for my Robo-Magellan bot.
+<br>![PDB Schematic](hardware/PDB/schematic.png)
+
+I have uploaded the resulting KiCAD layout to [OSHPark](https://oshpark.com) and am now just waiting for them to be manufactured. I used their [2oz copper service](https://docs.oshpark.com/services/two-layer-hhdc/) to allow for narrower traces to handle the maximum 10A motor current.
+<br><img src="hardware/PDB/pcb_front.png" alt="PDB PCB Front" width="240" height="303"/>
+<img src="hardware/PDB/pcb_back.png" alt="PDB PCB Back" width="240" height="303"/>
+
+### Next Steps
+* Design a PCB for the BLE based remote control electronics.
+* Solder up the PDB once the PCBs arrive from OSHPark.
+
+
+
+---
 ## May 30th, 2020
 ![Digikey parts](photos/20200530-01.jpg)
 
