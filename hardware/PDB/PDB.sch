@@ -5,8 +5,8 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 1 1
 Title "Ferdinand20 - Power Distribution Board"
-Date "2020-06-25"
-Rev "1"
+Date "2020-07-06"
+Rev "2"
 Comp ""
 Comment1 "https://creativecommons.org/licenses/by-sa/4.0/"
 Comment2 "Released under the Creative Commons Attribution Share-Alike 4.0 License"

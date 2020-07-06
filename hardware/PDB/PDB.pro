@@ -1,4 +1,4 @@
-update=Friday, July 03, 2020 at 08:24:57 PM
+update=Monday, July 06, 2020 at 02:30:21 AM
 version=1
 last_client=kicad
 [general]
@@ -12,16 +12,6 @@ NetIExt=net
 version=1
 LibDir=
 [eeschema/libraries]
-[schematic_editor]
-version=1
-PageLayoutDescrFile=/Users/adamgreen/Documents/KiCAD/logo.kicad_wks
-PlotDirectoryName=
-SubpartIdSeparator=0
-SubpartFirstId=65
-NetFmtName=Pcbnew
-SpiceAjustPassiveValues=0
-LabSize=50
-ERC_TestSimilarLabels=1
 [pcbnew]
 version=1
 PageLayoutDescrFile=/Users/adamgreen/Documents/KiCAD/logo.kicad_wks
@@ -268,3 +258,13 @@ uViaDrill=0.254
 dPairWidth=0.2
 dPairGap=0.25
 dPairViaGap=0.25
+[schematic_editor]
+version=1
+PageLayoutDescrFile=/Users/adamgreen/depots/KiCADLibs/logo.kicad_wks
+PlotDirectoryName=
+SubpartIdSeparator=0
+SubpartFirstId=65
+NetFmtName=Pcbnew
+SpiceAjustPassiveValues=0
+LabSize=50
+ERC_TestSimilarLabels=1
