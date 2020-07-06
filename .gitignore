@@ -32,3 +32,9 @@ socket.log
 
 # Will commit .3mf instead of .gcode
 *.gcode
+
+# KiCAD
+*.kicad_pcb-bak
+*.sch-bak
+*.net
+fp-info-cache
