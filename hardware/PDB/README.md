@@ -8,7 +8,7 @@ Description | Quantity | Part Number(s)
 [MMBT2222ALT3G NPN Transistor](https://www.digikey.com/product-detail/en/MMBT2222ALT3G/MMBT2222ALT3GOSCT-ND) | 1 | Q1
 [1N4148WT Diode](https://www.digikey.com/product-detail/en/1N4148WT/1N4148WTCT-ND) | 1 | D1
 [0.1uF Capacitor](https://www.adafruit.com/product/441) | 1 | C1
-[470pF Capacitor](https://www.adafruit.com/product/441) | 1 | C2
+[470pF Capacitor](https://www.digikey.com/product-detail/en/CC0805KRX7R9BB471/311-1124-1-ND) | 1 | C2
 [1uF Capacitor](https://www.adafruit.com/product/441) | 4 | C3, C4, C5, C6
 [680 ohm Resistor](https://www.adafruit.com/product/441) | 1 | R1
 [1k ohm Resistor](https://www.adafruit.com/product/441) | 2 | R2, R3
