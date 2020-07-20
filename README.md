@@ -14,6 +14,27 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## July 20th, 2020
+The Power Distribution Board PCB left [OSHPark](https://oshpark.com) at the end of last week and should arrive at my home today. While waiting for that board to be fabricated, I have been working on the KiCAD design for the BLE based Remote Control which wirelessly connects to the PDB.
+
+![Remote Control Schematic](hardware/RemoteControl/schematic.png)<br>
+![Remote Control PCB](photos/20200718-03.png)
+
+I sent the above Remote Control PCB design off to OSHPark for fabrication this morning.
+
+I also worked on a nonfunctional [OpenSCAD](https://www.openscad.org) mockup for the remote control at the same time as I worked on the PCB layout so that I could make sure that the PCB would fit within the model. It also let me check whether things like mounting holes, switches, thumb stick, etc need to be moved. I broke the mockup design down into two pieces:
+* The top which will contain the thumb stick, deadman switch, and electronics.<br>
+![Remote Control Top](photos/20200718-02.png)
+* The handle which will contain the 2xAAA battery pack.<br>
+![Remote Control Bottom](photos/20200718-01.png)
+
+Now that the PDB PCB is scheduled to arrive today, I will concentrate on that part of the project for the next couple of weeks:
+* Soldering and testing the PDB.
+* Start working on the OpenSCAD design of the panel to be mounted on Sawppy to contain the PDB electronics.
+
+
+
+---
 ## July 6th, 2020
 I have now learned enough KiCAD to complete version 1 of the Power Distribution Board, PDB, for my Robo-Magellan bot.
 <br>![PDB Schematic](hardware/PDB/schematic.png)
@@ -24,7 +45,7 @@ I have uploaded the resulting KiCAD layout to [OSHPark](https://oshpark.com) and
 
 ### Next Steps
 * Design a PCB for the BLE based remote control electronics.
-* Solder up the PDB once the PCBs arrive from OSHPark.
+* Solder up the PDB once the PCB arrives from OSHPark.
 
 
 
