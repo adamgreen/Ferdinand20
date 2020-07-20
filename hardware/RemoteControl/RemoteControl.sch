@@ -1,0 +1,293 @@
+EESchema Schematic File Version 4
+EELAYER 30 0
+EELAYER END
+$Descr USLetter 11000 8500
+encoding utf-8
+Sheet 1 1
+Title "Ferdinand20 - Remote Control"
+Date "2020-07-19"
+Rev "1"
+Comp ""
+Comment1 "https://creativecommons.org/licenses/by-sa/4.0/"
+Comment2 "Released under the Creative Commons Attribution Share-Alike 4.0 License"
+Comment3 ""
+Comment4 "BLE based remote control with analog joystick and deadman switch."
+$EndDescr
+$Comp
+L adam_custom:DYNASTREAM_N5150M4CDTOP U1
+U 1 1 5F095665
+P 5200 4350
+F 0 "U1" H 5200 5304 45  0000 C CNN
+F 1 "DYNASTREAM_N5150M4CDTOP" H 5200 5220 45  0000 C CNN
+F 2 "adam_custom:adam_custom-N5150M4CD_TOP" H 5230 4500 20  0001 C CNN
+F 3 "" H 5200 4350 50  0001 C CNN
+	1    5200 4350
+	1    0    0    -1  
+$EndComp
+$Comp
+L SparkFun-Switches:JOYSTICK_THUMB S1
+U 1 1 5F096E4D
+P 7850 3900
+F 0 "S1" H 7800 4500 45  0000 L CNN
+F 1 "Sparkfun Thumb Joystick" V 8150 3450 45  0000 L CNN
+F 2 "Sparkfun-Switches:JOYSTICK" H 7850 4550 20  0001 C CNN
+F 3 "" H 7850 3900 50  0001 C CNN
+F 4 "COMP-09744" H 8128 3766 60  0001 L CNN "Field4"
+	1    7850 3900
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR0101
+U 1 1 5F0A07A5
+P 7400 4450
+F 0 "#PWR0101" H 7400 4200 50  0001 C CNN
+F 1 "GND" H 7405 4277 50  0000 C CNN
+F 2 "" H 7400 4450 50  0001 C CNN
+F 3 "" H 7400 4450 50  0001 C CNN
+	1    7400 4450
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	7500 4100 7400 4100
+Wire Wire Line
+	7400 4100 7400 4400
+Wire Wire Line
+	7500 4400 7400 4400
+Connection ~ 7400 4400
+Wire Wire Line
+	7400 4400 7400 4450
+Wire Wire Line
+	7500 3700 7400 3700
+Wire Wire Line
+	7400 3700 7400 4100
+Connection ~ 7400 4100
+$Comp
+L power:GND #PWR0102
+U 1 1 5F0A33B1
+P 7650 5200
+F 0 "#PWR0102" H 7650 4950 50  0001 C CNN
+F 1 "GND" H 7655 5027 50  0000 C CNN
+F 2 "" H 7650 5200 50  0001 C CNN
+F 3 "" H 7650 5200 50  0001 C CNN
+	1    7650 5200
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR0103
+U 1 1 5F0A401F
+P 4150 4550
+F 0 "#PWR0103" H 4150 4300 50  0001 C CNN
+F 1 "GND" H 4155 4377 50  0000 C CNN
+F 2 "" H 4150 4550 50  0001 C CNN
+F 3 "" H 4150 4550 50  0001 C CNN
+	1    4150 4550
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	4150 4450 4150 4550
+$Comp
+L power:VCC #PWR0104
+U 1 1 5F0A4F08
+P 4150 4250
+F 0 "#PWR0104" H 4150 4100 50  0001 C CNN
+F 1 "VCC" H 4165 4423 50  0000 C CNN
+F 2 "" H 4150 4250 50  0001 C CNN
+F 3 "" H 4150 4250 50  0001 C CNN
+	1    4150 4250
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	4150 4250 4150 4350
+$Comp
+L power:GND #PWR0105
+U 1 1 5F0A54D1
+P 4300 4950
+F 0 "#PWR0105" H 4300 4700 50  0001 C CNN
+F 1 "GND" H 4305 4777 50  0000 C CNN
+F 2 "" H 4300 4950 50  0001 C CNN
+F 3 "" H 4300 4950 50  0001 C CNN
+	1    4300 4950
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:VCC #PWR0106
+U 1 1 5F0A5F79
+P 4300 3550
+F 0 "#PWR0106" H 4300 3400 50  0001 C CNN
+F 1 "VCC" H 4315 3723 50  0000 C CNN
+F 2 "" H 4300 3550 50  0001 C CNN
+F 3 "" H 4300 3550 50  0001 C CNN
+	1    4300 3550
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	4500 3950 4300 3950
+Wire Wire Line
+	4300 3950 4300 3550
+Wire Wire Line
+	4500 4850 4300 4850
+Wire Wire Line
+	4300 4850 4300 4950
+$Comp
+L power:PWR_FLAG #FLG0101
+U 1 1 5F0AA081
+P 4000 4250
+F 0 "#FLG0101" H 4000 4325 50  0001 C CNN
+F 1 "PWR_FLAG" H 4000 4423 50  0001 C CNN
+F 2 "" H 4000 4250 50  0001 C CNN
+F 3 "~" H 4000 4250 50  0001 C CNN
+	1    4000 4250
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	4000 4250 4000 4350
+Wire Wire Line
+	4000 4350 4150 4350
+$Comp
+L SparkFun-Jumpers:JUMPER-SMT_3_1-NC JP1
+U 1 1 5F0ABB0A
+P 6750 3200
+F 0 "JP1" H 6500 3450 45  0000 L CNN
+F 1 "Pot High Side Select" H 5850 3300 45  0000 L CNN
+F 2 "Sparkfun-Jumpers:SMT-JUMPER_3_1-NC_TRACE_SILK" H 6750 3450 20  0001 C CNN
+F 3 "" V 6750 3145 60  0001 C CNN
+F 4 "XXX-00000" H 6854 3116 60  0001 L CNN "PROD_ID"
+	1    6750 3200
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:VCC #PWR0107
+U 1 1 5F0AE710
+P 6750 2900
+F 0 "#PWR0107" H 6750 2750 50  0001 C CNN
+F 1 "VCC" H 6765 3073 50  0000 C CNN
+F 2 "" H 6750 2900 50  0001 C CNN
+F 3 "" H 6750 2900 50  0001 C CNN
+	1    6750 2900
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	6750 2900 6750 3000
+Wire Wire Line
+	7500 3900 7350 3900
+Wire Wire Line
+	7350 3900 7350 3700
+Wire Wire Line
+	7500 3500 7350 3500
+Text Notes 7100 3050 0    50   ~ 0
+Selects high side voltage source for pots. \nUsing GPIO pin allows uC to reduce current \nthrough pot when sleeping.
+NoConn ~ 4500 3650
+NoConn ~ 4500 3750
+NoConn ~ 5900 4050
+NoConn ~ 5900 4150
+NoConn ~ 5900 4250
+NoConn ~ 5900 4350
+NoConn ~ 5900 4550
+NoConn ~ 5900 4750
+$Comp
+L power:PWR_FLAG #FLG0102
+U 1 1 5F0BCD5C
+P 4000 4550
+F 0 "#FLG0102" H 4000 4625 50  0001 C CNN
+F 1 "PWR_FLAG" H 4000 4723 50  0001 C CNN
+F 2 "" H 4000 4550 50  0001 C CNN
+F 3 "~" H 4000 4550 50  0001 C CNN
+	1    4000 4550
+	-1   0    0    1   
+$EndComp
+Wire Wire Line
+	4000 4550 4000 4450
+Wire Wire Line
+	4000 4450 4150 4450
+$Comp
+L Connector:TestPoint TP1
+U 1 1 5F0C22AF
+P 3800 4300
+F 0 "TP1" H 3650 4350 50  0000 L CNN
+F 1 "Batt+" H 3700 4500 50  0000 L CNN
+F 2 "TestPoint:TestPoint_Pad_D2.0mm" H 4000 4300 50  0001 C CNN
+F 3 "~" H 4000 4300 50  0001 C CNN
+	1    3800 4300
+	1    0    0    -1  
+$EndComp
+$Comp
+L Connector:TestPoint TP2
+U 1 1 5F0C37CF
+P 3800 4500
+F 0 "TP2" H 3950 4550 50  0000 R CNN
+F 1 "Batt-" H 3900 4700 50  0000 R CNN
+F 2 "TestPoint:TestPoint_Pad_D2.0mm" H 4000 4500 50  0001 C CNN
+F 3 "~" H 4000 4500 50  0001 C CNN
+	1    3800 4500
+	-1   0    0    1   
+$EndComp
+Wire Wire Line
+	3800 4300 3800 4350
+Wire Wire Line
+	3800 4350 4000 4350
+Connection ~ 4000 4350
+Wire Wire Line
+	3800 4500 3800 4450
+Wire Wire Line
+	3800 4450 4000 4450
+Connection ~ 4000 4450
+$Comp
+L MyLibrary:PTS645V-SPST-RightAngleSwitch S2
+U 1 1 5F0CB50E
+P 7300 5050
+F 0 "S2" H 7300 5275 50  0000 C CNN
+F 1 "DeadMan Switch" H 7300 5184 50  0000 C CNN
+F 2 "MyLibrary:PTS645V-SPST-RightAngleSwitch" H 7300 5050 50  0001 C CNN
+F 3 "" H 7300 5050 50  0001 C CNN
+	1    7300 5050
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	7450 5200 7650 5200
+Wire Wire Line
+	7450 5050 7650 5050
+Wire Wire Line
+	7650 5050 7650 5200
+Connection ~ 7650 5200
+Text GLabel 5900 3850 2    50   Input ~ 0
+JOY_V
+Text GLabel 5900 4650 2    50   Input ~ 0
+JOY_BTN
+Text GLabel 5900 3950 2    50   Input ~ 0
+JOY_H
+Text GLabel 5900 3750 2    50   Input ~ 0
+DEADMAN_SW
+Text GLabel 5900 4850 2    50   Output ~ 0
+JOY_PWR
+NoConn ~ 5900 4450
+NoConn ~ 5900 3650
+Text GLabel 6900 3050 1    50   Input ~ 0
+JOY_PWR
+Wire Wire Line
+	6900 3050 6900 3400
+Wire Wire Line
+	6900 3400 6750 3400
+Wire Wire Line
+	6600 3200 6600 3700
+Wire Wire Line
+	6600 3700 7350 3700
+Connection ~ 7350 3700
+Wire Wire Line
+	7350 3700 7350 3500
+Text GLabel 7250 3600 0    50   Output ~ 0
+JOY_V
+Text GLabel 7250 4000 0    50   Output ~ 0
+JOY_H
+Wire Wire Line
+	7250 4000 7500 4000
+Wire Wire Line
+	7250 3600 7500 3600
+Text GLabel 7250 4300 0    50   Output ~ 0
+JOY_BTN
+Wire Wire Line
+	7250 4300 7500 4300
+Text GLabel 7050 5050 0    50   Output ~ 0
+DEADMAN_SW
+Wire Wire Line
+	7050 5050 7150 5050
+$EndSCHEMATC

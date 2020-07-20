@@ -1,4 +1,4 @@
-update=Monday, July 06, 2020 at 02:36:33 AM
+update=Saturday, July 11, 2020 at 01:29:56 AM
 version=1
 last_client=kicad
 [general]
@@ -18,7 +18,7 @@ PageLayoutDescrFile=/Users/adamgreen/depots/KiCADLibs/logo.kicad_wks
 PlotDirectoryName=
 SubpartIdSeparator=0
 SubpartFirstId=65
-NetFmtName=Pcbnew
+NetFmtName=
 SpiceAjustPassiveValues=0
 LabSize=50
 ERC_TestSimilarLabels=1
@@ -67,7 +67,7 @@ OthersTextUpright=1
 SolderMaskClearance=0.0508
 SolderMaskMinWidth=0
 SolderPasteClearance=0
-SolderPasteRatio=0
+SolderPasteRatio=-0
 [pcbnew/Layer.F.Cu]
 Name=F.Cu
 Type=0
@@ -247,21 +247,10 @@ dPairWidth=0.2
 dPairGap=0.25
 dPairViaGap=0.25
 [pcbnew/Netclasses/1]
-Name=HiPower
-Clearance=0.1524
-TrackWidth=2.413
-ViaDiameter=1.27
-ViaDrill=0.254
-uViaDiameter=0.508
-uViaDrill=0.254
-dPairWidth=0.2
-dPairGap=0.25
-dPairViaGap=0.25
-[pcbnew/Netclasses/2]
 Name=Power
 Clearance=0.1524
 TrackWidth=0.508
-ViaDiameter=1.27
+ViaDiameter=0.508
 ViaDrill=0.254
 uViaDiameter=0.508
 uViaDrill=0.254
