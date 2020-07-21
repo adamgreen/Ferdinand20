@@ -14,6 +14,12 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## July 21st, 2020
+The Power Distribution Board PCBs arrived from OSHPark yesterday. I will soon start soldering them up. These are the first custom PCBs that I have had made for this project so it is pretty exciting.<br>
+![PDB PCBs from OSHPark](photos/20200721-02.jpg)
+
+
+---
 ## July 20th, 2020
 The Power Distribution Board PCB left [OSHPark](https://oshpark.com) at the end of last week and should arrive at my home today. While waiting for that board to be fabricated, I have been working on the KiCAD design for the BLE based Remote Control which wirelessly connects to the PDB.
 
@@ -27,6 +33,9 @@ I also worked on a nonfunctional [OpenSCAD](https://www.openscad.org) mockup for
 ![Remote Control Top](photos/20200718-02.png)
 * The handle which will contain the 2xAAA battery pack.<br>
 ![Remote Control Bottom](photos/20200718-01.png)
+
+Here is what it looked like after I 3D printed those two parts and glued them together:<br>
+![Photo of 3D printed remote control mockup](photos/20200721-01.jpg)
 
 Now that the PDB PCB is scheduled to arrive today, I will concentrate on that part of the project for the next couple of weeks:
 * Soldering and testing the PDB.
