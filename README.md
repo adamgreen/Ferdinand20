@@ -13,6 +13,27 @@ Tracking the build of my robot to compete in the
 
 
 
+## July 25th, 2020
+### Power Distribution Board Version 1 - Ready for Action
+![Initial PDB Testing](photos/20200725-01.jpg)
+
+This week I soldered the parts down to version 1 of the PDB PCB and got the existing firmware up and running on it. The voltage regulators (3.3V and 5V) both work as expected, the LCD works as well, the NRF51 module is able to connect with my remote control prototype, and pressing the deadman switch on the remote control successfully energizes the relay for enabling motor power.
+
+### Power Distribution Board Improvements
+As I was soldering up the board and testing it, there were a few things I noticed that I would change if I ever update the PCB design:
+* Just use one 2.2uF capacitor on the outputs of the regulators instead of the two 1uF that I currently have in the design. These are what the regulator datasheets recommend but I didn't have any here when I designed the boards but I do now.
+* The 0805 footprints I used for the capacitors and resistors were very hard to hand solder. The pad is completely covered by the part, making it difficult for me to get the iron on both the pad and the component to properly heat them. KiCAD has hand soldering friendly footprints in its library so I would like to try them next time.
+* The D1 footprint I used is way too small for hand soldering. There are SOD123 variants of this chip available from Digikey which are larger and the footprint for it is also in their KiCAD library.
+* The F2 and F3 fuse holders are so close together that it is hard to solder the last one in. F3 could have been moved a bit lower.
+* I am not switching the 5V supply with the main power switch. It is currently always getting power. I will rework the current board to correct this issue.
+* I need to connect an ADC capable pin on the nRF51 module to the battery voltage so that it can report the battery voltage to the user on the LCD. I will rework the current board to correct this issue.
+
+### Next Steps
+* Finalize the PDB firmware. It is easier to work on the PDB firmware while the electronics are on the desk since it makes the SWD debugging port more accessible.
+* Start working on the OpenSCAD design of the panel to be mounted on Sawppy to contain the PDB electronics.
+
+
+
 ---
 ## July 21st, 2020
 The Power Distribution Board PCBs arrived from OSHPark yesterday. I will soon start soldering them up. These are the first custom PCBs that I have had made for this project so it is pretty exciting.<br>
