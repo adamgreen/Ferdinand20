@@ -65,8 +65,8 @@ extern "C" {
 
 #define BUTTONS_NUMBER 2
 
-#define BUTTON_1       17
-#define BUTTON_2       26
+#define BUTTON_1       4
+#define BUTTON_2       7
 #define BUTTON_PULL    NRF_GPIO_PIN_PULLUP
 
 #define BUTTONS_ACTIVE_STATE 0
@@ -77,19 +77,18 @@ extern "C" {
 #define BSP_BUTTON_1   BUTTON_2
 
 
-#define RX_PIN_NUMBER  25
-#define TX_PIN_NUMBER  24
+#define RX_PIN_NUMBER  3
+#define TX_PIN_NUMBER  5
 #define CTS_PIN_NUMBER 0xFFFFFFFF
 #define RTS_PIN_NUMBER 0xFFFFFFFF
 #define HWFC           APP_UART_FLOW_CONTROL_DISABLED
 
 
 // Low frequency clock source to be used by the SoftDevice
-// Use the RC low frequency oscillator and calibrate every 4 seconds (16x250ms).
-#define NRF_CLOCK_LFCLKSRC      {.source        = NRF_CLOCK_LF_SRC_RC,            \
-                                 .rc_ctiv       = 16,                              \
+#define NRF_CLOCK_LFCLKSRC      {.source        = NRF_CLOCK_LF_SRC_XTAL,           \
+                                 .rc_ctiv       = 0,                              \
                                  .rc_temp_ctiv  = 0,                                \
-                                 .xtal_accuracy = NRF_CLOCK_LF_XTAL_ACCURACY_250_PPM}
+                                 .xtal_accuracy = NRF_CLOCK_LF_XTAL_ACCURACY_50_PPM}
 
 #ifdef __cplusplus
 }

@@ -51,7 +51,7 @@
 
 
 // The output pin used to turn control the motor power relay.
-#define MOTOR_RELAY_PIN         18  // P8 on microbit.
+#define MOTOR_RELAY_PIN         24
 
 // This firmware acts as a BLE central with a single link to the BleJoystick peripheral.
 #define CENTRAL_LINK_COUNT      1
@@ -618,11 +618,11 @@ void lcdTestPattern(void);
 #define SCREEN_HEIGHT 240
 
 // You can use any 5 pins.
-#define SCLK_PIN 23 // P13
-#define MOSI_PIN 21 // P15
-#define DC_PIN   22 // P14
-#define CS_PIN   16 // P16
-#define RST_PIN  20 // P12
+#define LCD_SCK_PIN     6
+#define LCD_MOSI_PIN    11
+#define LCD_TFTDC_PIN   2
+#define LCD_TFTCS_PIN   8
+#define LCD_TFTRST_PIN  23
 
 // Color definitions
 #define	BLACK           0x0000
@@ -635,7 +635,8 @@ void lcdTestPattern(void);
 #define WHITE           0xFFFF
 
 nrf_drv_spi_t g_spi = NRF_DRV_SPI_INSTANCE(0);
-Adafruit_ST7789 tft = Adafruit_ST7789(SCREEN_WIDTH, SCREEN_HEIGHT, &g_spi, MOSI_PIN, SCLK_PIN, CS_PIN, DC_PIN, RST_PIN);
+Adafruit_ST7789 tft = Adafruit_ST7789(SCREEN_WIDTH, SCREEN_HEIGHT, &g_spi,
+                                      LCD_MOSI_PIN, LCD_SCK_PIN, LCD_TFTCS_PIN, LCD_TFTDC_PIN, LCD_TFTRST_PIN);
 
 float p = 3.1415926;
 
