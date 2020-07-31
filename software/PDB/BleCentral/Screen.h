@@ -1,0 +1,97 @@
+/*  Copyright (C) 2020  Adam Green (https://github.com/adamgreen)
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+*/
+/* Updates the LCD screen attached to the Ferdinand20 Power Distribution Board.
+   Updates the screen with:
+     * LiPo battery voltage
+     * Wireless BLE remote battery voltage
+     * Manual/Auto mode
+     * Motor relay on/off state
+     * Status messages sent from robot's main microcontroller.
+*/
+#ifndef SCREEN_H_
+#define SCREEN_H_
+
+#include <Adafruit_GFX.h>
+#include <Adafruit_SPITFT.h>
+#include <Adafruit_ST7789.h>
+
+
+
+class Screen
+{
+    public:
+        Screen(uint32_t updatesPerSecond,
+               nrf_drv_spi_t* pSpi, uint8_t mosiPin, uint8_t sckPin, uint8_t csPin, uint8_t dcPin,
+               uint8_t rstPin = NRF_DRV_SPI_PIN_NOT_USED);
+
+        struct PdbState
+        {
+            // Is the PDB set to run in manual or auto mode?
+            bool    isManualMode;
+            // Is remote connected over BLE?
+            bool    isRemoteConnected;
+            // Is dead man switch on remote control enaged to enable motors?
+            bool    areMotorsEnabled;
+            // Robot's battery level.
+            //  Divide by 10 to get actual voltage range of 0.0V to 8.0V+.
+            uint8_t robotBattery;
+            // Remote control's battery level.
+            //  0 to 36 - Divide by 10 to get actual voltage range of 0.0V to 3.6V.
+            uint8_t remoteBattery;
+        };
+
+        void update(const PdbState* pState);
+
+        // Class specific constants for our screen dimensions.
+        enum
+        {
+            SCREEN_WIDTH = 240,
+            SCREEN_HEIGHT = 240
+        };
+
+    protected:
+        uint32_t        m_updatesPerSecond;
+        uint32_t        m_blinkUpdates;
+        Adafruit_ST7789 m_tft;
+        PdbState        m_currentState;
+        bool            m_blinkManual;
+        bool            m_blinkBle;
+
+        void drawManualAutoMode(bool isManualMode);
+        void drawRemoteIcon(bool isRemoteConnected);
+        void drawRemoteVoltage(bool isRemoteConnected, uint8_t remoteVoltage);
+        void drawMotorIcon(bool areMotorsEnabled);
+        void drawRobotVoltage(uint8_t robotVoltage);
+        void drawBatteryVoltage(uint16_t x, uint16_t y, uint8_t size, uint16_t color, uint8_t voltage);
+
+        // NiMH voltage levels below this value in the remote control should be shown in red text.
+        enum
+        {
+            // 20 = 2.0V
+            REMOTE_LOW_BATTERY = 20
+        };
+
+        // 2S LiPo voltage levels that generate warning and error messages for main robot battery.
+        enum
+        {
+            // 38 = 3.8V
+            // Battery voltage will be displayed as orange text one it reaches this voltage.
+            ROBOT_WARN_BATTERY = 38,
+            // Battery voltage will be display as red text once it reaches this voltage.
+            ROBOT_ERROR_BATTERY = 34,
+            // Motors will be disabled once it reaches this voltage to protect the battery from under voltage.
+            ROBOT_LOW_BATTERY = 30
+        };
+};
+
+#endif // SCREEN_H_

@@ -33,7 +33,8 @@
 */
 #include <stdio.h>
 #include <app_uart.h>
-#include <app_timer.h>
+#include <app_scheduler.h>
+#include <app_timer_appsh.h>
 #include <bsp.h>
 #include <bsp_btn_ble.h>
 #include <ble.h>
@@ -43,15 +44,32 @@
 #include <ble_hci.h>
 #include <ble_nus_c.h>
 #include <softdevice_handler.h>
+#include <nrf_adc.h>
 #include "../BleJoyShared.h"
-#include <Adafruit_GFX.h>
-#include <Adafruit_SPITFT.h>
-#include <Adafruit_ST7789.h>
+#include "Screen.h"
 #include <nrf_delay.h>
 
 
 // The output pin used to turn control the motor power relay.
 #define MOTOR_RELAY_PIN         24
+
+// The input pin used to read the state of the manual override switch.
+#define MANUAL_SWITCH_PIN       15
+
+// The pins used to communicate with the LCD.
+#define LCD_SCK_PIN             12
+#define LCD_MOSI_PIN            11
+#define LCD_TFTDC_PIN           2
+#define LCD_TFTCS_PIN           8
+#define LCD_TFTRST_PIN          23
+
+// The analog input pin used to read the current LiPo battery voltage through 1/3 voltage divider.
+#define BATTERY_VOLTAGE_PIN     NRF_ADC_CONFIG_INPUT_7  // P0.06 is AIN7 on nRF51422.
+
+// The resistors used in battery voltage divider.
+#define BATTERY_VOLTAGE_DIVIDER_BOTTOM  327
+#define BATTERY_VOLTAGE_DIVIDER_TOP     681
+#define BATTERY_VOLTAGE_DIVIDER_TOTAL   (BATTERY_VOLTAGE_DIVIDER_BOTTOM + BATTERY_VOLTAGE_DIVIDER_TOP)
 
 // This firmware acts as a BLE central with a single link to the BleJoystick peripheral.
 #define CENTRAL_LINK_COUNT      1
@@ -105,6 +123,16 @@
 #define UUID32_SIZE             (32/8)
 #define UUID128_SIZE            (128/8)
 
+// Maximum size of scheduled events - Timer events are placed in this queue.
+#define SCHED_MAX_EVENT_DATA_SIZE       APP_TIMER_SCHED_EVT_SIZE
+// Maximum number of events to be schedule at once.
+// 2 for timers.
+#define SCHED_QUEUE_SIZE                2
+
+// How often the battery voltage level should be measured and the LCD screen contents potentially updated.
+#define UPDATES_PER_SECOND              4
+#define BATTERY_LEVEL_MEAS_INTERVAL     APP_TIMER_TICKS((1000/UPDATES_PER_SECOND), APP_TIMER_PRESCALER)
+
 
 
 static ble_nus_c_t              g_nordicUartServiceClient;
@@ -133,7 +161,6 @@ static const ble_gap_scan_params_t g_bleScanParameters =
     .timeout  = SCAN_TIMEOUT,
 };
 
-
 // Only BleJoystick devices reporting this UUID in their advertisement scan data will be connected to.
 static const ble_uuid_t g_bleJoystickUuid =
 {
@@ -141,14 +168,35 @@ static const ble_uuid_t g_bleJoystickUuid =
     .type = BLEJOY_ADVERTISE_UUID_TYPE
 };
 
+// Timer objects used for measuring battery voltage, switch states, and updating LCD.
+APP_TIMER_DEF(g_batteryMeasurementTimer);
+
+// Objects used to control the LCD over SPI.
+static nrf_drv_spi_t    g_spi = NRF_DRV_SPI_INSTANCE(0);
+static Screen           g_screen(UPDATES_PER_SECOND,
+                                 &g_spi, LCD_MOSI_PIN, LCD_SCK_PIN, LCD_TFTCS_PIN, LCD_TFTDC_PIN, LCD_TFTRST_PIN);
+
+// Global object used to track the PDB state. Used for updating the LCD.
+static Screen::PdbState g_state =
+{
+    .isManualMode = false,
+    .isRemoteConnected = false,
+    .areMotorsEnabled = false,
+    .robotBattery = 0,
+    .remoteBattery = 0
+};
+
 
 
 // Function Prototypes
+static void initTimers(void);
+static void batteryMeasurementTimeoutHandler(void* pvContext);
 static void initUart(void);
 static void uartEventHandler(app_uart_evt_t* pEvent);
 static void initButtonsAndLeds(void);
 static void bspEventHandler(bsp_event_t event);
 static void enterSleepMode(void);
+static void initBatteryVoltageReading(void);
 static void initDatabaseDiscoveryModule(void);
 static void databaseDiscoveryEventHandler(ble_db_discovery_evt_t* pEvent);
 static void initBleStack(void);
@@ -158,32 +206,69 @@ static bool isUuidPresent(const ble_uuid_t* pTargetUuid, const ble_gap_evt_adv_r
 static void initNordicUartServiceClient(void);
 static void nordicUartServiceClientEventHandler(ble_nus_c_t* pNordicUartServiceClient, const ble_nus_c_evt_t* pEvent);
 static void dumpJoyData(const BleJoyData* pJoyData);
+static void startTimers(void);
 static void startScanningForNordicUartPeripherals(void);
 static void enterLowPowerModeUntilNextEvent(void);
-static void testScreen(void);
 
 
 
 int main(void)
 {
-    APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, NULL);
+    APP_SCHED_INIT(SCHED_MAX_EVENT_DATA_SIZE, SCHED_QUEUE_SIZE);
+    initTimers();
 
     initUart();
     initButtonsAndLeds();
-
-    // UNDONE:
-    testScreen();
+    initBatteryVoltageReading();
 
     initDatabaseDiscoveryModule();
     initBleStack();
     initNordicUartServiceClient();
 
+    startTimers();
     startScanningForNordicUartPeripherals();
 
     for (;;)
     {
         enterLowPowerModeUntilNextEvent();
     }
+}
+
+
+static void initTimers(void)
+{
+    // Initialize timer module, making it use the scheduler.
+    APP_TIMER_APPSH_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, true);
+
+    // Create battery reading / LCD update timer.
+    uint32_t errorCode = app_timer_create(&g_batteryMeasurementTimer,
+                                          APP_TIMER_MODE_REPEATED,
+                                          batteryMeasurementTimeoutHandler);
+    APP_ERROR_CHECK(errorCode);
+}
+
+static void batteryMeasurementTimeoutHandler(void* pvContext)
+{
+    // Read the state of the manual override switch.
+    uint32_t manualButtonPressed = nrf_gpio_pin_read(MANUAL_SWITCH_PIN);
+    g_state.isManualMode = manualButtonPressed == 1 ? true : false;
+
+    // Process the most recent battery voltage ADC conversion if ready.
+    if (nrf_adc_conversion_finished())
+    {
+        // Read the last ADC battery voltage read.
+        uint32_t adcReading = nrf_adc_result_get();
+
+        // Convert to 10 X Volts.
+        g_state.robotBattery = adcReading * 36 * BATTERY_VOLTAGE_DIVIDER_TOTAL / (1023 * BATTERY_VOLTAGE_DIVIDER_BOTTOM);
+
+        // Start the next conversion.
+        nrf_adc_conversion_event_clean();
+        nrf_adc_start();
+    }
+
+    // Let the LCD update itself.
+    g_screen.update(&g_state);
 }
 
 static void initUart(void)
@@ -235,16 +320,14 @@ static void uartEventHandler(app_uart_evt_t* pEvent)
 
 static void initButtonsAndLeds(void)
 {
-    // UNDONE: Just need this for the micro:bit board.
-    // Pull column1 of the LED matrix low so that LED will light up when Row1 goes high.
-    nrf_gpio_cfg_output(4);
-    nrf_gpio_pin_clear(4);
-
     // Configure the output pin to drive the motor power relay via a NPN BJT.
     // Needs to be able to source 5mA to the BJT gate when high.
     nrf_gpio_pin_clear(MOTOR_RELAY_PIN);
     nrf_gpio_cfg(MOTOR_RELAY_PIN, NRF_GPIO_PIN_DIR_OUTPUT, NRF_GPIO_PIN_INPUT_DISCONNECT, NRF_GPIO_PIN_NOPULL,
                  NRF_GPIO_PIN_S0H1, NRF_GPIO_PIN_NOSENSE);
+
+    // Configure the pin connected to the manual mode override switch as an input with pull-down.
+    nrf_gpio_cfg_input(MANUAL_SWITCH_PIN, NRF_GPIO_PIN_PULLDOWN);
 
     bsp_event_t startupEvent;
     uint32_t errorCode = bsp_init(BSP_INIT_LED,
@@ -288,6 +371,19 @@ static void enterSleepMode(void)
     // This function won't return but will wakeup with a reset instead.
     errorCode = sd_power_system_off();
     APP_ERROR_CHECK(errorCode);
+}
+
+static void initBatteryVoltageReading(void)
+{
+    // Setup to sample 1/3Vbatt and compare to 1.2V VBG.
+    const nrf_adc_config_t adcConfig = { .resolution = NRF_ADC_CONFIG_RES_10BIT,
+                                         .scaling = NRF_ADC_CONFIG_SCALING_INPUT_ONE_THIRD,
+                                         .reference = NRF_ADC_CONFIG_REF_VBG };
+    nrf_adc_configure((nrf_adc_config_t *)&adcConfig);
+
+    // Start the first battery voltage read, will read and start next conversion in later timer event.
+    nrf_adc_input_select(BATTERY_VOLTAGE_PIN);
+    nrf_adc_start();
 }
 
 static void initDatabaseDiscoveryModule(void)
@@ -379,6 +475,8 @@ static void bleEventHandler(ble_evt_t* pBleEvent)
         case BLE_GAP_EVT_CONNECTED:
             errorCode = bsp_indication_set(BSP_INDICATE_CONNECTED);
             APP_ERROR_CHECK(errorCode);
+
+            g_state.isRemoteConnected = true;
 
             // Start discovery of GATT services on this device. The Nordic UART Client waits for a discovery result
             // to find the services it is interested in for sending/receiving UART data.
@@ -547,7 +645,14 @@ static void nordicUartServiceClientEventHandler(ble_nus_c_t* pNordicUartServiceC
             {
                 BleJoyData joyData;
                 memcpy(&joyData, pEvent->p_data, sizeof(BleJoyData));
+
+                // Set motor relay enable pin based on latest remote dead man switch state just received.
+                nrf_gpio_pin_write(MOTOR_RELAY_PIN, joyData.buttons & BLEJOY_BUTTONS_DEADMAN);
+
                 dumpJoyData(&joyData);
+
+                g_state.remoteBattery = joyData.batteryVoltage;
+                g_state.areMotorsEnabled = joyData.buttons & BLEJOY_BUTTONS_DEADMAN;
             }
             break;
         case BLE_NUS_C_EVT_DISCONNECTED:
@@ -566,8 +671,13 @@ static void dumpJoyData(const BleJoyData* pJoyData)
            (pJoyData->buttons & BLEJOY_BUTTONS_JOYSTICK) ? "JOY" : "   ",
            pJoyData->batteryVoltage / 10,
            pJoyData->batteryVoltage % 10);
-    // UNDONE: Do this from a timer which also checks for BLE connection and uC watchdog.
-    nrf_gpio_pin_write(MOTOR_RELAY_PIN, pJoyData->buttons & BLEJOY_BUTTONS_DEADMAN);
+}
+
+static void startTimers(void)
+{
+    // Start the timers used to measure the battery voltage at regular intervals.
+    uint32_t errorCode = app_timer_start(g_batteryMeasurementTimer, BATTERY_LEVEL_MEAS_INTERVAL, NULL);
+    APP_ERROR_CHECK(errorCode);
 }
 
 static void startScanningForNordicUartPeripherals(void)
@@ -579,12 +689,15 @@ static void startScanningForNordicUartPeripherals(void)
 
     errorCode = bsp_indication_set(BSP_INDICATE_SCANNING);
     APP_ERROR_CHECK(errorCode);
+
+    g_state.isRemoteConnected = false;
 }
 
 static void enterLowPowerModeUntilNextEvent(void)
 {
     uint32_t errorCode = sd_app_evt_wait();
     APP_ERROR_CHECK(errorCode);
+    app_sched_execute();
 }
 
 
@@ -596,9 +709,16 @@ void app_error_fault_handler(uint32_t id, uint32_t pc, uint32_t info)
     { __asm volatile ("bkpt #0"); }
 }
 
+// Required to get C++ code to build.
+extern "C" void __cxa_pure_virtual()
+{
+    ASSERT ( 0 );
+    abort();
+}
 
 
 
+#ifdef UNDONE
 void testlines(uint16_t color);
 void testdrawtext(const char *text, uint16_t color);
 void testfastlines(uint16_t color1, uint16_t color2);
@@ -613,36 +733,70 @@ void mediabuttons();
 void lcdTestPattern(void);
 
 
-// Screen dimensions
-#define SCREEN_WIDTH  240
-#define SCREEN_HEIGHT 240
-
-// You can use any 5 pins.
-#define LCD_SCK_PIN     6
-#define LCD_MOSI_PIN    11
-#define LCD_TFTDC_PIN   2
-#define LCD_TFTCS_PIN   8
-#define LCD_TFTRST_PIN  23
-
-// Color definitions
-#define	BLACK           0x0000
-#define	BLUE            0x001F
-#define	RED             0xF800
-#define	GREEN           0x07E0
-#define CYAN            0x07FF
-#define MAGENTA         0xF81F
-#define YELLOW          0xFFE0
-#define WHITE           0xFFFF
-
-nrf_drv_spi_t g_spi = NRF_DRV_SPI_INSTANCE(0);
-Adafruit_ST7789 tft = Adafruit_ST7789(SCREEN_WIDTH, SCREEN_HEIGHT, &g_spi,
-                                      LCD_MOSI_PIN, LCD_SCK_PIN, LCD_TFTCS_PIN, LCD_TFTDC_PIN, LCD_TFTRST_PIN);
-
-float p = 3.1415926;
 
 void testScreen(void)
 {
-  tft.init(NRF_DRV_SPI_FREQ_8M);
+    //Screen::PdbState state = { .isManualMode = false, .isRemoteConnected = true, .areMotorsEnabled = true, .robotBattery = 78, .remoteBattery = 33 };
+    //g_screen.update(&state);
+
+
+#ifdef UNDONE
+    tft.init(NRF_DRV_SPI_FREQ_8M);
+
+    // Rotate the screen output clockwise by 90 degrees.
+    tft.setRotation(1);
+
+    // UNDONE: Clear the top alert section at first and the rest a line at a time while doing other things.
+    tft.fillRect(0, 0, tft.width(), tft.height(), BLACK);
+
+    const uint8_t normalTextSize = 2;
+    const uint8_t tallTextSize = 4;
+    const uint16_t charWidth = 6;
+    const uint16_t charHeight = 8;
+
+    tft.setCursor(0, 0);
+    tft.setTextColor(RED);
+    tft.setTextSize(normalTextSize);
+    tft.print("Manual");
+
+    uint8_t bluetoothIcon[] = { 0x0c, 0x00, // 00001100 00000000
+                                0x0a, 0x00, // 00001010 00000000
+                                0x49, 0x00, // 01001001 00000000
+                                0x28, 0x80, // 00101000 10000000
+                                0x19, 0x00, // 00011001 00000000
+                                0x0a, 0x00, // 00001010 00000000
+                                0x0c, 0x00, // 00001100 00000000
+                                0x0a, 0x00,
+                                0x19, 0x00,
+                                0x28, 0x80,
+                                0x49, 0x00,
+                                0x0a, 0x00,
+                                0x0c, 0x00};
+    tft.drawBitmap(SCREEN_WIDTH - 5.5*normalTextSize*charWidth, 0, bluetoothIcon, 16, 13, BLUE);
+
+    uint8_t motorIcon[] = { 0x0f, 0xfc, // 00001111 11111100
+                            0x14, 0x02, // 00010100 00000010
+                            0x24, 0x01, // 00100100 00000001
+                            0x27, 0xc1, // 00100111 11000001
+                            0x24, 0x01, // 00100100 00000001
+                            0xe7, 0xc1, // 11100111 11000001
+                            0x24, 0x01,
+                            0x27, 0xc1,
+                            0x24, 0x01,
+                            0x14, 0x02,
+                            0x0f, 0xfc};
+    tft.drawBitmap(SCREEN_WIDTH - 3*normalTextSize*charWidth, normalTextSize*charHeight + 2, motorIcon, 16, 11, WHITE);
+
+    tft.setCursor(SCREEN_WIDTH - 4*normalTextSize*charWidth, 0);
+    tft.setTextColor(GREEN);
+    tft.setTextSize(normalTextSize);
+    tft.print("3.1V");
+
+    tft.setCursor(SCREEN_WIDTH/2 - 2*tallTextSize*charWidth, 0);
+    tft.setTextColor(GREEN);
+    tft.setTextSize(tallTextSize);
+    tft.print("7.8V");
+#endif // UNDONE
 
 #ifdef UNDONE
   printf("init\r\n");
@@ -701,17 +855,16 @@ void testScreen(void)
 
   testroundrects();
   nrf_delay_ms(500);
-#endif // UNDONE
 
   testtriangles();
   nrf_delay_ms(500);
 
-#ifdef UNDONE
   printf("done\r\n");
   nrf_delay_ms(1000);
 #endif // UNDONE
 }
 
+#ifdef UNDONE
 void testlines(uint16_t color) {
    tft.fillScreen(BLACK);
    for (uint16_t x=0; x < tft.width()-1; x+=6) {
@@ -903,10 +1056,5 @@ void lcdTestPattern(void)
     tft.fillRect(0, tft.height() * c / 8, tft.width(), tft.height() / 8, colors[c]);
   }
 }
-
-// Need to get some C++ code to build.
-extern "C" void __cxa_pure_virtual()
-{
-    ASSERT ( 0 );
-    abort();
-}
+#endif // UNDONE
+#endif // UNDONE

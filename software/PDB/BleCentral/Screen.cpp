@@ -1,0 +1,272 @@
+/*  Copyright (C) 2020  Adam Green (https://github.com/adamgreen)
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+*/
+/* Updates the LCD screen attached to the Ferdinand20 Power Distribution Board.
+   Updates the screen with:
+     * LiPo battery voltage
+     * Wireless BLE remote battery voltage
+     * Manual/Auto mode
+     * Motor relay on/off state
+     * Status messages sent from robot's main microcontroller.
+*/
+#include <string.h>
+#include "Screen.h"
+
+
+
+// Size to use for normal text on screen.
+static const uint8_t normalTextSize = 2;
+// Size to use for tall double height text on screen (ie. Robot Voltage).
+static const uint8_t tallTextSize = 4;
+// The width of characters on the screen when text size is set to 1.
+static const uint16_t charWidth = 6;
+// The height of character on the screen when text size is set to 1.
+static const uint16_t charHeight = 8;
+
+
+
+Screen::Screen(uint32_t updatesPerSecond,
+               nrf_drv_spi_t* pSpi, uint8_t mosiPin, uint8_t sckPin, uint8_t csPin, uint8_t dcPin, uint8_t rstPin) :
+    m_updatesPerSecond(updatesPerSecond),
+    m_tft(SCREEN_WIDTH, SCREEN_HEIGHT, pSpi, mosiPin, sckPin, csPin, dcPin, rstPin)
+{
+    m_blinkUpdates = 0;
+    m_blinkManual = false;
+    m_blinkBle = false;
+
+    // Initialize current state to invalid values so that first update will update everything.
+    memset(&m_currentState, 0xFF, sizeof(m_currentState));
+
+    m_tft.init(NRF_DRV_SPI_FREQ_8M);
+
+    // Rotate the screen output clockwise by 90 degrees.
+    m_tft.setRotation(1);
+
+    // UNDONE: Does this display have a command to perform this clear more quickly?
+    // UNDONE: Clear the top alert section at first and the rest a line at a time while doing other things.
+    m_tft.fillRect(0, 0, m_tft.width(), m_tft.height(), TFT_BLACK);
+}
+
+void Screen::update(const PdbState* pState)
+{
+    drawManualAutoMode(pState->isManualMode);
+    drawRemoteIcon(pState->isRemoteConnected);
+    drawRemoteVoltage(pState->isRemoteConnected, pState->remoteBattery);
+    drawMotorIcon(pState->areMotorsEnabled);
+    drawRobotVoltage(pState->robotBattery);
+
+    // Remember the new state.
+    m_currentState = *pState;
+    m_blinkUpdates++;
+    if (m_blinkUpdates >= m_updatesPerSecond)
+    {
+        m_blinkUpdates = 0;
+    }
+}
+
+void Screen::drawManualAutoMode(bool isManualMode)
+{
+    if (m_blinkManual)
+    {
+        // Turn the "Manual" text on at the beginning of a 1 second interval
+        //      - and -
+        // Turn the "Manual" text off 3/4 of the way through the 1 second interval.
+        uint16_t color = TFT_WHITE;
+        if (m_blinkUpdates == 0)
+        {
+            color = TFT_RED;
+        }
+        else if (m_blinkUpdates == (m_updatesPerSecond * 3) / 4)
+        {
+            color = TFT_BLACK;
+        }
+
+        if (color != TFT_WHITE)
+        {
+            // Write "Manual" in red or black.
+            m_tft.setCursor(0, 0);
+            m_tft.setTextSize(normalTextSize);
+            m_tft.setTextColor(color);
+            m_tft.print("Manual");
+        }
+    }
+
+    if (isManualMode != m_currentState.isManualMode)
+    {
+        // Manual/Auto mode has changed so update it on the screen.
+        const char* pCurrText;
+        const char* pNewText;
+        uint16_t newColor;
+        if (isManualMode)
+        {
+            pCurrText = "Auto";
+            pNewText = "Manual";
+            newColor = TFT_RED;
+        }
+        else
+        {
+            pCurrText = "Manual";
+            pNewText = "Auto";
+            newColor = TFT_WHITE;
+        }
+
+        // Erase current mode text.
+        m_tft.setCursor(0, 0);
+        m_tft.setTextSize(normalTextSize);
+        m_tft.setTextColor(TFT_BLACK);
+        m_tft.print(pCurrText);
+
+        // Write next mode text;
+        m_tft.setCursor(0, 0);
+        m_tft.setTextSize(normalTextSize);
+        m_tft.setTextColor(newColor);
+        m_tft.print(pNewText);
+
+        m_blinkManual = isManualMode;
+    }
+}
+
+void Screen::drawRemoteIcon(bool isRemoteConnected)
+{
+    const uint8_t bluetoothIcon[] = { 0x0c, 0x00, // 00001100 00000000
+                                        0x0a, 0x00, // 00001010 00000000
+                                        0x49, 0x00, // 01001001 00000000
+                                        0x28, 0x80, // 00101000 10000000
+                                        0x19, 0x00, // 00011001 00000000
+                                        0x0a, 0x00, // 00001010 00000000
+                                        0x0c, 0x00, // 00001100 00000000
+                                        0x0a, 0x00, // 00001010 00000000
+                                        0x19, 0x00, // 00011001 00000000
+                                        0x28, 0x80, // 00101000 10000000
+                                        0x49, 0x00, // 01001001 00000000
+                                        0x0a, 0x00, // 00001010 00000000
+                                        0x0c, 0x00};// 00001100 00000000
+
+    if (m_blinkBle)
+    {
+        // Turn the BLE icon on at the beginning of a 1 second interval
+        //      - and -
+        // Turn it off 1/2 of the way through the 1 second interval.
+        uint16_t color = TFT_WHITE;
+        if (m_blinkUpdates == 0)
+        {
+            color = TFT_BLUE;
+        }
+        else if (m_blinkUpdates == m_updatesPerSecond / 2)
+        {
+            color = TFT_BLACK;
+        }
+
+        if (color != TFT_WHITE)
+        {
+            // Set BLE icon to blue or black.
+            m_tft.drawBitmap(SCREEN_WIDTH - 5.5*normalTextSize*charWidth, 0, bluetoothIcon, 16, 13, color);
+        }
+    }
+
+    if (isRemoteConnected != m_currentState.isRemoteConnected)
+    {
+        // Remote connection state has changed so update it on the screen.
+        uint16_t newColor = TFT_BLUE;
+        if (!isRemoteConnected)
+        {
+            newColor = TFT_BLACK;
+            // Erase last remote battery voltage displayed when remote it no longer connected.
+            drawBatteryVoltage(SCREEN_WIDTH - 4*normalTextSize*charWidth, 0, normalTextSize, TFT_BLACK, m_currentState.remoteBattery);
+        }
+        else
+        {
+            // Force battery level to be displayed below by making the old and new voltages mismatch.
+            m_currentState.remoteBattery = 0xFF;
+        }
+
+        m_tft.drawBitmap(SCREEN_WIDTH - 5.5*normalTextSize*charWidth, 0, bluetoothIcon, 16, 13, newColor);
+
+        m_blinkBle = !isRemoteConnected;
+    }
+}
+
+void Screen::drawRemoteVoltage(bool isRemoteConnected, uint8_t remoteBattery)
+{
+    if (isRemoteConnected && remoteBattery != m_currentState.remoteBattery)
+    {
+        // When remote is connected, draw when remote's battery voltage has changed.
+        uint16_t batteryColor = TFT_GREEN;
+        if (remoteBattery <= REMOTE_LOW_BATTERY)
+        {
+            batteryColor = TFT_RED;
+        }
+        // Erase old remote battery voltage before displaying new voltage.
+        drawBatteryVoltage(SCREEN_WIDTH - 4*normalTextSize*charWidth, 0, normalTextSize, TFT_BLACK, m_currentState.remoteBattery);
+        drawBatteryVoltage(SCREEN_WIDTH - 4*normalTextSize*charWidth, 0, normalTextSize, batteryColor, remoteBattery);
+    }
+}
+
+void Screen::drawMotorIcon(bool areMotorsEnabled)
+{
+    if (areMotorsEnabled != m_currentState.areMotorsEnabled)
+    {
+        // Dead man switch state has changed so update its icon.
+        const uint8_t motorIcon[] = { 0x0f, 0xfc, // 00001111 11111100
+                                      0x14, 0x02, // 00010100 00000010
+                                      0x24, 0x01, // 00100100 00000001
+                                      0x27, 0xc1, // 00100111 11000001
+                                      0x24, 0x01, // 00100100 00000001
+                                      0xe7, 0xc1, // 11100111 11000001
+                                      0x24, 0x01, // 00100100 00000001
+                                      0x27, 0xc1, // 00100111 11000001
+                                      0x24, 0x01, // 00100100 00000001
+                                      0x14, 0x02, // 00010100 00000010
+                                      0x0f, 0xfc};// 00001111 11111100
+        uint16_t newColor;
+        if (areMotorsEnabled)
+        {
+            newColor = TFT_WHITE;
+        }
+        else
+        {
+            newColor = TFT_BLACK;
+        }
+        m_tft.drawBitmap(SCREEN_WIDTH - 3*normalTextSize*charWidth, normalTextSize*charHeight + 2, motorIcon, 16, 11, newColor);
+    }
+}
+
+void Screen::drawRobotVoltage(uint8_t robotBattery)
+{
+    if (robotBattery != m_currentState.robotBattery)
+    {
+        // Robot's battery voltage has changed so update it.
+        uint16_t batteryColor = TFT_GREEN;
+        if (robotBattery <= ROBOT_ERROR_BATTERY)
+        {
+            batteryColor = TFT_RED;
+        }
+        else if (robotBattery <= ROBOT_WARN_BATTERY)
+        {
+            batteryColor = TFT_ORANGE;
+        }
+        // Erase old robot battery voltage before displaying new voltage.
+        drawBatteryVoltage(SCREEN_WIDTH/2 - 2*tallTextSize*charWidth, 0, tallTextSize, TFT_BLACK, m_currentState.robotBattery);
+        drawBatteryVoltage(SCREEN_WIDTH/2 - 2*tallTextSize*charWidth, 0, tallTextSize, batteryColor, robotBattery);
+    }
+}
+
+void Screen::drawBatteryVoltage(uint16_t x, uint16_t y, uint8_t size, uint16_t color, uint8_t voltage)
+{
+    m_tft.setCursor(x, y);
+    m_tft.setTextColor(color);
+    m_tft.setTextSize(size);
+
+    char buffer[6];
+    snprintf(buffer, sizeof(buffer), "%u.%uV", voltage / 10, voltage % 10);
+    m_tft.print(buffer);
+}

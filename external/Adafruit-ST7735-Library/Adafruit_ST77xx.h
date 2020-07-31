@@ -82,6 +82,16 @@
 #define ST77XX_YELLOW 0xFFE0
 #define ST77XX_ORANGE 0xFC00
 
+#define TFT_BLACK   ST77XX_BLACK
+#define TFT_WHITE   ST77XX_WHITE
+#define TFT_RED     ST77XX_RED
+#define TFT_GREEN   ST77XX_GREEN
+#define TFT_BLUE    ST77XX_BLUE
+#define TFT_CYAN    ST77XX_CYAN
+#define TFT_MAGENTA ST77XX_MAGENTA
+#define TFT_YELLOW  ST77XX_YELLOW
+#define TFT_ORANGE  ST77XX_ORANGE
+
 /// Subclass of SPITFT for ST77xx displays (lots in common!)
 class Adafruit_ST77xx : public Adafruit_SPITFT {
 public:
