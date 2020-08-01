@@ -16,6 +16,7 @@ Tracking the build of my robot to compete in the
 ## July 31st, 2020
 ### Power Distribution Board - Firmware Updates
 ![Photo of latest PDB firmware running](photos/20200731-01.jpg)
+
 I have made some pretty major updates to the PDB firmware and now have it reporting most of the robot power state:
 * Manual/Auto mode switch setting.
 * Connection state of the BLE based remote control.
