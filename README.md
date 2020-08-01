@@ -13,6 +13,32 @@ Tracking the build of my robot to compete in the
 
 
 
+## July 31st, 2020
+### Power Distribution Board - Firmware Updates
+![Photo of latest PDB firmware running](photos/20200731-01.jpg)
+I have made some pretty major updates to the PDB firmware and now have it reporting most of the robot power state:
+* Manual/Auto mode switch setting.
+* Connection state of the BLE based remote control.
+* Current battery voltage of the robot's main 2S LiPo battery.
+* Current battery voltage of the battery in the remote control.
+* A motor icon will be lit up on the display when the dead man switch is pressed on the remote control, enabling the motor power on the PDB.
+
+I did apply a few bodge wires to version 1 of the PDB:
+* The 5V regulator's input power is now switched on and off with the main power switch, just like the 3.3V regulator. Previously it was always getting power as long as the battery was plugged in.
+* I moved the LCD_SCK from pin P0.6 to P0.12, feeing up an ADC pin for reading the LiPo battery voltage.
+* I now connect the switched LiPo battery voltage to P0.6 (AIN7) via a 330/680 ohm voltage divider to reduce the >7V LiPo voltage to something safe for nRF51 pins and comparable to the built-in 1.2V VBG reference.
+
+My first attempt at routing the LiPo battery voltage to P0.6 ended up with me doing some major damage to my nRF51 module and shorting the 3.3V power rail to ground. This happened because I forgot to route the LiPo battery voltage through a voltage divider before applying it to the nRF51 ADC pin. I had to remove that nRF51 module and replace it with a new one. The second time, I remembered to use the voltage divider.
+
+The major features still missing from the PDB are related to UART handling and I will start working on them next:
+* When in manual mode, it needs to send the joystick status to the main robot microcontroller.
+* It also needs to accept informational text from the main microcontroller and display it on the LCD.
+
+### Remote Control - PCBs on their Way
+I received an email from OSHPark yesterday indicating that the PCBs for the remote control electronics have been fabricated and are on their way to me in the mail. They should arrive in a day or two. Once they arrive, I will switch away from the PDB electronics temporarily and solder up the remote control electronics and test it out to see if there is anything I need to revise in that design.
+
+
+
 ## July 25th, 2020
 ### Power Distribution Board Version 1 - Ready for Action
 ![Initial PDB Testing](photos/20200725-01.jpg)
