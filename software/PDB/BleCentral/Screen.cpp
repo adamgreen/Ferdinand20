@@ -51,6 +51,8 @@ Screen::Screen(uint32_t updatesPerSecond,
     m_blinkBle = false;
     m_currentTextLine = 0;
 
+    memset(&m_text, 0, sizeof(m_text));
+
     // Can just pull CS low once here instead of multiple times in the LCD driver.
 #ifdef CS_ALWAYS_LOW
     nrf_gpio_pin_clear(csPin);
@@ -300,7 +302,7 @@ void Screen::updateText(const char* pText)
         m_tft.setScroll(scrollingTopMargin + (m_currentTextLine+1) * TEXT_SIZE * charHeight);
 
         // Erase the bottommost line of text.
-        drawTextLine(m_currentTextLine, TFT_BLACK);
+        eraseTextLine(m_currentTextLine);
         // Replace with new text.
         memcpy(m_text[m_currentTextLine], pText, textLength);
         m_text[m_currentTextLine][textLength] = '\0';
@@ -314,23 +316,11 @@ void Screen::updateText(const char* pText)
     }
     else
     {
-        // Can't use hardware vertical scrolling when in this orientation.
-        if (m_currentTextLine < TEXT_LINES)
-        {
-            // This is the first time writing to this line so just display it.
-            memcpy(m_text[m_currentTextLine], pText, textLength);
-            m_text[m_currentTextLine][textLength] = '\0';
-            drawTextLine(m_currentTextLine, TFT_WHITE);
-            m_currentTextLine++;
-
-            return;
-        }
-
         // Scroll all of the text up by one line, making room for the latest text at the bottom of the screen.
         for (uint8_t i = 0 ; i < TEXT_LINES ; i++)
         {
             // Erase what is currently on this line.
-            drawTextLine(i, TFT_BLACK);
+            eraseTextLine(i);
 
             // Draw the next text to go on this line.
             if (i < TEXT_LINES - 1)
@@ -345,6 +335,14 @@ void Screen::updateText(const char* pText)
             drawTextLine(i, TFT_WHITE);
         }
     }
+}
+
+void Screen::eraseTextLine(uint8_t line)
+{
+    size_t lineLength = strlen(m_text[line]);
+    m_tft.fillRect(0, line * TEXT_SIZE * charHeight + scrollingTopMargin,
+                   lineLength * TEXT_SIZE * charWidth, TEXT_SIZE * charHeight,
+                   TFT_BLACK);
 }
 
 void Screen::drawTextLine(uint8_t line, uint16_t color)

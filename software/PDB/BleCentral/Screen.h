@@ -95,6 +95,7 @@ class Screen
         void drawMotorIcon(bool areMotorsEnabled);
         void drawRobotVoltage(uint8_t robotVoltage);
         void drawBatteryVoltage(uint16_t x, uint16_t y, uint8_t size, uint16_t color, uint8_t voltage);
+        void eraseTextLine(uint8_t line);
         void drawTextLine(uint8_t line, uint16_t color);
 
         // NiMH voltage levels below this value in the remote control should be shown in red text.

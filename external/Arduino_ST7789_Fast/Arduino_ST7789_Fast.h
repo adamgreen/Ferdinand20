@@ -133,12 +133,16 @@ class Arduino_ST7789 : public Adafruit_GFX {
   void commonST7789Init(const uint8_t *cmdList);
 
  private:
-  uint32_t              bytesInFlight;
-  uint8_t               csPin, dcPin, rstPin, mosiPin, sckPin;
   volatile uint32_t*    portSet;
   volatile uint32_t*    portClear;
+  uint32_t              bytesInFlight;
   uint32_t              csMask;
   uint32_t              dcMask;
+  uint8_t               csPin;
+  uint8_t               dcPin;
+  uint8_t               rstPin;
+  uint8_t               mosiPin;
+  uint8_t               sckPin;
 };
 
 #endif
