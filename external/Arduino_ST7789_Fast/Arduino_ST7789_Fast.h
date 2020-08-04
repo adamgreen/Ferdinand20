@@ -128,7 +128,6 @@ class Arduino_ST7789 : public Adafruit_GFX, public IFillRect
 
   void displayInit(const uint8_t *addr);
   void writeSPI(uint8_t);
-  void flushSPI();
   void writeCmd(uint8_t c);
   void writeData(uint8_t d);
   void commonST7789Init(const uint8_t *cmdList);
@@ -136,7 +135,6 @@ class Arduino_ST7789 : public Adafruit_GFX, public IFillRect
  private:
   volatile uint32_t*    portSet;
   volatile uint32_t*    portClear;
-  uint32_t              bytesInFlight;
   uint32_t              csMask;
   uint32_t              dcMask;
   uint8_t               csPin;

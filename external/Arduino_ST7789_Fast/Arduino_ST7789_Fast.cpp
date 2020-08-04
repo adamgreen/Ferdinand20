@@ -35,10 +35,10 @@ static const uint8_t PROGMEM initST7789[] = {
 #define SPI_END
 
 // macros for fast DC and CS state changes
-#define DC_DATA     flushSPI(); *portSet = dcMask
-#define DC_COMMAND  flushSPI(); *portClear = dcMask
-#define CS_IDLE     flushSPI(); *portSet = csMask
-#define CS_ACTIVE   flushSPI(); *portClear = csMask
+#define DC_DATA     *portSet = dcMask
+#define DC_COMMAND  *portClear = dcMask
+#define CS_IDLE     *portSet = csMask
+#define CS_ACTIVE   *portClear = csMask
 
 // SPI_OBJ will be the SPI peripheral instance to be used by this class.
 #define SPI_OBJ ((NRF_SPI_Type*)NRF_DRV_SPI_PERIPHERAL(ST7789_SPI_INSTANCE))
@@ -53,46 +53,22 @@ static const uint8_t PROGMEM initST7789[] = {
 
 inline void Arduino_ST7789::writeSPI(uint8_t c)
 {
-    if (bytesInFlight < 2)
-    {
-        // The SPI peripheral can hold 2 bytes in its queue so fill it up first.
-        bytesInFlight++;
-        SPI_OBJ->TXD = c;
-        return;
-    }
-
-    // The transmit queue was full so wait for atleast one of them to complete.
-    while (!SPI_OBJ->EVENTS_READY)
-    {
-        // Wait for SPI peripheral to finish exchanging at least one byte.
-    }
-
-    // Read out all of the received bytes that are now available.
-    while (SPI_OBJ->EVENTS_READY)
-    {
-        SPI_OBJ->EVENTS_READY = 0;
-        SPI_OBJ->RXD;
-        bytesInFlight--;
-    }
-
-    // There is now enough room to transmit the current byte.
-    bytesInFlight++;
     SPI_OBJ->TXD = c;
-}
-
-inline void Arduino_ST7789::flushSPI()
-{
-    while (bytesInFlight > 0)
-    {
-        // Read received bytes until there are none left in transmit or receive queue.
-        while (!SPI_OBJ->EVENTS_READY)
-        {
-            // Wait for SPI peripheral to finish exchanging at least one byte.
-        }
-        SPI_OBJ->EVENTS_READY = 0;
-        SPI_OBJ->RXD;
-        bytesInFlight--;
-    }
+    // The following NOPs eat up enough CPU time that the byte will have been transmitted before the next call to
+    // this function or changing the state of the DC or CS pins occurs.
+    __NOP();
+    __NOP();
+    __NOP();
+    __NOP();
+    __NOP();
+    __NOP();
+    __NOP();
+    __NOP();
+    __NOP();
+    __NOP();
+    __NOP();
+    __NOP();
+    __NOP();
 }
 
 // ----------------------------------------------------------
@@ -109,7 +85,6 @@ Arduino_ST7789::Arduino_ST7789(uint16_t width, uint16_t height, uint16_t columnO
   csPin = cs;
   dcPin = dc;
   rstPin = rst;
-  bytesInFlight = 0;
 }
 
 // ----------------------------------------------------------
