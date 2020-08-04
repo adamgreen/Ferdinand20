@@ -35,9 +35,11 @@ static const uint8_t PROGMEM initST7789[] = {
 #define SPI_END
 
 // macros for fast DC and CS state changes
-#define DC_DATA     *portSet = dcMask
-#define DC_COMMAND  *portClear = dcMask
-#define CS_IDLE     *portSet = csMask
+// The CS_IDLE needs all of the NOPs because sometimes the SPI peripheral delays transmits by 1/2 byte time.
+#define FLUSH_SPI   __NOP()
+#define DC_DATA     FLUSH_SPI; *portSet = dcMask
+#define DC_COMMAND  FLUSH_SPI; *portClear = dcMask
+#define CS_IDLE     FLUSH_SPI; FLUSH_SPI; FLUSH_SPI; FLUSH_SPI; FLUSH_SPI; FLUSH_SPI; FLUSH_SPI; FLUSH_SPI; FLUSH_SPI; *portSet = csMask
 #define CS_ACTIVE   *portClear = csMask
 
 // SPI_OBJ will be the SPI peripheral instance to be used by this class.
@@ -56,7 +58,6 @@ inline void Arduino_ST7789::writeSPI(uint8_t c)
     SPI_OBJ->TXD = c;
     // The following NOPs eat up enough CPU time that the byte will have been transmitted before the next call to
     // this function or changing the state of the DC or CS pins occurs.
-    __NOP();
     __NOP();
     __NOP();
     __NOP();
@@ -163,7 +164,7 @@ void Arduino_ST7789::commonST7789Init(const uint8_t *cmdList)
   portClear = &NRF_GPIO->OUTCLR;
   dcMask = 1 << dcPin;
 
-  nrf_gpio_pin_clear(sckPin);
+  nrf_gpio_pin_set(sckPin);
   nrf_gpio_cfg(sckPin, NRF_GPIO_PIN_DIR_OUTPUT, NRF_GPIO_PIN_INPUT_CONNECT,
                NRF_GPIO_PIN_NOPULL, NRF_GPIO_PIN_S0S1, NRF_GPIO_PIN_NOSENSE);
   nrf_gpio_pin_clear(mosiPin);
