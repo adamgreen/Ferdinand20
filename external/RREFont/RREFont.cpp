@@ -1,7 +1,14 @@
 // RRE Font support library
 // (c) 2019 by Pawel A. Hernik
 
+#include <ctype.h>
 #include "RREFont.h"
+
+// Macro to convert AVR pgm_read_*() calls to simple dereferences on ARM.
+#define pgm_read_word(ADDR) (*(uint16_t*)(ADDR))
+#define pgm_read_byte(ADDR) (*(uint8_t*)(ADDR))
+
+#define max(a,b)            (((a) > (b)) ? (a) : (b))
 
 // ----------------------------------------------------------------
 RREFont::RREFont()
@@ -9,9 +16,9 @@ RREFont::RREFont()
 }
 // ----------------------------------------------------------------
 // fillRect function callback and screen width and height is necessary to initialize the library
-void RREFont::init(void (*rectFun)(int x, int y, int w, int h, int c), int swd, int sht)
+void RREFont::init(IFillRect* pFillRect, int swd, int sht)
 {
-  fillRectFun = rectFun;
+  m_pFillRect = pFillRect;
   scrWd = swd;
   scrHt = sht;
   cr = bold = dualChar = 0;
@@ -30,7 +37,7 @@ void RREFont::setFont(RRE_Font *f)
 }
 
 // ---------------------------------
-int RREFont::charWidthNoSort(uint8_t c, int *_xmin) 
+int RREFont::charWidthNoSort(uint8_t c, int *_xmin)
 {
   if(c<rFont->firstCh || c>rFont->lastCh) return c==' ' ? rFont->wd/2 : 0;
   uint16_t recIdx = pgm_read_word(&(rFont->offs[c-rFont->firstCh]));
@@ -182,7 +189,7 @@ int RREFont::charWidth(uint8_t c, int *_xmin)
 }
 
 // ----------------------------------------------------------------
-int RREFont::drawChar(int x, int y, unsigned char c) 
+int RREFont::drawChar(int x, int y, unsigned char c)
 {
 #if CONVERT_PL_CHARS==1
   c = convertPolish(c);
@@ -211,7 +218,7 @@ int RREFont::drawChar(int x, int y, unsigned char c)
   if(x+wd+wdL+wdR>scrWd) wdL = max(scrWd-x, 0);
   wd+=wdR+wdL;
   int type=rFont->type & 7;
-  if(bg!=fg && (type==RRE_16B ||type==RRE_24B ||type==RRE_32B || !recNum)) (*fillRectFun)(x, y, (wd+bold)*sx, rFont->ht*sy, bg);
+  if(bg!=fg && (type==RRE_16B ||type==RRE_24B ||type==RRE_32B || !recNum)) m_pFillRect->fillRect(x, y, (wd+bold)*sx, rFont->ht*sy, bg);
   x+=wdL*sx;
   if(!recNum) return (wd+bold)*sx;
   switch(type) {
@@ -224,7 +231,7 @@ int RREFont::drawChar(int x, int y, unsigned char c)
         yf = (v & 0x00f0)>>4;
         wf = ((v & 0x0f00)>>8)+1;
         hf = ((v & 0xf000)>>12)+1;
-        (*fillRectFun)(x+xf*sx, y+yf*sy, bold+wf*sx, hf*sy, fg);
+        m_pFillRect->fillRect(x+xf*sx, y+yf*sy, bold+wf*sx, hf*sy, fg);
         //Serial.println(String(i)+" "+xf+" "+yf+" "+wf+" "+hf);
       }
       break;
@@ -237,7 +244,7 @@ int RREFont::drawChar(int x, int y, unsigned char c)
         yf = (pgm_read_byte(&rects[1]) & 0x3f);
         wf = (pgm_read_byte(&rects[2]) & 0x3f)+1;
         hf = 1+(((pgm_read_byte(&rects[0]) & 0xc0)>>6) | ((pgm_read_byte(&rects[1]) & 0xc0)>>4) | ((pgm_read_byte(&rects[2]) & 0xc0)>>2));
-        (*fillRectFun)(x+xf*sx, y+yf*sy, bold+wf*sx, hf*sy, fg);
+        m_pFillRect->fillRect(x+xf*sx, y+yf*sy, bold+wf*sx, hf*sy, fg);
       }
       break;
 #endif
@@ -249,7 +256,7 @@ int RREFont::drawChar(int x, int y, unsigned char c)
         yf = pgm_read_byte(&rects[1]);
         wf = pgm_read_byte(&rects[2])+1;
         hf = pgm_read_byte(&rects[3])+1;
-        (*fillRectFun)(x+xf*sx, y+yf*sy, bold+wf*sx, hf*sy, fg);
+        m_pFillRect->fillRect(x+xf*sx, y+yf*sy, bold+wf*sx, hf*sy, fg);
         //Serial.println(String(i)+" "+xf+" "+yf+" "+wf+" "+hf);
       }
       break;
@@ -257,7 +264,7 @@ int RREFont::drawChar(int x, int y, unsigned char c)
 #if ENABLE_RRE_V16B==1
     case RRE_V16B:
       if(bg!=fg) {
-        if(wdL>0) (*fillRectFun)(x-wdL*sx, y, wdL*sx, rFont->ht*sy, bg);
+        if(wdL>0) m_pFillRect->fillRect(x-wdL*sx, y, wdL*sx, rFont->ht*sy, bg);
         uint16_t *rects = (uint16_t*)rFont->rects+recIdx;
         int idx=0;
         while(idx<recNum) {
@@ -268,17 +275,17 @@ int RREFont::drawChar(int x, int y, unsigned char c)
             v = pgm_read_word(rects+idx);
             yf = (v>>6) & 0x1f;
             hf = ((v>>11) & 0x1f)+1;
-            if(yf>ybg) (*fillRectFun)(x+xfCur*sx, y+ybg*sy, 1*sx, (yf-ybg)*sy, bg);
+            if(yf>ybg) m_pFillRect->fillRect(x+xfCur*sx, y+ybg*sy, 1*sx, (yf-ybg)*sy, bg);
             ybg = yf+hf;
-            (*fillRectFun)(x+xfCur*sx, y+yf*sy, bold+1*sx, hf*sy, fg);
+            m_pFillRect->fillRect(x+xfCur*sx, y+yf*sy, bold+1*sx, hf*sy, fg);
             idx++;
             v = pgm_read_word(rects+idx);
             xf = (v & 0x3f)-xmin;
           }
           // last bg line
-          if(ybg<rFont->ht) (*fillRectFun)(x+xfCur*sx, y+ybg*sy, bold+1*sx, (rFont->ht-ybg)*sy, bg);
+          if(ybg<rFont->ht) m_pFillRect->fillRect(x+xfCur*sx, y+ybg*sy, bold+1*sx, (rFont->ht-ybg)*sy, bg);
         }
-        if(wdR>0) (*fillRectFun)(x+chWd*sx, y, wdR*sx, rFont->ht*sy, bg);
+        if(wdR>0) m_pFillRect->fillRect(x+chWd*sx, y, wdR*sx, rFont->ht*sy, bg);
       } else
       for(int i=0; i<recNum; i++) {
         uint16_t *rects = (uint16_t*)rFont->rects;
@@ -287,40 +294,40 @@ int RREFont::drawChar(int x, int y, unsigned char c)
         yf = (v>>6) & 0x1f;
         hf = ((v>>11) & 0x1f)+1;
         wf = 1;
-        (*fillRectFun)(x+xf*sx, y+yf*sy, bold+wf*sx, hf*sy, fg);
+        m_pFillRect->fillRect(x+xf*sx, y+yf*sy, bold+wf*sx, hf*sy, fg);
       }
       break;
 #endif
 #if ENABLE_RRE_H16B==1
     case RRE_H16B:
       if(bg!=fg) {
-        if(wdL>0) (*fillRectFun)(x-wdL*sx, y, wdL*sx, rFont->ht*sy, bg);
+        if(wdL>0) m_pFillRect->fillRect(x-wdL*sx, y, wdL*sx, rFont->ht*sy, bg);
         uint16_t *rects = (uint16_t*)rFont->rects;
         int idx=0,yfCur=0;
         while(idx<recNum) {
           uint16_t v = pgm_read_word(rects+idx+recIdx);
           yf = (v>>5) & 0x3f;
-          if(yf-yfCur>1 /*|| (yf-yfCur>0 && yfCur==0)*/) (*fillRectFun)(x+0*sx, y+yfCur*sy, chWd*sx, (yf-yfCur)*sy, bg);
+          if(yf-yfCur>1 /*|| (yf-yfCur>0 && yfCur==0)*/) m_pFillRect->fillRect(x+0*sx, y+yfCur*sy, chWd*sx, (yf-yfCur)*sy, bg);
           //Serial.print(idx); Serial.print("  "); Serial.print(yf); Serial.print("  "); Serial.println(yfCur);
           yfCur=yf;
           int xbg=0;
           while(yf==yfCur && idx<recNum) {
             xf = v & 0x1f;
             wf = ((v>>11) & 0x1f)+1;
-            if(xf>xbg) (*fillRectFun)(x+xbg*sx, y+yf*sy, (xf-xbg)*sx, 1*sy, bg);
+            if(xf>xbg) m_pFillRect->fillRect(x+xbg*sx, y+yf*sy, (xf-xbg)*sx, 1*sy, bg);
             xbg = xf+wf;
             //if(idx==recNum-1) fg=0x07E0; else fg=0xffff;
-            (*fillRectFun)(x+xf*sx, y+yf*sy, bold+wf*sx, 1*sy, fg);
+            m_pFillRect->fillRect(x+xf*sx, y+yf*sy, bold+wf*sx, 1*sy, fg);
             idx++;
             v = pgm_read_word(rects+idx+recIdx);
             yf = (v>>5) & 0x3f;
           }
           // last bg line
-          if(xbg<chWd) (*fillRectFun)(x+xbg*sx, y+yfCur*sy, (chWd-xbg)*sx, 1*sy, bg);
+          if(xbg<chWd) m_pFillRect->fillRect(x+xbg*sx, y+yfCur*sy, (chWd-xbg)*sx, 1*sy, bg);
           //Serial.print(idx); Serial.print(" ++ "); Serial.print(yf); Serial.print("  "); Serial.println(yfCur);
-          if(idx==recNum-1 && yfCur<rFont->ht) (*fillRectFun)(x+0*sx, y+yfCur*sy, chWd*sx, (yfCur<rFont->ht-yfCur)*sy, bg);
+          if(idx==recNum-1 && yfCur<rFont->ht) m_pFillRect->fillRect(x+0*sx, y+yfCur*sy, chWd*sx, (yfCur<rFont->ht-yfCur)*sy, bg);
         }
-        if(wdR>0) (*fillRectFun)(x+chWd*sx, y, wdR*sx, rFont->ht*sy, bg);
+        if(wdR>0) m_pFillRect->fillRect(x+chWd*sx, y, wdR*sx, rFont->ht*sy, bg);
       } else
       for(int i=0; i<recNum; i++) {
         uint16_t *rects = (uint16_t*)rFont->rects;
@@ -329,14 +336,14 @@ int RREFont::drawChar(int x, int y, unsigned char c)
         yf = (v>>5) & 0x3f;
         wf = ((v>>11) & 0x1f)+1;
         hf = 1;
-        (*fillRectFun)(x+xf*sx, y+yf*sy, bold+wf*sx, hf*sy, fg);
+        m_pFillRect->fillRect(x+xf*sx, y+yf*sy, bold+wf*sx, hf*sy, fg);
       }
       break;
 #endif
 #if ENABLE_RRE_V24B==1
     case RRE_V24B:
       if(bg!=fg) {
-        if(wdL>0) (*fillRectFun)(x-wdL*sx, y, wdL*sx, rFont->ht*sy, bg);
+        if(wdL>0) m_pFillRect->fillRect(x-wdL*sx, y, wdL*sx, rFont->ht*sy, bg);
         uint8_t *rects = (uint8_t*)rFont->rects + recIdx*3;
         int idx=0;
         while(idx<recNum*3) {
@@ -345,16 +352,16 @@ int RREFont::drawChar(int x, int y, unsigned char c)
           while(xf==xfCur && idx<recNum*3) {
             yf = pgm_read_byte(rects+idx+1);
             hf = pgm_read_byte(rects+idx+2)+1;
-            if(yf>ybg) (*fillRectFun)(x+xfCur*sx, y+ybg*sy, 1*sx, (yf-ybg)*sy, bg);
+            if(yf>ybg) m_pFillRect->fillRect(x+xfCur*sx, y+ybg*sy, 1*sx, (yf-ybg)*sy, bg);
             ybg = yf+hf;
-            (*fillRectFun)(x+xfCur*sx, y+yf*sy, bold+1*sx, hf*sy, fg);
+            m_pFillRect->fillRect(x+xfCur*sx, y+yf*sy, bold+1*sx, hf*sy, fg);
             idx += 3;
             xf = pgm_read_byte(rects+idx+0);
           }
           // last bg line
-          if(ybg<rFont->ht) (*fillRectFun)(x+xfCur*sx, y+ybg*sy, bold+1*sx, (rFont->ht-ybg)*sy, bg);
+          if(ybg<rFont->ht) m_pFillRect->fillRect(x+xfCur*sx, y+ybg*sy, bold+1*sx, (rFont->ht-ybg)*sy, bg);
         }
-        if(wdR>0) (*fillRectFun)(x+chWd*sx, y, wdR*sx, rFont->ht*sy, bg);
+        if(wdR>0) m_pFillRect->fillRect(x+chWd*sx, y, wdR*sx, rFont->ht*sy, bg);
       } else
       for(int i=0; i<recNum; i++) {
         uint8_t *rects = (uint8_t*)rFont->rects + (i+recIdx)*3;
@@ -362,7 +369,7 @@ int RREFont::drawChar(int x, int y, unsigned char c)
         yf = pgm_read_byte(&rects[1]);
         hf = pgm_read_byte(&rects[2])+1;
         wf = 1;
-        (*fillRectFun)(x+xf*sx, y+yf*sy, bold+wf*sx, hf*sy, fg);
+        m_pFillRect->fillRect(x+xf*sx, y+yf*sy, bold+wf*sx, hf*sy, fg);
       }
       break;
 #endif
@@ -374,7 +381,7 @@ int RREFont::drawChar(int x, int y, unsigned char c)
         yf = pgm_read_byte(&rects[1]);
         wf = pgm_read_byte(&rects[2])+1;
         hf = 1;
-        (*fillRectFun)(x+xf*sx, y+yf*sy, bold+wf*sx, hf*sy, fg);
+        m_pFillRect->fillRect(x+xf*sx, y+yf*sy, bold+wf*sx, hf*sy, fg);
       }
       break;
 #endif
@@ -383,7 +390,7 @@ int RREFont::drawChar(int x, int y, unsigned char c)
 }
 
 // ----------------------------------------------------------------
-int RREFont::strWidth(char *str)
+int RREFont::strWidth(const char *str)
 {
   int wd = 0;
   while (*str) wd += charWidth(*str++);
@@ -391,10 +398,8 @@ int RREFont::strWidth(char *str)
 }
 
 // ----------------------------------------------------------------
-int RREFont::printStr(int xpos, int ypos, char *str)
+int RREFont::printStr(int xpos, int ypos, const char *str)
 {
-  unsigned char ch;
-  int stl, row;
   int x = xpos;
   int y = ypos;
   int wd = strWidth(str);
@@ -407,9 +412,9 @@ int RREFont::printStr(int xpos, int ypos, char *str)
     char ch = *str++;
     int wd = drawChar(x,y,ch);
     x+=wd;
-    if((cr && x>=scrWd) || ch==10) { 
-      x = cr ? 0 : xpos; 
-      y += rFont->ht * sy + spacingY; 
+    if((cr && x>=scrWd) || ch==10) {
+      x = cr ? 0 : xpos;
+      y += rFont->ht * sy + spacingY;
     }
   }
   return x;
@@ -435,47 +440,47 @@ unsigned char RREFont::convertPolish(unsigned char _c)
   }
   if(dualChar) { // UTF8 coding
     switch(_c) {
-      case 133: pl = 1+9; break; // 'π'
-      case 135: pl = 2+9; break; // 'Ê'
-      case 153: pl = 3+9; break; // 'Í'
-      case 130: pl = 4+9; break; // '≥'
-      case 132: pl = dualChar==197 ? 5+9 : 1; break; // 'Ò' and '•'
-      case 179: pl = 6+9; break; // 'Û'
-      case 155: pl = 7+9; break; // 'ú'
-      case 186: pl = 8+9; break; // 'ü'
-      case 188: pl = 9+9; break; // 'ø'
-      //case 132: pl = 1; break; // '•'
-      case 134: pl = 2; break; // '∆'
-      case 152: pl = 3; break; // ' '
-      case 129: pl = 4; break; // '£'
-      case 131: pl = 5; break; // '—'
-      case 147: pl = 6; break; // '”'
-      case 154: pl = 7; break; // 'å'
-      case 185: pl = 8; break; // 'è'
-      case 187: pl = 9; break; // 'Ø'
+      case 133: pl = 1+9; break; // 'ÔøΩ'
+      case 135: pl = 2+9; break; // 'ÔøΩ'
+      case 153: pl = 3+9; break; // 'ÔøΩ'
+      case 130: pl = 4+9; break; // 'ÔøΩ'
+      case 132: pl = dualChar==197 ? 5+9 : 1; break; // 'ÔøΩ' and 'ÔøΩ'
+      case 179: pl = 6+9; break; // 'ÔøΩ'
+      case 155: pl = 7+9; break; // 'ÔøΩ'
+      case 186: pl = 8+9; break; // 'ÔøΩ'
+      case 188: pl = 9+9; break; // 'ÔøΩ'
+      //case 132: pl = 1; break; // 'ÔøΩ'
+      case 134: pl = 2; break; // 'ÔøΩ'
+      case 152: pl = 3; break; // 'ÔøΩ'
+      case 129: pl = 4; break; // 'ÔøΩ'
+      case 131: pl = 5; break; // 'ÔøΩ'
+      case 147: pl = 6; break; // 'ÔøΩ'
+      case 154: pl = 7; break; // 'ÔøΩ'
+      case 185: pl = 8; break; // 'ÔøΩ'
+      case 187: pl = 9; break; // 'ÔøΩ'
       default:  return c; break;
     }
     dualChar = 0;
-  } else   
+  } else
   switch(_c) {  // Windows coding
-    case 165: pl = 1; break; // •
-    case 198: pl = 2; break; // ∆
-    case 202: pl = 3; break; //  
-    case 163: pl = 4; break; // £
-    case 209: pl = 5; break; // —
-    case 211: pl = 6; break; // ”
-    case 140: pl = 7; break; // å
-    case 143: pl = 8; break; // è
-    case 175: pl = 9; break; // Ø
-    case 185: pl = 10; break; // π
-    case 230: pl = 11; break; // Ê
-    case 234: pl = 12; break; // Í
-    case 179: pl = 13; break; // ≥
-    case 241: pl = 14; break; // Ò
-    case 243: pl = 15; break; // Û
-    case 156: pl = 16; break; // ú
-    case 159: pl = 17; break; // ü
-    case 191: pl = 18; break; // ø
+    case 165: pl = 1; break; // ÔøΩ
+    case 198: pl = 2; break; // ÔøΩ
+    case 202: pl = 3; break; // ÔøΩ
+    case 163: pl = 4; break; // ÔøΩ
+    case 209: pl = 5; break; // ÔøΩ
+    case 211: pl = 6; break; // ÔøΩ
+    case 140: pl = 7; break; // ÔøΩ
+    case 143: pl = 8; break; // ÔøΩ
+    case 175: pl = 9; break; // ÔøΩ
+    case 185: pl = 10; break; // ÔøΩ
+    case 230: pl = 11; break; // ÔøΩ
+    case 234: pl = 12; break; // ÔøΩ
+    case 179: pl = 13; break; // ÔøΩ
+    case 241: pl = 14; break; // ÔøΩ
+    case 243: pl = 15; break; // ÔøΩ
+    case 156: pl = 16; break; // ÔøΩ
+    case 159: pl = 17; break; // ÔøΩ
+    case 191: pl = 18; break; // ÔøΩ
     default:  return c; break;
   }
   return pl+'~'+1;

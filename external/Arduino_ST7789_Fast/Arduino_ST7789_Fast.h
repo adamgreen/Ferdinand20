@@ -16,6 +16,7 @@
 
 #include <nrf_drv_spi.h>
 #include <Adafruit_GFX.h>
+#include "../RREFont/RREFont.h"
 
 // Macro to convert AVR pgm_read_*() calls to simple dereferences on ARM.
 #define pgm_read_word(ADDR) (*(uint16_t*)(ADDR))
@@ -83,8 +84,8 @@
 
 #define RGBto565(r,g,b) ((((r) & 0xF8) << 8) | (((g) & 0xFC) << 3) | ((b) >> 3))
 
-class Arduino_ST7789 : public Adafruit_GFX {
-
+class Arduino_ST7789 : public Adafruit_GFX, public IFillRect
+{
  public:
   Arduino_ST7789(uint16_t width, uint16_t height, uint16_t columnOffset, uint16_t rowOffset,
                  uint8_t MOSI, uint8_t SCK, uint8_t DC,

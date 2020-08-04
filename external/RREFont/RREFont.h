@@ -2,9 +2,12 @@
 // (c) 2019 by Pawel A. Hernik
 
 #ifndef _RRE_FONT_H
-#define _RRE_FONT_H 
+#define _RRE_FONT_H
 
-#include <Arduino.h>
+#include <stdint.h>
+
+// Fake out AVR PGMREAD functionality for ARM where it can be treated like any other memory region.
+#define PROGMEM
 
 // -------  CONFIG ---------
 // saves 400 bytes
@@ -32,7 +35,7 @@
 #define RRE_NO_SORT 0x80 // old fonts not optimized for fast width calculation
 
 #define ALIGN_LEFT    0
-#define ALIGN_RIGHT  -1 
+#define ALIGN_RIGHT  -1
 #define ALIGN_CENTER -2
 
 struct RRE_Font {
@@ -44,11 +47,18 @@ struct RRE_Font {
   const uint8_t *rects;
   const uint16_t *offs;
 };
+
+class IFillRect
+{
+    public:
+        virtual void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) = 0;
+};
+
 // ---------------------------------
 class RREFont {
 public:
   RREFont();
-  void init(void (*rectFun)(int x, int y, int w, int h, int c), int swd, int sht);
+  void init(IFillRect* pFillRect, int swd, int sht);
   void setFont(RRE_Font *f);
   void setCR(uint8_t _cr) { cr = _cr; }
   void setFg(int _fg) { fg = _fg; }
@@ -70,17 +80,17 @@ public:
   int charWidthOptim(uint8_t c, int *_xmin=0);
   int charWidth(uint8_t c, int *_xmin=0);
   int drawChar(int x, int y, unsigned char c);
-  int strWidth(char *str);
-  int printStr(int xpos, int ypos, char *str);
+  int strWidth(const char *str);
+  int printStr(int xpos, int ypos, const char *str);
   void setIsNumberFun(bool (*fun)(uint8_t)) { isNumberFun=fun; }
-  void setFillRectFun(void (*fun)(int x, int y, int w, int h, int c)) { fillRectFun=fun; }
+  void setFillRectFun(IFillRect* pFillRect) { m_pFillRect = pFillRect; }
 
   static bool isNumber(uint8_t ch);
   static bool isNumberExt(uint8_t ch);
 
 public:
   bool (*isNumberFun)(uint8_t ch);
-  void (*fillRectFun)(int x, int y, int w, int h, int c);
+  IFillRect* m_pFillRect;
   RRE_Font *rFont;
   int xf,yf,wf,hf;
   int scrWd, scrHt;
