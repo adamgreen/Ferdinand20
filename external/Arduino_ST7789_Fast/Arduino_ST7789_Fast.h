@@ -1,28 +1,31 @@
 // Fast ST7789 IPS 240x240 SPI display library
 // (c) 2019 by Pawel A. Hernik
+// Updated to work with nRF5 SDK in 2020 by Adam Green (https://github.com/adamgreen)
 
 #ifndef _ST7789_FAST_H_
 #define _ST7789_FAST_H_
 
 // ------------------------------
-// remove "define COMPATIBILITY_MODE" for best performance on 16MHz AVR Arduinos
-// if defined - the library should work on all Arduino compatible boards
-//#define COMPATIBILITY_MODE
-
 // define for LCD boards where CS pin is internally connected to the ground
 #define CS_ALWAYS_LOW
+
+// Which SPI Master instance (0 or 1) should be used with the screen.
+#define ST7789_SPI_INSTANCE 0
 // ------------------------------
 
-#include "Arduino.h"
-#include "Print.h"
+
+#include <nrf_drv_spi.h>
 #include <Adafruit_GFX.h>
-#include <avr/pgmspace.h>
+
+// Macro to convert AVR pgm_read_*() calls to simple dereferences on ARM.
+#define pgm_read_word(ADDR) (*(uint16_t*)(ADDR))
+#define pgm_read_byte(ADDR) (*(uint8_t*)(ADDR))
 
 #define ST7789_TFTWIDTH 	240
 #define ST7789_TFTHEIGHT 	240
 
 #define ST7789_240x240_XSTART 0
-#define ST7789_240x240_YSTART 0
+#define ST7789_240x240_YSTART 80
 
 #define ST_CMD_DELAY   0x80
 
@@ -69,43 +72,44 @@
 
 
 // Color definitions
-#define	BLACK   0x0000
-#define	BLUE    0x001F
-#define	RED     0xF800
-#define	GREEN   0x07E0
-#define CYAN    0x07FF
-#define MAGENTA 0xF81F
-#define YELLOW  0xFFE0
-#define WHITE   0xFFFF
+#define TFT_BLACK 0x0000
+#define TFT_WHITE 0xFFFF
+#define TFT_RED 0xF800
+#define TFT_GREEN 0x07E0
+#define TFT_BLUE 0x001F
+#define TFT_CYAN 0x07FF
+#define TFT_MAGENTA 0xF81F
+#define TFT_YELLOW 0xFFE0
+#define TFT_ORANGE 0xFC00
 
-#define RGBto565(r,g,b) ((((r) & 0xF8) << 8) | (((g) & 0xFC) << 3) | ((b) >> 3)) 
+#define RGBto565(r,g,b) ((((r) & 0xF8) << 8) | (((g) & 0xFC) << 3) | ((b) >> 3))
 
 class Arduino_ST7789 : public Adafruit_GFX {
 
  public:
-  Arduino_ST7789(int8_t DC, int8_t RST, int8_t CS = -1);
+  Arduino_ST7789(uint8_t MOSI, uint8_t SCK, uint8_t DC, uint8_t RST = NRF_DRV_SPI_PIN_NOT_USED, uint8_t CS = NRF_DRV_SPI_PIN_NOT_USED);
 
   void init(uint16_t width, uint16_t height);
   void begin() { init(ST7789_TFTWIDTH,ST7789_TFTHEIGHT); }
   void init() { init(ST7789_TFTWIDTH,ST7789_TFTHEIGHT); }
   void setAddrWindow(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1);
   void pushColor(uint16_t color);
-  void fillScreen(uint16_t color=BLACK);
-  void clearScreen() { fillScreen(BLACK); }
-  void cls() { fillScreen(BLACK); }
+  void fillScreen(uint16_t color=TFT_BLACK);
+  void clearScreen() { fillScreen(TFT_BLACK); }
+  void cls() { fillScreen(TFT_BLACK); }
   void drawPixel(int16_t x, int16_t y, uint16_t color);
   void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color);
   void drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color);
   void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);
   void drawImage(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t *img);
   void drawImageF(int16_t x, int16_t y, int16_t w, int16_t h, const uint16_t *img16);
-  void drawImageF(int16_t x, int16_t y, const uint16_t *img16) { drawImageF(x,y,pgm_read_word(img16),pgm_read_word(img16+1),img16+3); } 
+  void drawImageF(int16_t x, int16_t y, const uint16_t *img16) { drawImageF(x,y,pgm_read_word(img16),pgm_read_word(img16+1),img16+3); }
   void setRotation(uint8_t r);
-  void invertDisplay(boolean mode);
-  void partialDisplay(boolean mode);
-  void sleepDisplay(boolean mode);
-  void enableDisplay(boolean mode);
-  void idleDisplay(boolean mode);
+  void invertDisplay(bool mode);
+  void partialDisplay(bool mode);
+  void sleepDisplay(bool mode);
+  void enableDisplay(bool mode);
+  void idleDisplay(bool mode);
   void resetDisplay();
   void setScrollArea(uint16_t tfa, uint16_t bfa);
   void setScroll(uint16_t vsp);
@@ -114,7 +118,7 @@ class Arduino_ST7789 : public Adafruit_GFX {
   void powerSave(uint8_t mode);
 
   uint16_t Color565(uint8_t r, uint8_t g, uint8_t b);
-  uint16_t color565(uint8_t r, uint8_t g, uint8_t b) { return Color565(r, g, b); } 
+  uint16_t color565(uint8_t r, uint8_t g, uint8_t b) { return Color565(r, g, b); }
   void rgbWheel(int idx, uint8_t *_r, uint8_t *_g, uint8_t *_b);
   uint16_t rgbWheel(int idx);
 
@@ -123,15 +127,18 @@ class Arduino_ST7789 : public Adafruit_GFX {
 
   void displayInit(const uint8_t *addr);
   void writeSPI(uint8_t);
+  void flushSPI();
   void writeCmd(uint8_t c);
   void writeData(uint8_t d);
   void commonST7789Init(const uint8_t *cmdList);
 
  private:
-  int8_t  csPin, dcPin, rstPin;
-  uint8_t  csMask, dcMask;
-  volatile uint8_t  *csPort, *dcPort;
-
+  uint32_t              bytesInFlight;
+  uint8_t               csPin, dcPin, rstPin, mosiPin, sckPin;
+  volatile uint32_t*    portSet;
+  volatile uint32_t*    portClear;
+  uint32_t              csMask;
+  uint32_t              dcMask;
 };
 
 #endif

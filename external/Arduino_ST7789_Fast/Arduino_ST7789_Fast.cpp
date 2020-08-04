@@ -1,11 +1,15 @@
 // Fast ST7789 IPS 240x240 SPI display library
 // (c) 2019 by Pawel A. Hernik
+// Updated to work with nRF5 SDK in 2020 by Adam Green (https://github.com/adamgreen)
 
 #include "Arduino_ST7789_Fast.h"
 #include <limits.h>
-#include "pins_arduino.h"
-#include "wiring_private.h"
-#include <SPI.h>
+#include <nrf_gpio.h>
+#include <nrf_delay.h>
+#include <nrf_drv_spi.h>
+
+// Fake out AVR PGMREAD functionality for ARM where it can be treated like any other memory region.
+#define PROGMEM
 
 // Initialization commands for ST7789 240x240 1.3" IPS
 // taken from Adafruit
@@ -35,66 +39,85 @@ static const uint8_t PROGMEM init_240x240[] = {
     ST7789_DISPON ,   ST_CMD_DELAY,  		// 9: Main screen turn on, no args, w/delay
       20 };                  				// 255 = 500 ms delay
 
-#ifdef COMPATIBILITY_MODE
-static SPISettings spiSettings;
-#define SPI_START  SPI.beginTransaction(spiSettings)
-#define SPI_END    SPI.endTransaction()
-#else
+// Don't need to do anything for SPI_START/END on nRF51 devices.
 #define SPI_START
 #define SPI_END
-#endif
 
 // macros for fast DC and CS state changes
-#ifdef COMPATIBILITY_MODE
-#define DC_DATA     digitalWrite(dcPin, HIGH)
-#define DC_COMMAND  digitalWrite(dcPin, LOW)
-#define CS_IDLE     digitalWrite(csPin, HIGH)
-#define CS_ACTIVE   digitalWrite(csPin, LOW)
-#else
-#define DC_DATA    *dcPort |= dcMask
-#define DC_COMMAND *dcPort &= ~dcMask
-#define CS_IDLE    *csPort |= csMask
-#define CS_ACTIVE  *csPort &= ~csMask
-#endif
+#define DC_DATA     flushSPI(); *portSet = dcMask
+#define DC_COMMAND  flushSPI(); *portClear = dcMask
+#define CS_IDLE     flushSPI(); *portSet = csMask
+#define CS_ACTIVE   flushSPI(); *portClear = csMask
+
+// SPI_OBJ will be the SPI peripheral instance to be used by this class.
+#define SPI_OBJ ((NRF_SPI_Type*)NRF_DRV_SPI_PERIPHERAL(ST7789_SPI_INSTANCE))
 
 // if CS always connected to the ground then don't do anything for better performance
 #ifdef CS_ALWAYS_LOW
+#undef  CS_IDLE
+#undef  CS_ACTIVE
 #define CS_IDLE
 #define CS_ACTIVE
 #endif
 
-// ----------------------------------------------------------
-// speed test results:
-// in AVR best performance mode -> about 6.9 Mbps
-// in compatibility mode (SPI.transfer(c)) -> about 4 Mbps
-inline void Arduino_ST7789::writeSPI(uint8_t c) 
+inline void Arduino_ST7789::writeSPI(uint8_t c)
 {
-#ifdef COMPATIBILITY_MODE
-    SPI.transfer(c);
-#else
-    SPDR = c;
-    asm volatile("nop"); // 8 NOPs seem to be enough for 16MHz AVR @ DIV2 to avoid using while loop
-    asm volatile("nop");
-    asm volatile("nop");
-    asm volatile("nop");
-    asm volatile("nop");
-    asm volatile("nop");
-    asm volatile("nop");
-    asm volatile("nop");
-    //while(!(SPSR & _BV(SPIF))) ;
-#endif
+    if (bytesInFlight < 2)
+    {
+        // The SPI peripheral can hold 2 bytes in its queue so fill it up first.
+        bytesInFlight++;
+        SPI_OBJ->TXD = c;
+        return;
+    }
+
+    // The transmit queue was full so wait for atleast one of them to complete.
+    while (!SPI_OBJ->EVENTS_READY)
+    {
+        // Wait for SPI peripheral to finish exchanging at least one byte.
+    }
+
+    // Read out all of the received bytes that are now available.
+    while (SPI_OBJ->EVENTS_READY)
+    {
+        SPI_OBJ->EVENTS_READY = 0;
+        SPI_OBJ->RXD;
+        bytesInFlight--;
+    }
+
+    // There is now enough room to transmit the current byte.
+    bytesInFlight++;
+    SPI_OBJ->TXD = c;
+}
+
+inline void Arduino_ST7789::flushSPI()
+{
+    while (bytesInFlight > 0)
+    {
+        // Read received bytes until there are none left in transmit or receive queue.
+        while (!SPI_OBJ->EVENTS_READY)
+        {
+            // Wait for SPI peripheral to finish exchanging at least one byte.
+        }
+        SPI_OBJ->EVENTS_READY = 0;
+        SPI_OBJ->RXD;
+        bytesInFlight--;
+    }
 }
 
 // ----------------------------------------------------------
-Arduino_ST7789::Arduino_ST7789(int8_t dc, int8_t rst, int8_t cs) : Adafruit_GFX(ST7789_TFTWIDTH, ST7789_TFTHEIGHT) 
+Arduino_ST7789::Arduino_ST7789(uint8_t mosi, uint8_t sck, uint8_t dc, uint8_t rst, uint8_t cs) :
+    Adafruit_GFX(ST7789_TFTWIDTH, ST7789_TFTHEIGHT)
 {
+  mosiPin = mosi;
+  sckPin = sck;
   csPin = cs;
   dcPin = dc;
   rstPin = rst;
+  bytesInFlight = 0;
 }
 
 // ----------------------------------------------------------
-void Arduino_ST7789::init(uint16_t width, uint16_t height) 
+void Arduino_ST7789::init(uint16_t width, uint16_t height)
 {
   commonST7789Init(NULL);
 
@@ -107,7 +130,7 @@ void Arduino_ST7789::init(uint16_t width, uint16_t height)
 }
 
 // ----------------------------------------------------------
-void Arduino_ST7789::writeCmd(uint8_t c) 
+void Arduino_ST7789::writeCmd(uint8_t c)
 {
   DC_COMMAND;
   CS_ACTIVE;
@@ -120,12 +143,12 @@ void Arduino_ST7789::writeCmd(uint8_t c)
 }
 
 // ----------------------------------------------------------
-void Arduino_ST7789::writeData(uint8_t c) 
+void Arduino_ST7789::writeData(uint8_t c)
 {
   DC_DATA;
   CS_ACTIVE;
   SPI_START;
-    
+
   writeSPI(c);
 
   CS_IDLE;
@@ -133,7 +156,7 @@ void Arduino_ST7789::writeData(uint8_t c)
 }
 
 // ----------------------------------------------------------
-void Arduino_ST7789::displayInit(const uint8_t *addr) 
+void Arduino_ST7789::displayInit(const uint8_t *addr)
 {
   uint8_t  numCommands, numArgs;
   uint16_t ms;
@@ -148,56 +171,59 @@ void Arduino_ST7789::displayInit(const uint8_t *addr)
     if(ms) {
       ms = pgm_read_byte(addr++); // Read post-command delay time (ms)
       if(ms == 255) ms = 500;     // If 255, delay for 500 ms
-      delay(ms);
+      nrf_delay_ms(ms);
     }
   }
 }
 
 // ----------------------------------------------------------
 // Initialization code common to all ST7789 displays
-void Arduino_ST7789::commonST7789Init(const uint8_t *cmdList) 
+void Arduino_ST7789::commonST7789Init(const uint8_t *cmdList)
 {
   _ystart = _xstart = 0;
   _colstart  = _rowstart = 0; // May be overridden in init func
 
-  pinMode(dcPin, OUTPUT);
+  nrf_gpio_pin_set(dcPin);
+  nrf_gpio_cfg_output(dcPin);
+
 #ifndef CS_ALWAYS_LOW
-	pinMode(csPin, OUTPUT);
+  nrf_gpio_pin_set(csPin);
+  nrf_gpio_cfg_output(csPin);
+  csMask = 1 << csPin;
 #endif
 
-#ifndef COMPATIBILITY_MODE
-  dcPort = portOutputRegister(digitalPinToPort(dcPin));
-  dcMask = digitalPinToBitMask(dcPin);
-#ifndef CS_ALWAYS_LOW
-	csPort = portOutputRegister(digitalPinToPort(csPin));
-	csMask = digitalPinToBitMask(csPin);
-#endif
-#endif
+  portSet = &NRF_GPIO->OUTSET;
+  portClear = &NRF_GPIO->OUTCLR;
+  dcMask = 1 << dcPin;
 
-  SPI.begin();
-#ifdef COMPATIBILITY_MODE
-  spiSettings = SPISettings(16000000, MSBFIRST, SPI_MODE2);  // 8000000 gives max speed on AVR 16MHz
-#else
-  SPI.setClockDivider(SPI_CLOCK_DIV2);
-  SPI.setDataMode(SPI_MODE2);
-#endif
+  nrf_gpio_pin_clear(sckPin);
+  nrf_gpio_cfg(sckPin, NRF_GPIO_PIN_DIR_OUTPUT, NRF_GPIO_PIN_INPUT_CONNECT,
+               NRF_GPIO_PIN_NOPULL, NRF_GPIO_PIN_S0S1, NRF_GPIO_PIN_NOSENSE);
+  nrf_gpio_pin_clear(mosiPin);
+  nrf_gpio_cfg_output(mosiPin);
+
+  SPI_OBJ->FREQUENCY = NRF_SPI_FREQ_8M;
+  SPI_OBJ->CONFIG = NRF_SPI_MODE_2 << 1;
+  SPI_OBJ->PSELSCK = sckPin;
+  SPI_OBJ->PSELMOSI = mosiPin;
+  SPI_OBJ->ENABLE = 1;
 
   CS_ACTIVE;
-  if(rstPin != -1) {
-    pinMode(rstPin, OUTPUT);
-    digitalWrite(rstPin, HIGH);
-    delay(50);
-    digitalWrite(rstPin, LOW);
-    delay(50);
-    digitalWrite(rstPin, HIGH);
-    delay(50);
+  if(rstPin != NRF_DRV_SPI_PIN_NOT_USED) {
+    nrf_gpio_pin_set(rstPin);
+    nrf_gpio_cfg_output(rstPin);
+    nrf_delay_ms(50);
+    nrf_gpio_pin_clear(rstPin);
+    nrf_delay_ms(50);
+    nrf_gpio_pin_set(rstPin);
+    nrf_delay_ms(50);
   }
 
   if(cmdList) displayInit(cmdList);
 }
 
 // ----------------------------------------------------------
-void Arduino_ST7789::setRotation(uint8_t m) 
+void Arduino_ST7789::setRotation(uint8_t m)
 {
   writeCmd(ST7789_MADCTL);
   rotation = m & 3;
@@ -214,8 +240,8 @@ void Arduino_ST7789::setRotation(uint8_t m)
      break;
   case 2:
      writeData(ST7789_MADCTL_RGB);
-     _xstart = _colstart;
-     _ystart = _rowstart;
+     _xstart = 0;
+     _ystart = 0;
      break;
    case 3:
      writeData(ST7789_MADCTL_MX | ST7789_MADCTL_MV | ST7789_MADCTL_RGB);
@@ -226,7 +252,7 @@ void Arduino_ST7789::setRotation(uint8_t m)
 }
 
 // ----------------------------------------------------------
-void Arduino_ST7789::setAddrWindow(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1) 
+void Arduino_ST7789::setAddrWindow(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
 {
   uint16_t xs = x0 + _xstart, xe = x1 + _xstart;
   uint16_t ys = y0 + _ystart, ye = y1 + _ystart;
@@ -245,7 +271,7 @@ void Arduino_ST7789::setAddrWindow(uint16_t x0, uint16_t y0, uint16_t x1, uint16
   // optimized version
   CS_ACTIVE;
   SPI_START;
-  
+
   DC_COMMAND; writeSPI(ST7789_CASET);
   DC_DATA;
   writeSPI(xs >> 8); writeSPI(xs & 0xFF);
@@ -257,13 +283,13 @@ void Arduino_ST7789::setAddrWindow(uint16_t x0, uint16_t y0, uint16_t x1, uint16
   writeSPI(ye >> 8); writeSPI(ye & 0xFF);
 
   DC_COMMAND; writeSPI(ST7789_RAMWR);
-  
+
   CS_IDLE;
   SPI_END;
 }
 
 // ----------------------------------------------------------
-void Arduino_ST7789::pushColor(uint16_t color) 
+void Arduino_ST7789::pushColor(uint16_t color)
 {
   SPI_START;
   DC_DATA;
@@ -276,7 +302,7 @@ void Arduino_ST7789::pushColor(uint16_t color)
 }
 
 // ----------------------------------------------------------
-void Arduino_ST7789::drawPixel(int16_t x, int16_t y, uint16_t color) 
+void Arduino_ST7789::drawPixel(int16_t x, int16_t y, uint16_t color)
 {
   if(x<0 ||x>=_width || y<0 || y>=_height) return;
   setAddrWindow(x,y,x+1,y+1);
@@ -292,14 +318,14 @@ void Arduino_ST7789::drawPixel(int16_t x, int16_t y, uint16_t color)
 }
 
 // ----------------------------------------------------------
-void Arduino_ST7789::drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color) 
+void Arduino_ST7789::drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color)
 {
   if(x>=_width || y>=_height || h<=0) return;
   if(y+h-1>=_height) h=_height-y;
   setAddrWindow(x, y, x, y+h-1);
 
   uint8_t hi = color >> 8, lo = color;
-    
+
   SPI_START;
   DC_DATA;
   CS_ACTIVE;
@@ -323,7 +349,7 @@ void Arduino_ST7789::drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t col
 }
 
 // ----------------------------------------------------------
-void Arduino_ST7789::drawFastHLine(int16_t x, int16_t y, int16_t w,  uint16_t color) 
+void Arduino_ST7789::drawFastHLine(int16_t x, int16_t y, int16_t w,  uint16_t color)
 {
   if(x>=_width || y>=_height || w<=0) return;
   if(x+w-1>=_width)  w=_width-x;
@@ -354,13 +380,13 @@ void Arduino_ST7789::drawFastHLine(int16_t x, int16_t y, int16_t w,  uint16_t co
 }
 
 // ----------------------------------------------------------
-void Arduino_ST7789::fillScreen(uint16_t color) 
+void Arduino_ST7789::fillScreen(uint16_t color)
 {
   fillRect(0, 0,  _width, _height, color);
 }
 
 // ----------------------------------------------------------
-void Arduino_ST7789::fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) 
+void Arduino_ST7789::fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color)
 {
   if(x>=_width || y>=_height || w<=0 || h<=0) return;
   if(x+w-1>=_width)  w=_width -x;
@@ -368,7 +394,7 @@ void Arduino_ST7789::fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16
   setAddrWindow(x, y, x+w-1, y+h-1);
 
   uint8_t hi = color >> 8, lo = color;
-    
+
   SPI_START;
   DC_DATA;
   CS_ACTIVE;
@@ -402,7 +428,7 @@ void Arduino_ST7789::fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16
 
 // ----------------------------------------------------------
 // draws image from RAM
-void Arduino_ST7789::drawImage(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t *img16) 
+void Arduino_ST7789::drawImage(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t *img16)
 {
   if(x>=_width || y>=_height || w<=0 || h<=0) return;
   setAddrWindow(x, y, x+w-1, y+h-1);
@@ -433,7 +459,7 @@ void Arduino_ST7789::drawImage(int16_t x, int16_t y, int16_t w, int16_t h, uint1
 
 // ----------------------------------------------------------
 // draws image from flash (PROGMEM)
-void Arduino_ST7789::drawImageF(int16_t x, int16_t y, int16_t w, int16_t h, const uint16_t *img16) 
+void Arduino_ST7789::drawImageF(int16_t x, int16_t y, int16_t w, int16_t h, const uint16_t *img16)
 {
   if(x>=_width || y>=_height || w<=0 || h<=0) return;
   setAddrWindow(x, y, x+w-1, y+h-1);
@@ -464,51 +490,51 @@ void Arduino_ST7789::drawImageF(int16_t x, int16_t y, int16_t w, int16_t h, cons
 
 // ----------------------------------------------------------
 // Pass 8-bit (each) R,G,B, get back 16-bit packed color
-uint16_t Arduino_ST7789::Color565(uint8_t r, uint8_t g, uint8_t b) 
+uint16_t Arduino_ST7789::Color565(uint8_t r, uint8_t g, uint8_t b)
 {
   return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
 }
 
 // ----------------------------------------------------------
-void Arduino_ST7789::invertDisplay(boolean mode) 
+void Arduino_ST7789::invertDisplay(bool mode)
 {
   writeCmd(!mode ? ST7789_INVON : ST7789_INVOFF);  // modes inverted?
 }
 
 // ----------------------------------------------------------
-void Arduino_ST7789::partialDisplay(boolean mode) 
+void Arduino_ST7789::partialDisplay(bool mode)
 {
   writeCmd(mode ? ST7789_PTLON : ST7789_NORON);
 }
 
 // ----------------------------------------------------------
-void Arduino_ST7789::sleepDisplay(boolean mode) 
+void Arduino_ST7789::sleepDisplay(bool mode)
 {
   writeCmd(mode ? ST7789_SLPIN : ST7789_SLPOUT);
-  delay(5);
+  nrf_delay_ms(5);
 }
 
 // ----------------------------------------------------------
-void Arduino_ST7789::enableDisplay(boolean mode) 
+void Arduino_ST7789::enableDisplay(bool mode)
 {
   writeCmd(mode ? ST7789_DISPON : ST7789_DISPOFF);
 }
 
 // ----------------------------------------------------------
-void Arduino_ST7789::idleDisplay(boolean mode) 
+void Arduino_ST7789::idleDisplay(bool mode)
 {
   writeCmd(mode ? ST7789_IDMON : ST7789_IDMOFF);
 }
 
 // ----------------------------------------------------------
-void Arduino_ST7789::resetDisplay() 
+void Arduino_ST7789::resetDisplay()
 {
   writeCmd(ST7789_SWRESET);
-  delay(5);
+  nrf_delay_ms(5);
 }
 
 // ----------------------------------------------------------
-void Arduino_ST7789::setScrollArea(uint16_t tfa, uint16_t bfa) 
+void Arduino_ST7789::setScrollArea(uint16_t tfa, uint16_t bfa)
 {
   uint16_t vsa = 320-tfa-bfa; // ST7789 320x240 VRAM
   writeCmd(ST7789_VSCRDEF); // SETSCROLLAREA = 0x33
@@ -521,7 +547,7 @@ void Arduino_ST7789::setScrollArea(uint16_t tfa, uint16_t bfa)
 }
 
 // ----------------------------------------------------------
-void Arduino_ST7789::setScroll(uint16_t vsp) 
+void Arduino_ST7789::setScroll(uint16_t vsp)
 {
   writeCmd(ST7789_VSCRSADD); // VSCRSADD = 0x37
   writeData(vsp >> 8);
@@ -529,7 +555,7 @@ void Arduino_ST7789::setScroll(uint16_t vsp)
 }
 
 // ----------------------------------------------------------
-void Arduino_ST7789::setPartArea(uint16_t sr, uint16_t er) 
+void Arduino_ST7789::setPartArea(uint16_t sr, uint16_t er)
 {
   writeCmd(ST7789_PTLAR);  // SETPARTAREA = 0x30
   writeData(sr >> 8);
@@ -540,7 +566,7 @@ void Arduino_ST7789::setPartArea(uint16_t sr, uint16_t er)
 
 // ----------------------------------------------------------
 // doesn't work
-void Arduino_ST7789::setBrightness(uint8_t br) 
+void Arduino_ST7789::setBrightness(uint8_t br)
 {
   //writeCmd(ST7789_WRCACE);
   //writeData(0xb1);  // 80,90,b0, or 00,01,02,03
@@ -560,7 +586,7 @@ void Arduino_ST7789::setBrightness(uint8_t br)
 // 1 - idle
 // 2 - normal
 // 4 - display off
-void Arduino_ST7789::powerSave(uint8_t mode) 
+void Arduino_ST7789::powerSave(uint8_t mode)
 {
   if(mode==0) {
     writeCmd(ST7789_POWSAVE);
@@ -585,7 +611,7 @@ void Arduino_ST7789::powerSave(uint8_t mode)
 void Arduino_ST7789::rgbWheel(int idx, uint8_t *_r, uint8_t *_g, uint8_t *_b)
 {
   idx &= 0x1ff;
-  if(idx < 85) { // R->Y  
+  if(idx < 85) { // R->Y
     *_r = 255; *_g = idx * 3; *_b = 0;
     return;
   } else if(idx < 85*2) { // Y->G
@@ -595,21 +621,21 @@ void Arduino_ST7789::rgbWheel(int idx, uint8_t *_r, uint8_t *_g, uint8_t *_b)
   } else if(idx < 85*3) { // G->C
     idx -= 85*2;
     *_r = 0; *_g = 255; *_b = idx * 3;
-    return;  
+    return;
   } else if(idx < 85*4) { // C->B
     idx -= 85*3;
     *_r = 0; *_g = 255 - idx * 3; *_b = 255;
-    return;    
+    return;
   } else if(idx < 85*5) { // B->M
     idx -= 85*4;
     *_r = idx * 3; *_g = 0; *_b = 255;
-    return;    
+    return;
   } else { // M->R
     idx -= 85*5;
     *_r = 255; *_g = 0; *_b = 255 - idx * 3;
    return;
   }
-} 
+}
 
 uint16_t Arduino_ST7789::rgbWheel(int idx)
 {

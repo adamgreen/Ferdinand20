@@ -45,9 +45,10 @@
 #include <ble_nus_c.h>
 #include <softdevice_handler.h>
 #include <nrf_adc.h>
-#include "../BleJoyShared.h"
-#include "Screen.h"
 #include <nrf_delay.h>
+#include "../BleJoyShared.h"
+#include "../../PdbSerial.h"
+#include "Screen.h"
 
 
 // The output pin used to turn control the motor power relay.
@@ -135,6 +136,14 @@
 
 
 
+// Format of full packet when in manual driving mode. Contains header and joystick info.
+struct ManualPacket
+{
+    PdbSerialPacketHeader header;
+    PdbSerialManualPacket manual;
+};
+
+
 static ble_nus_c_t              g_nordicUartServiceClient;
 static ble_db_discovery_t       g_bleDatabaseDiscovery;
 
@@ -172,9 +181,9 @@ static const ble_uuid_t g_bleJoystickUuid =
 APP_TIMER_DEF(g_batteryMeasurementTimer);
 
 // Objects used to control the LCD over SPI.
-static nrf_drv_spi_t    g_spi = NRF_DRV_SPI_INSTANCE(0);
+// UNDONE: static nrf_drv_spi_t    g_spi = NRF_DRV_SPI_INSTANCE(0);
 static Screen           g_screen(UPDATES_PER_SECOND,
-                                 &g_spi, LCD_MOSI_PIN, LCD_SCK_PIN, LCD_TFTCS_PIN, LCD_TFTDC_PIN, LCD_TFTRST_PIN);
+                                 /* UNDONE: &g_spi, */ LCD_MOSI_PIN, LCD_SCK_PIN, LCD_TFTCS_PIN, LCD_TFTDC_PIN, LCD_TFTRST_PIN);
 
 // Global object used to track the PDB state. Used for updating the LCD.
 static Screen::PdbState g_state =
@@ -186,6 +195,52 @@ static Screen::PdbState g_state =
     .remoteBattery = 0
 };
 
+// When in manual driving mode, this packet will be sent on each BLE packet received from remote control.
+static ManualPacket g_manualPacket =
+{
+    .header =
+    {
+        .signature = PDBSERIAL_PACKET_SIGNATURE,
+        .length = sizeof(PdbSerialManualPacket)
+    },
+    .manual = {
+        .x = 0,
+        .y = 0,
+        .buttons = 0
+    }
+};
+
+// When in auto driving mode, this packet will be sent on a regular basis to let microcontroller know that PDB is still
+// running.
+static PdbSerialPacketHeader g_autoPacket =
+{
+    .signature = PDBSERIAL_PACKET_SIGNATURE,
+    .length = 0
+};
+
+// The states that the code can be in when parsing UART data sent back from the main robot microcontroller.
+static enum UartRecvState
+{
+    UART_RECV_PACKET_START,
+    UART_RECV_PACKET_LENGTH,
+    UART_RECV_PACKET_DATA
+} g_recvPacketState = UART_RECV_PACKET_START;
+
+// Incremented each time a packet is received from the main robot microcontroller.
+static uint32_t g_recvPacketCount = 0;
+
+// Set to true if data in g_recvPacketData is valid.
+static bool     g_recvPacketDataValid = false;
+
+// Length of data in g_recvPacketData.
+static size_t   g_recvPacketDataLength = 0;
+
+// Current write index into g_recvPacketData.
+static size_t   g_recvPacketDataIndex = 0;
+
+// The last string received from the main robot microcontroller.
+static char     g_recvPacketData[Screen::TEXT_LINE_LENGTH + 1];
+
 
 
 // Function Prototypes
@@ -193,6 +248,7 @@ static void initTimers(void);
 static void batteryMeasurementTimeoutHandler(void* pvContext);
 static void initUart(void);
 static void uartEventHandler(app_uart_evt_t* pEvent);
+static void parseReceivedPacketByte(uint8_t byte);
 static void initButtonsAndLeds(void);
 static void bspEventHandler(bsp_event_t event);
 static void enterSleepMode(void);
@@ -205,7 +261,8 @@ static void bleEventHandler(ble_evt_t * pBleEvent);
 static bool isUuidPresent(const ble_uuid_t* pTargetUuid, const ble_gap_evt_adv_report_t* pAdvertiseReport);
 static void initNordicUartServiceClient(void);
 static void nordicUartServiceClientEventHandler(ble_nus_c_t* pNordicUartServiceClient, const ble_nus_c_evt_t* pEvent);
-static void dumpJoyData(const BleJoyData* pJoyData);
+static void sendSerialPacket(const BleJoyData* pJoyData);
+static void sendBufferToUart(const void* pvData, size_t length);
 static void startTimers(void);
 static void startScanningForNordicUartPeripherals(void);
 static void enterLowPowerModeUntilNextEvent(void);
@@ -269,6 +326,11 @@ static void batteryMeasurementTimeoutHandler(void* pvContext)
 
     // Let the LCD update itself.
     g_screen.update(&g_state);
+    if (g_recvPacketDataValid)
+    {
+        g_screen.updateText(g_recvPacketData);
+        g_recvPacketDataValid = false;
+    }
 }
 
 static void initUart(void)
@@ -304,8 +366,8 @@ static void uartEventHandler(app_uart_evt_t* pEvent)
     switch (pEvent->evt_type)
     {
         case APP_UART_DATA_READY:
-            // UNDONE: Main robot uC will send status messages back this way.
             app_uart_get(&byte);
+            parseReceivedPacketByte(byte);
             break;
         case APP_UART_COMMUNICATION_ERROR:
             APP_ERROR_HANDLER(pEvent->data.error_communication);
@@ -314,6 +376,63 @@ static void uartEventHandler(app_uart_evt_t* pEvent)
             APP_ERROR_HANDLER(pEvent->data.error_code);
             break;
         default:
+            break;
+    }
+}
+
+static void parseReceivedPacketByte(uint8_t byte)
+{
+    uint8_t length = 0;
+
+    switch (g_recvPacketState)
+    {
+        case UART_RECV_PACKET_START:
+            if (byte == PDBSERIAL_PACKET_SIGNATURE)
+            {
+                g_recvPacketState = UART_RECV_PACKET_LENGTH;
+            }
+            break;
+        case UART_RECV_PACKET_LENGTH:
+            length = byte;
+            if (length == 0)
+            {
+                // Received a simple ack packet with no data.
+                g_recvPacketState = UART_RECV_PACKET_START;
+                g_recvPacketCount++;
+            }
+            else
+            {
+                if (g_recvPacketDataValid)
+                {
+                    // Just drop packet if we are still writing the last one to the screen.
+                    g_recvPacketState = UART_RECV_PACKET_START;
+                    g_recvPacketCount++;
+                }
+                g_recvPacketDataLength = length;
+                g_recvPacketDataIndex = 0;
+                g_recvPacketState = UART_RECV_PACKET_DATA;
+            }
+            break;
+        case UART_RECV_PACKET_DATA:
+            if (g_recvPacketDataIndex < sizeof(g_recvPacketData))
+            {
+                // Only place byte in buffer if there is room for it. Drop it on the floor otherwise.
+                g_recvPacketData[g_recvPacketDataIndex] = byte;
+            }
+            g_recvPacketDataIndex++;
+            if (g_recvPacketDataIndex >= g_recvPacketDataLength)
+            {
+                // Have finished receiving packet data.
+                // NULL terminate the data as it is a string to be displayed on the screen.
+                if (g_recvPacketDataIndex > sizeof(g_recvPacketData) - 1)
+                {
+                    g_recvPacketDataIndex = sizeof(g_recvPacketData) - 1;
+                }
+                g_recvPacketData[g_recvPacketDataIndex] = '\0';
+                g_recvPacketDataValid = true;
+                g_recvPacketCount++;
+                g_recvPacketState = UART_RECV_PACKET_START;
+            }
             break;
     }
 }
@@ -459,15 +578,6 @@ static void bleEventHandler(ble_evt_t* pBleEvent)
                 {
                     errorCode = bsp_indication_set(BSP_INDICATE_IDLE);
                     APP_ERROR_CHECK(errorCode);
-                    // UNDONE: Can get rid of later.
-                    printf("Connecting to target %02x%02x%02x%02x%02x%02x\r\n",
-                             pAdvertiseReport->peer_addr.addr[0],
-                             pAdvertiseReport->peer_addr.addr[1],
-                             pAdvertiseReport->peer_addr.addr[2],
-                             pAdvertiseReport->peer_addr.addr[3],
-                             pAdvertiseReport->peer_addr.addr[4],
-                             pAdvertiseReport->peer_addr.addr[5]
-                             );
                 }
             }
             break;
@@ -491,7 +601,6 @@ static void bleEventHandler(ble_evt_t* pBleEvent)
             }
             else if (pGapEvent->params.timeout.src == BLE_GAP_TIMEOUT_SRC_CONN)
             {
-                printf("Connection Request timed out.\r\n");
                 // UNDONE: Might want to restart scanning process again here.
             }
             break;
@@ -508,7 +617,6 @@ static void bleEventHandler(ble_evt_t* pBleEvent)
             APP_ERROR_CHECK(errorCode);
             break;
         case BLE_GATTC_EVT_TIMEOUT:
-            printf("GATT Client timeout encountered so disconnecting.\r\n");
             errorCode = sd_ble_gap_disconnect(pBleEvent->evt.gattc_evt.conn_handle,
                                               BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
             APP_ERROR_CHECK(errorCode);
@@ -516,7 +624,6 @@ static void bleEventHandler(ble_evt_t* pBleEvent)
             break;
         case BLE_GATTS_EVT_TIMEOUT:
             // Disconnect on GATT Server timeout event.
-            printf("GATT Server timeout encountered so disconnecting.\r\n");
             errorCode = sd_ble_gap_disconnect(pBleEvent->evt.gatts_evt.conn_handle,
                                               BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
             APP_ERROR_CHECK(errorCode);
@@ -636,7 +743,6 @@ static void nordicUartServiceClientEventHandler(ble_nus_c_t* pNordicUartServiceC
 
             errorCode = ble_nus_c_rx_notif_enable(pNordicUartServiceClient);
             APP_ERROR_CHECK(errorCode);
-            printf("Found BLEJoystick device.\r\n");
             break;
         case BLE_NUS_C_EVT_NUS_RX_EVT:
             // This event is sent each time that the Nordic UART peripheral sends a packet of information to this
@@ -649,7 +755,7 @@ static void nordicUartServiceClientEventHandler(ble_nus_c_t* pNordicUartServiceC
                 // Set motor relay enable pin based on latest remote dead man switch state just received.
                 nrf_gpio_pin_write(MOTOR_RELAY_PIN, joyData.buttons & BLEJOY_BUTTONS_DEADMAN);
 
-                dumpJoyData(&joyData);
+                sendSerialPacket(&joyData);
 
                 g_state.remoteBattery = joyData.batteryVoltage;
                 g_state.areMotorsEnabled = joyData.buttons & BLEJOY_BUTTONS_DEADMAN;
@@ -658,19 +764,34 @@ static void nordicUartServiceClientEventHandler(ble_nus_c_t* pNordicUartServiceC
         case BLE_NUS_C_EVT_DISCONNECTED:
             // Nordic UART peripheral has disconnected.
             // Start scanning for a reconnect.
-            printf("Disconnected.\r\n");
             startScanningForNordicUartPeripherals();
             break;
     }
 }
 
-static void dumpJoyData(const BleJoyData* pJoyData)
+static void sendSerialPacket(const BleJoyData* pJoyData)
 {
-    printf("% 4d,% 4d %s %u.%uV\r\n",
-           pJoyData->x, pJoyData->y,
-           (pJoyData->buttons & BLEJOY_BUTTONS_JOYSTICK) ? "JOY" : "   ",
-           pJoyData->batteryVoltage / 10,
-           pJoyData->batteryVoltage % 10);
+    if (g_state.isManualMode)
+    {
+        g_manualPacket.manual.x = pJoyData->x;
+        g_manualPacket.manual.y = pJoyData->y;
+        g_manualPacket.manual.buttons = pJoyData->buttons;
+        sendBufferToUart(&g_manualPacket, sizeof(g_manualPacket));
+    }
+    else
+    {
+        sendBufferToUart(&g_autoPacket, sizeof(g_autoPacket));
+    }
+}
+
+static void sendBufferToUart(const void* pvData, size_t length)
+{
+    const uint8_t* pData = (const uint8_t*)pvData;
+    while (length-- > 0)
+    {
+        uint32_t errorCode = app_uart_put(*pData++);
+        APP_ERROR_CHECK(errorCode);
+    }
 }
 
 static void startTimers(void)
@@ -682,8 +803,6 @@ static void startTimers(void)
 
 static void startScanningForNordicUartPeripherals(void)
 {
-    printf("Searching for BleJoystick device...\r\n");
-
     uint32_t errorCode = sd_ble_gap_scan_start(&g_bleScanParameters);
     APP_ERROR_CHECK(errorCode);
 
@@ -715,346 +834,3 @@ extern "C" void __cxa_pure_virtual()
     ASSERT ( 0 );
     abort();
 }
-
-
-
-#ifdef UNDONE
-void testlines(uint16_t color);
-void testdrawtext(const char *text, uint16_t color);
-void testfastlines(uint16_t color1, uint16_t color2);
-void testdrawrects(uint16_t color);
-void testfillrects(uint16_t color1, uint16_t color2);
-void testfillcircles(uint8_t radius, uint16_t color);
-void testdrawcircles(uint8_t radius, uint16_t color);
-void testtriangles();
-void testroundrects();
-void tftPrintTest();
-void mediabuttons();
-void lcdTestPattern(void);
-
-
-
-void testScreen(void)
-{
-    //Screen::PdbState state = { .isManualMode = false, .isRemoteConnected = true, .areMotorsEnabled = true, .robotBattery = 78, .remoteBattery = 33 };
-    //g_screen.update(&state);
-
-
-#ifdef UNDONE
-    tft.init(NRF_DRV_SPI_FREQ_8M);
-
-    // Rotate the screen output clockwise by 90 degrees.
-    tft.setRotation(1);
-
-    // UNDONE: Clear the top alert section at first and the rest a line at a time while doing other things.
-    tft.fillRect(0, 0, tft.width(), tft.height(), BLACK);
-
-    const uint8_t normalTextSize = 2;
-    const uint8_t tallTextSize = 4;
-    const uint16_t charWidth = 6;
-    const uint16_t charHeight = 8;
-
-    tft.setCursor(0, 0);
-    tft.setTextColor(RED);
-    tft.setTextSize(normalTextSize);
-    tft.print("Manual");
-
-    uint8_t bluetoothIcon[] = { 0x0c, 0x00, // 00001100 00000000
-                                0x0a, 0x00, // 00001010 00000000
-                                0x49, 0x00, // 01001001 00000000
-                                0x28, 0x80, // 00101000 10000000
-                                0x19, 0x00, // 00011001 00000000
-                                0x0a, 0x00, // 00001010 00000000
-                                0x0c, 0x00, // 00001100 00000000
-                                0x0a, 0x00,
-                                0x19, 0x00,
-                                0x28, 0x80,
-                                0x49, 0x00,
-                                0x0a, 0x00,
-                                0x0c, 0x00};
-    tft.drawBitmap(SCREEN_WIDTH - 5.5*normalTextSize*charWidth, 0, bluetoothIcon, 16, 13, BLUE);
-
-    uint8_t motorIcon[] = { 0x0f, 0xfc, // 00001111 11111100
-                            0x14, 0x02, // 00010100 00000010
-                            0x24, 0x01, // 00100100 00000001
-                            0x27, 0xc1, // 00100111 11000001
-                            0x24, 0x01, // 00100100 00000001
-                            0xe7, 0xc1, // 11100111 11000001
-                            0x24, 0x01,
-                            0x27, 0xc1,
-                            0x24, 0x01,
-                            0x14, 0x02,
-                            0x0f, 0xfc};
-    tft.drawBitmap(SCREEN_WIDTH - 3*normalTextSize*charWidth, normalTextSize*charHeight + 2, motorIcon, 16, 11, WHITE);
-
-    tft.setCursor(SCREEN_WIDTH - 4*normalTextSize*charWidth, 0);
-    tft.setTextColor(GREEN);
-    tft.setTextSize(normalTextSize);
-    tft.print("3.1V");
-
-    tft.setCursor(SCREEN_WIDTH/2 - 2*tallTextSize*charWidth, 0);
-    tft.setTextColor(GREEN);
-    tft.setTextSize(tallTextSize);
-    tft.print("7.8V");
-#endif // UNDONE
-
-#ifdef UNDONE
-  printf("init\r\n");
-
-  // You can optionally rotate the display by running the line below.
-  // Note that a value of 0 means no rotation, 1 means 90 clockwise,
-  // 2 means 180 degrees clockwise, and 3 means 270 degrees clockwise.
-  //tft.setRotation(1);
-  // NOTE: The test pattern at the start will NOT be rotated!  The code
-  // for rendering the test pattern talks directly to the display and
-  // ignores any rotation.
-
-  tft.fillRect(0, 0, tft.width(), tft.height(), BLACK);
-
-  nrf_delay_ms(500);
-
-  lcdTestPattern();
-  nrf_delay_ms(500);
-
-  tft.invertDisplay(true);
-  nrf_delay_ms(500);
-  tft.invertDisplay(false);
-  nrf_delay_ms(500);
-
-  tft.fillScreen(BLACK);
-  testdrawtext("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur adipiscing ante sed nibh tincidunt feugiat. Maecenas enim massa, fringilla sed malesuada et, malesuada sit amet turpis. Sed porttitor neque ut ante pretium vitae malesuada nunc bibendum. Nullam aliquet ultrices massa eu hendrerit. Ut sed nisi lorem. In vestibulum purus a tortor imperdiet posuere. ", WHITE);
-  nrf_delay_ms(500);
-
-  // tft print function!
-  tftPrintTest();
-  nrf_delay_ms(500);
-
-  //a single pixel
-  tft.drawPixel(tft.width()/2, tft.height()/2, GREEN);
-  nrf_delay_ms(500);
-
-  // line draw test
-  testlines(YELLOW);
-  nrf_delay_ms(500);
-
-  // optimized lines
-  testfastlines(RED, BLUE);
-  nrf_delay_ms(500);
-
-
-  testdrawrects(GREEN);
-  nrf_delay_ms(1000);
-
-  testfillrects(YELLOW, MAGENTA);
-  nrf_delay_ms(1000);
-
-  tft.fillScreen(BLACK);
-  testfillcircles(10, BLUE);
-  testdrawcircles(10, WHITE);
-  nrf_delay_ms(1000);
-
-  testroundrects();
-  nrf_delay_ms(500);
-
-  testtriangles();
-  nrf_delay_ms(500);
-
-  printf("done\r\n");
-  nrf_delay_ms(1000);
-#endif // UNDONE
-}
-
-#ifdef UNDONE
-void testlines(uint16_t color) {
-   tft.fillScreen(BLACK);
-   for (uint16_t x=0; x < tft.width()-1; x+=6) {
-     tft.drawLine(0, 0, x, tft.height()-1, color);
-   }
-   for (uint16_t y=0; y < tft.height()-1; y+=6) {
-     tft.drawLine(0, 0, tft.width()-1, y, color);
-   }
-
-   tft.fillScreen(BLACK);
-   for (uint16_t x=0; x < tft.width()-1; x+=6) {
-     tft.drawLine(tft.width()-1, 0, x, tft.height()-1, color);
-   }
-   for (uint16_t y=0; y < tft.height()-1; y+=6) {
-     tft.drawLine(tft.width()-1, 0, 0, y, color);
-   }
-
-   tft.fillScreen(BLACK);
-   for (uint16_t x=0; x < tft.width()-1; x+=6) {
-     tft.drawLine(0, tft.height()-1, x, 0, color);
-   }
-   for (uint16_t y=0; y < tft.height()-1; y+=6) {
-     tft.drawLine(0, tft.height()-1, tft.width()-1, y, color);
-   }
-
-   tft.fillScreen(BLACK);
-   for (uint16_t x=0; x < tft.width()-1; x+=6) {
-     tft.drawLine(tft.width()-1, tft.height()-1, x, 0, color);
-   }
-   for (uint16_t y=0; y < tft.height()-1; y+=6) {
-     tft.drawLine(tft.width()-1, tft.height()-1, 0, y, color);
-   }
-
-}
-
-void testdrawtext(const char *text, uint16_t color) {
-  tft.setCursor(0,0);
-  tft.setTextColor(color);
-  tft.setTextSize(2);
-  tft.print(text);
-}
-
-void testfastlines(uint16_t color1, uint16_t color2) {
-   tft.fillScreen(BLACK);
-   for (uint16_t y=0; y < tft.height()-1; y+=5) {
-     tft.drawFastHLine(0, y, tft.width()-1, color1);
-   }
-   for (uint16_t x=0; x < tft.width()-1; x+=5) {
-     tft.drawFastVLine(x, 0, tft.height()-1, color2);
-   }
-}
-
-void testdrawrects(uint16_t color) {
- tft.fillScreen(BLACK);
- for (uint16_t x=0; x < tft.height()-1; x+=6) {
-   tft.drawRect((tft.width()-1)/2 -x/2, (tft.height()-1)/2 -x/2 , x, x, color);
- }
-}
-
-void testfillrects(uint16_t color1, uint16_t color2) {
- tft.fillScreen(BLACK);
- for (uint16_t x=tft.height()-1; x > 6; x-=6) {
-   tft.fillRect((tft.width()-1)/2 -x/2, (tft.height()-1)/2 -x/2 , x, x, color1);
-   tft.drawRect((tft.width()-1)/2 -x/2, (tft.height()-1)/2 -x/2 , x, x, color2);
- }
-}
-
-void testfillcircles(uint8_t radius, uint16_t color) {
-  for (int16_t x=radius; x < tft.width()-1; x+=radius*2) {
-    for (int16_t y=radius; y < tft.height()-1; y+=radius*2) {
-      tft.fillCircle(x, y, radius, color);
-    }
-  }
-}
-
-void testdrawcircles(uint8_t radius, uint16_t color) {
-  for (int16_t x=0; x < tft.width()-1+radius; x+=radius*2) {
-    for (int16_t y=0; y < tft.height()-1+radius; y+=radius*2) {
-      tft.drawCircle(x, y, radius, color);
-    }
-  }
-}
-
-void testtriangles() {
-  tft.fillScreen(BLACK);
-  int color = 0xF800;
-  int t;
-  int w = tft.width()/2;
-  int x = tft.height();
-  int y = 0;
-  int z = tft.width();
-  for(t = 0 ; t <= 15; t+=1) {
-    tft.drawTriangle(w, y, y, x, z, x, color);
-    x-=4;
-    y+=4;
-    z-=4;
-    color+=100;
-  }
-}
-
-void testroundrects() {
-  tft.fillScreen(BLACK);
-  int color = 100;
-
-  int x = 0;
-  int y = 0;
-  int w = tft.width();
-  int h = tft.height();
-  for(int i = 0 ; i <= 24; i++) {
-    tft.drawRoundRect(x, y, w, h, 5, color);
-    x+=2;
-    y+=3;
-    w-=4;
-    h-=6;
-    color+=1100;
-    // UNDONE: Serial.println(i);
-  }
-}
-
-void tftPrintTest() {
-  tft.fillScreen(BLACK);
-  tft.setCursor(0, 5);
-  tft.setTextColor(RED);
-  tft.setTextSize(1);
-  tft.print("Hello World!\n");
-  tft.setTextColor(YELLOW);
-  tft.setTextSize(2);
-  tft.print("Hello World!\n");
-#ifdef UNDONE
-  tft.setTextColor(BLUE);
-  tft.setTextSize(3);
-  tft.print("1234.567");
-  nrf_delay_ms(1500);
-  tft.setCursor(0, 5);
-  tft.fillScreen(BLACK);
-  tft.setTextColor(WHITE);
-  tft.setTextSize(0);
-  tft.print("Hello World!\n");
-  tft.setTextSize(1);
-  tft.setTextColor(GREEN);
-  tft.print("3.14159");
-  tft.print(" Want pi?\n");
-  tft.print(" \n");
-  tft.print(8675309, HEX); // print 8,675,309 out in HEX!
-  tft.print(" Print HEX!\n");
-  tft.print(" \n");
-  tft.setTextColor(WHITE);
-  tft.println("Sketch has been");
-  tft.println("running for: ");
-  tft.setTextColor(MAGENTA);
-  tft.print(millis() / 1000);
-  tft.setTextColor(WHITE);
-  tft.print(" seconds.");
-#endif // UNDONE
-}
-
-void mediabuttons() {
- // play
-  tft.fillScreen(BLACK);
-  tft.fillRoundRect(25, 10, 78, 60, 8, WHITE);
-  tft.fillTriangle(42, 20, 42, 60, 90, 40, RED);
-  nrf_delay_ms(500);
-  // pause
-  tft.fillRoundRect(25, 90, 78, 60, 8, WHITE);
-  tft.fillRoundRect(39, 98, 20, 45, 5, GREEN);
-  tft.fillRoundRect(69, 98, 20, 45, 5, GREEN);
-  nrf_delay_ms(500);
-  // play color
-  tft.fillTriangle(42, 20, 42, 60, 90, 40, BLUE);
-  nrf_delay_ms(50);
-  // pause color
-  tft.fillRoundRect(39, 98, 20, 45, 5, RED);
-  tft.fillRoundRect(69, 98, 20, 45, 5, RED);
-  // play color
-  tft.fillTriangle(42, 20, 42, 60, 90, 40, GREEN);
-}
-
-/**************************************************************************/
-/*!
-    @brief  Renders a simple test pattern on the screen
-*/
-/**************************************************************************/
-void lcdTestPattern(void)
-{
-  static const uint16_t colors[] =
-    { RED, YELLOW, GREEN, CYAN, BLUE, MAGENTA, BLACK, WHITE };
-
-  for(uint8_t c=0; c<8; c++) {
-    tft.fillRect(0, tft.height() * c / 8, tft.width(), tft.height() / 8, colors[c]);
-  }
-}
-#endif // UNDONE
-#endif // UNDONE

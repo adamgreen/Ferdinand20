@@ -22,8 +22,7 @@
 #define SCREEN_H_
 
 #include <Adafruit_GFX.h>
-#include <Adafruit_SPITFT.h>
-#include <Adafruit_ST7789.h>
+#include <Arduino_ST7789_Fast.h>
 
 
 
@@ -31,7 +30,7 @@ class Screen
 {
     public:
         Screen(uint32_t updatesPerSecond,
-               nrf_drv_spi_t* pSpi, uint8_t mosiPin, uint8_t sckPin, uint8_t csPin, uint8_t dcPin,
+               /* UNDONE: nrf_drv_spi_t* pSpi, */ uint8_t mosiPin, uint8_t sckPin, uint8_t csPin, uint8_t dcPin,
                uint8_t rstPin = NRF_DRV_SPI_PIN_NOT_USED);
 
         struct PdbState
@@ -51,6 +50,7 @@ class Screen
         };
 
         void update(const PdbState* pState);
+        void updateText(const char* pText);
 
         // Class specific constants for our screen dimensions.
         enum
@@ -60,10 +60,32 @@ class Screen
         };
 
     protected:
+        // Size of characters to use for information scrolling text.
+        enum
+        {
+            TEXT_SIZE = 2
+        };
+
+    public:
+        // Maximum number of characters to be displayed on a line.
+        enum
+        {
+            TEXT_LINE_LENGTH = 40 / TEXT_SIZE
+        };
+
+    protected:
+        // Number of text lines that can be displayed on the screen at once.
+        enum
+        {
+            TEXT_LINES = 24 / TEXT_SIZE
+        };
+
         uint32_t        m_updatesPerSecond;
         uint32_t        m_blinkUpdates;
-        Adafruit_ST7789 m_tft;
+        Arduino_ST7789  m_tft;
         PdbState        m_currentState;
+        uint8_t         m_currentTextLine;
+        char            m_text[TEXT_LINES][TEXT_LINE_LENGTH+1];
         bool            m_blinkManual;
         bool            m_blinkBle;
 
@@ -73,6 +95,7 @@ class Screen
         void drawMotorIcon(bool areMotorsEnabled);
         void drawRobotVoltage(uint8_t robotVoltage);
         void drawBatteryVoltage(uint16_t x, uint16_t y, uint8_t size, uint16_t color, uint8_t voltage);
+        void drawTextLine(uint8_t line, uint16_t color);
 
         // NiMH voltage levels below this value in the remote control should be shown in red text.
         enum

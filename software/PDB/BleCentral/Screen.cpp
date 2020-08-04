@@ -18,7 +18,9 @@
      * Motor relay on/off state
      * Status messages sent from robot's main microcontroller.
 */
+#include <stdio.h>
 #include <string.h>
+#include <nrf_gpio.h>
 #include "Screen.h"
 
 
@@ -31,29 +33,37 @@ static const uint8_t tallTextSize = 4;
 static const uint16_t charWidth = 6;
 // The height of character on the screen when text size is set to 1.
 static const uint16_t charHeight = 8;
+// The amount of room to leave at top of screen above the scrolling text.
+static const uint16_t scrollingTopMargin = tallTextSize * charHeight + 5;
 
 
 
 Screen::Screen(uint32_t updatesPerSecond,
-               nrf_drv_spi_t* pSpi, uint8_t mosiPin, uint8_t sckPin, uint8_t csPin, uint8_t dcPin, uint8_t rstPin) :
+               /* UNDONE: nrf_drv_spi_t* pSpi, */uint8_t mosiPin, uint8_t sckPin, uint8_t csPin, uint8_t dcPin, uint8_t rstPin) :
     m_updatesPerSecond(updatesPerSecond),
-    m_tft(SCREEN_WIDTH, SCREEN_HEIGHT, pSpi, mosiPin, sckPin, csPin, dcPin, rstPin)
+    m_tft(/* UNDONE: SCREEN_WIDTH, SCREEN_HEIGHT, pSpi, */ mosiPin, sckPin, dcPin, rstPin, csPin)
 {
     m_blinkUpdates = 0;
     m_blinkManual = false;
     m_blinkBle = false;
+    m_currentTextLine = 0;
+
+    // Can just pull CS low once here instead of multiple times in the LCD driver.
+#ifdef CS_ALWAYS_LOW
+    nrf_gpio_pin_clear(csPin);
+    nrf_gpio_cfg_output(csPin);
+#endif // CS_ALWAYS_LOW
 
     // Initialize current state to invalid values so that first update will update everything.
     memset(&m_currentState, 0xFF, sizeof(m_currentState));
 
-    m_tft.init(NRF_DRV_SPI_FREQ_8M);
+    m_tft.init(SCREEN_WIDTH, SCREEN_HEIGHT);
 
     // Rotate the screen output clockwise by 90 degrees.
-    m_tft.setRotation(1);
+// UNDONE:    m_tft.setRotation(1);
+    m_tft.setRotation(2);
 
-    // UNDONE: Does this display have a command to perform this clear more quickly?
-    // UNDONE: Clear the top alert section at first and the rest a line at a time while doing other things.
-    m_tft.fillRect(0, 0, m_tft.width(), m_tft.height(), TFT_BLACK);
+    m_tft.clearScreen();
 }
 
 void Screen::update(const PdbState* pState)
@@ -269,4 +279,73 @@ void Screen::drawBatteryVoltage(uint16_t x, uint16_t y, uint8_t size, uint16_t c
     char buffer[6];
     snprintf(buffer, sizeof(buffer), "%u.%uV", voltage / 10, voltage % 10);
     m_tft.print(buffer);
+}
+
+void Screen::updateText(const char* pText)
+{
+    // Truncate the string to fit on this screen so that it doesn't overflow the buffers.
+    size_t textLength = strlen(pText);
+    if (textLength > TEXT_LINE_LENGTH)
+    {
+        textLength = TEXT_LINE_LENGTH;
+    }
+
+#ifdef UNDONE
+    if (m_currentTextLine < TEXT_LINES)
+    {
+        // This is the first time writing to this line so just display it.
+        memcpy(m_text[m_currentTextLine], pText, textLength);
+        m_text[m_currentTextLine][textLength] = '\0';
+        drawTextLine(m_currentTextLine, TFT_WHITE);
+        m_currentTextLine++;
+
+        return;
+    }
+#endif // UNDONE
+
+    // Roll the topmost line of text to the bottom of the text window.
+    m_tft.setScrollArea(scrollingTopMargin, 320 - (scrollingTopMargin + TEXT_LINES * TEXT_SIZE * charHeight));
+    m_tft.setScroll(scrollingTopMargin + (m_currentTextLine+1) * TEXT_SIZE * charHeight);
+
+    // Erase the bottommost line of text.
+    drawTextLine(m_currentTextLine, TFT_BLACK);
+    // Replace with new text.
+    memcpy(m_text[m_currentTextLine], pText, textLength);
+    m_text[m_currentTextLine][textLength] = '\0';
+    drawTextLine(m_currentTextLine, TFT_WHITE);
+
+    m_currentTextLine++;
+    if (m_currentTextLine == TEXT_LINES)
+    {
+        m_currentTextLine = 0;
+    }
+
+#ifdef UNDONE
+    // Scroll all of the text up by one line, making room for the latest text at the bottom of the screen.
+    for (uint8_t i = 0 ; i < TEXT_LINES ; i++)
+    {
+        // Erase what is currently on this line.
+        drawTextLine(i, TFT_BLACK);
+
+        // Draw the next text to go on this line.
+        if (i < TEXT_LINES - 1)
+        {
+            strcpy(m_text[i], m_text[i+1]);
+        }
+        else
+        {
+            memcpy(m_text[i], pText, textLength);
+            m_text[i][textLength] = '\0';
+        }
+        drawTextLine(i, TFT_WHITE);
+    }
+#endif // UNDONE
+}
+
+void Screen::drawTextLine(uint8_t line, uint16_t color)
+{
+    m_tft.setCursor(0, line * TEXT_SIZE * charHeight + scrollingTopMargin);
+    m_tft.setTextColor(color);
+    m_tft.setTextSize(TEXT_SIZE);
+    m_tft.print(m_text[line]);
 }

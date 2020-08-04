@@ -50,10 +50,7 @@ SRC_FILES += \
   $(SDK_ROOT)/components/softdevice/common/softdevice_handler/softdevice_handler.c \
   $(SDK_ROOT)/components/drivers_nrf/spi_master/nrf_drv_spi.c \
   ../../../external/Adafruit-GFX-Library/Adafruit_GFX.cpp \
-  ../../../external/Adafruit-GFX-Library/Adafruit_SPITFT.cpp \
-  ../../../external/Adafruit-SSD1351-library/Adafruit_SSD1351.cpp \
-  ../../../external/Adafruit-ST7735-Library/Adafruit_ST77xx.cpp \
-  ../../../external/Adafruit-ST7735-Library/Adafruit_ST7789.cpp \
+  ../../../external/Arduino_ST7789_Fast/Arduino_ST7789_Fast.cpp \
 
 # Include folders common to all targets
 INC_FOLDERS += \
@@ -161,8 +158,7 @@ INC_FOLDERS += \
   $(SDK_ROOT)/components/ble/ble_services/ble_hrs \
   $(SDK_ROOT)/components/libraries/log/src \
   ../../../external/Adafruit-GFX-Library \
-  ../../../external/Adafruit-SSD1351-library \
-  ../../../external/Adafruit-ST7735-Library \
+  ../../../external/Arduino_ST7789_Fast \
 
 # Libraries common to all targets
 LIB_FILES += \
