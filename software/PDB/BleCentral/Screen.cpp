@@ -25,6 +25,9 @@
 
 
 
+// Orientation of the screen.
+#define SCREEN_ORIENTATION 3
+
 // Size to use for normal text on screen.
 static const uint8_t normalTextSize = 2;
 // Size to use for tall double height text on screen (ie. Robot Voltage).
@@ -59,8 +62,8 @@ Screen::Screen(uint32_t updatesPerSecond,
 
     m_tft.init();
 
-    // Rotate the screen output clockwise by 90 degrees.
-    m_tft.setRotation(0);
+    // Rotate the screen output to the correction orientation for the screen mounting.
+    m_tft.setRotation(SCREEN_ORIENTATION);
 
     m_tft.clearScreen();
 }
@@ -289,56 +292,59 @@ void Screen::updateText(const char* pText)
         textLength = TEXT_LINE_LENGTH;
     }
 
-#ifdef UNDONE
-    if (m_currentTextLine < TEXT_LINES)
+    if (SCREEN_ORIENTATION == 0)
     {
-        // This is the first time writing to this line so just display it.
+        // Can use hardware vertical scrolling when in this orientation.
+        // Roll the topmost line of text to the bottom of the text window.
+        m_tft.setScrollArea(scrollingTopMargin, 320 - (scrollingTopMargin + TEXT_LINES * TEXT_SIZE * charHeight));
+        m_tft.setScroll(scrollingTopMargin + (m_currentTextLine+1) * TEXT_SIZE * charHeight);
+
+        // Erase the bottommost line of text.
+        drawTextLine(m_currentTextLine, TFT_BLACK);
+        // Replace with new text.
         memcpy(m_text[m_currentTextLine], pText, textLength);
         m_text[m_currentTextLine][textLength] = '\0';
         drawTextLine(m_currentTextLine, TFT_WHITE);
+
         m_currentTextLine++;
-
-        return;
-    }
-#endif // UNDONE
-
-    // Roll the topmost line of text to the bottom of the text window.
-    m_tft.setScrollArea(scrollingTopMargin, 320 - (scrollingTopMargin + TEXT_LINES * TEXT_SIZE * charHeight));
-    m_tft.setScroll(scrollingTopMargin + (m_currentTextLine+1) * TEXT_SIZE * charHeight);
-
-    // Erase the bottommost line of text.
-    drawTextLine(m_currentTextLine, TFT_BLACK);
-    // Replace with new text.
-    memcpy(m_text[m_currentTextLine], pText, textLength);
-    m_text[m_currentTextLine][textLength] = '\0';
-    drawTextLine(m_currentTextLine, TFT_WHITE);
-
-    m_currentTextLine++;
-    if (m_currentTextLine == TEXT_LINES)
-    {
-        m_currentTextLine = 0;
-    }
-
-#ifdef UNDONE
-    // Scroll all of the text up by one line, making room for the latest text at the bottom of the screen.
-    for (uint8_t i = 0 ; i < TEXT_LINES ; i++)
-    {
-        // Erase what is currently on this line.
-        drawTextLine(i, TFT_BLACK);
-
-        // Draw the next text to go on this line.
-        if (i < TEXT_LINES - 1)
+        if (m_currentTextLine == TEXT_LINES)
         {
-            strcpy(m_text[i], m_text[i+1]);
+            m_currentTextLine = 0;
         }
-        else
-        {
-            memcpy(m_text[i], pText, textLength);
-            m_text[i][textLength] = '\0';
-        }
-        drawTextLine(i, TFT_WHITE);
     }
-#endif // UNDONE
+    else
+    {
+        // Can't use hardware vertical scrolling when in this orientation.
+        if (m_currentTextLine < TEXT_LINES)
+        {
+            // This is the first time writing to this line so just display it.
+            memcpy(m_text[m_currentTextLine], pText, textLength);
+            m_text[m_currentTextLine][textLength] = '\0';
+            drawTextLine(m_currentTextLine, TFT_WHITE);
+            m_currentTextLine++;
+
+            return;
+        }
+
+        // Scroll all of the text up by one line, making room for the latest text at the bottom of the screen.
+        for (uint8_t i = 0 ; i < TEXT_LINES ; i++)
+        {
+            // Erase what is currently on this line.
+            drawTextLine(i, TFT_BLACK);
+
+            // Draw the next text to go on this line.
+            if (i < TEXT_LINES - 1)
+            {
+                strcpy(m_text[i], m_text[i+1]);
+            }
+            else
+            {
+                memcpy(m_text[i], pText, textLength);
+                m_text[i][textLength] = '\0';
+            }
+            drawTextLine(i, TFT_WHITE);
+        }
+    }
 }
 
 void Screen::drawTextLine(uint8_t line, uint16_t color)
