@@ -41,7 +41,7 @@ static const uint16_t scrollingTopMargin = tallTextSize * charHeight + 5;
 Screen::Screen(uint32_t updatesPerSecond,
                /* UNDONE: nrf_drv_spi_t* pSpi, */uint8_t mosiPin, uint8_t sckPin, uint8_t csPin, uint8_t dcPin, uint8_t rstPin) :
     m_updatesPerSecond(updatesPerSecond),
-    m_tft(/* UNDONE: SCREEN_WIDTH, SCREEN_HEIGHT, pSpi, */ mosiPin, sckPin, dcPin, rstPin, csPin)
+    m_tft(SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, /* pSpi, */ mosiPin, sckPin, dcPin, rstPin, csPin)
 {
     m_blinkUpdates = 0;
     m_blinkManual = false;
@@ -57,11 +57,10 @@ Screen::Screen(uint32_t updatesPerSecond,
     // Initialize current state to invalid values so that first update will update everything.
     memset(&m_currentState, 0xFF, sizeof(m_currentState));
 
-    m_tft.init(SCREEN_WIDTH, SCREEN_HEIGHT);
+    m_tft.init();
 
     // Rotate the screen output clockwise by 90 degrees.
-// UNDONE:    m_tft.setRotation(1);
-    m_tft.setRotation(2);
+    m_tft.setRotation(0);
 
     m_tft.clearScreen();
 }

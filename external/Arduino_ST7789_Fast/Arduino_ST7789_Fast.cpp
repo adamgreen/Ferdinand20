@@ -11,9 +11,8 @@
 // Fake out AVR PGMREAD functionality for ARM where it can be treated like any other memory region.
 #define PROGMEM
 
-// Initialization commands for ST7789 240x240 1.3" IPS
-// taken from Adafruit
-static const uint8_t PROGMEM init_240x240[] = {
+// Initialization commands for ST7789.
+static const uint8_t PROGMEM initST7789[] = {
     9,                       				// 9 commands in list:
     ST7789_SWRESET,   ST_CMD_DELAY,  		// 1: Software reset, no args, w/delay
       150,                     				// 150 ms delay
@@ -24,14 +23,6 @@ static const uint8_t PROGMEM init_240x240[] = {
       10,                     				// 10 ms delay
     ST7789_MADCTL , 1,  					// 4: Memory access ctrl (directions), 1 arg:
       0x00,                   				// Row addr/col addr, bottom to top refresh
-    ST7789_CASET  , 4,  					// 5: Column addr set, 4 args, no delay:
-      0x00, ST7789_240x240_XSTART,          // XSTART = 0
-	    (ST7789_TFTWIDTH+ST7789_240x240_XSTART) >> 8,
-	    (ST7789_TFTWIDTH+ST7789_240x240_XSTART) & 0xFF,   // XEND = 240
-    ST7789_RASET  , 4,  					// 6: Row addr set, 4 args, no delay:
-      0x00, ST7789_240x240_YSTART,          // YSTART = 0
-      (ST7789_TFTHEIGHT+ST7789_240x240_YSTART) >> 8,
-	    (ST7789_TFTHEIGHT+ST7789_240x240_YSTART) & 0xFF,	// YEND = 240
     ST7789_INVON ,   ST_CMD_DELAY,  		// 7: Inversion ON
       10,
     ST7789_NORON  ,   ST_CMD_DELAY,  		// 8: Normal display on, no args, w/delay
@@ -105,9 +96,14 @@ inline void Arduino_ST7789::flushSPI()
 }
 
 // ----------------------------------------------------------
-Arduino_ST7789::Arduino_ST7789(uint8_t mosi, uint8_t sck, uint8_t dc, uint8_t rst, uint8_t cs) :
-    Adafruit_GFX(ST7789_TFTWIDTH, ST7789_TFTHEIGHT)
+Arduino_ST7789::Arduino_ST7789(uint16_t width, uint16_t height, uint16_t columnOffset, uint16_t rowOffset,
+                               uint8_t mosi, uint8_t sck, uint8_t dc, uint8_t rst, uint8_t cs) :
+    Adafruit_GFX(width, height)
 {
+  _colstart = columnOffset;
+  _rowstart = rowOffset;
+  _width  = width;
+  _height = height;
   mosiPin = mosi;
   sckPin = sck;
   csPin = cs;
@@ -117,16 +113,12 @@ Arduino_ST7789::Arduino_ST7789(uint8_t mosi, uint8_t sck, uint8_t dc, uint8_t rs
 }
 
 // ----------------------------------------------------------
-void Arduino_ST7789::init(uint16_t width, uint16_t height)
+void Arduino_ST7789::init()
 {
   commonST7789Init(NULL);
 
-  _colstart = ST7789_240x240_XSTART;
-  _rowstart = ST7789_240x240_YSTART;
-  _width  = width;
-  _height = height;
-  displayInit(init_240x240);
-  setRotation(2);
+  displayInit(initST7789);
+  setRotation(0);
 }
 
 // ----------------------------------------------------------
@@ -228,25 +220,25 @@ void Arduino_ST7789::setRotation(uint8_t m)
   writeCmd(ST7789_MADCTL);
   rotation = m & 3;
   switch (rotation) {
-   case 0:
-     writeData(ST7789_MADCTL_MX | ST7789_MADCTL_MY | ST7789_MADCTL_RGB);
+  case 0:
+     writeData(ST7789_MADCTL_RGB);
      _xstart = _colstart;
      _ystart = _rowstart;
      break;
    case 1:
-     writeData(ST7789_MADCTL_MY | ST7789_MADCTL_MV | ST7789_MADCTL_RGB);
-     _ystart = _colstart;
+     writeData(ST7789_MADCTL_MX | ST7789_MADCTL_MV | ST7789_MADCTL_RGB);
+     _ystart = (ST7789_FRAME_BUFFER_WIDTH - _width) - _colstart;
      _xstart = _rowstart;
      break;
-  case 2:
-     writeData(ST7789_MADCTL_RGB);
-     _xstart = 0;
-     _ystart = 0;
+   case 2:
+     writeData(ST7789_MADCTL_MX | ST7789_MADCTL_MY | ST7789_MADCTL_RGB);
+     _xstart = (ST7789_FRAME_BUFFER_WIDTH - _width) - _colstart;
+     _ystart = (ST7789_FRAME_BUFFER_HEIGHT - _height) - _rowstart;
      break;
    case 3:
-     writeData(ST7789_MADCTL_MX | ST7789_MADCTL_MV | ST7789_MADCTL_RGB);
+     writeData(ST7789_MADCTL_MY | ST7789_MADCTL_MV | ST7789_MADCTL_RGB);
      _ystart = _colstart;
-     _xstart = _rowstart;
+     _xstart = (ST7789_FRAME_BUFFER_HEIGHT - _height) - _rowstart;
      break;
   }
 }

@@ -21,11 +21,10 @@
 #define pgm_read_word(ADDR) (*(uint16_t*)(ADDR))
 #define pgm_read_byte(ADDR) (*(uint8_t*)(ADDR))
 
-#define ST7789_TFTWIDTH 	240
-#define ST7789_TFTHEIGHT 	240
+// The dimensions of the frame buffer on the ST7789. The LCD can be smaller than these dimensions but not larger.
+#define ST7789_FRAME_BUFFER_WIDTH  240
+#define ST7789_FRAME_BUFFER_HEIGHT 320
 
-#define ST7789_240x240_XSTART 0
-#define ST7789_240x240_YSTART 80
 
 #define ST_CMD_DELAY   0x80
 
@@ -87,11 +86,12 @@
 class Arduino_ST7789 : public Adafruit_GFX {
 
  public:
-  Arduino_ST7789(uint8_t MOSI, uint8_t SCK, uint8_t DC, uint8_t RST = NRF_DRV_SPI_PIN_NOT_USED, uint8_t CS = NRF_DRV_SPI_PIN_NOT_USED);
+  Arduino_ST7789(uint16_t width, uint16_t height, uint16_t columnOffset, uint16_t rowOffset,
+                 uint8_t MOSI, uint8_t SCK, uint8_t DC,
+                 uint8_t RST = NRF_DRV_SPI_PIN_NOT_USED, uint8_t CS = NRF_DRV_SPI_PIN_NOT_USED);
 
-  void init(uint16_t width, uint16_t height);
-  void begin() { init(ST7789_TFTWIDTH,ST7789_TFTHEIGHT); }
-  void init() { init(ST7789_TFTWIDTH,ST7789_TFTHEIGHT); }
+  void init();
+  void begin() { init(); }
   void setAddrWindow(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1);
   void pushColor(uint16_t color);
   void fillScreen(uint16_t color=TFT_BLACK);
