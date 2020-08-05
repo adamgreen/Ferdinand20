@@ -267,13 +267,14 @@ static void joystickMeasurementTimeoutHandler(void* pvContext)
 
 static void initButtonsAndLeds(bool * pEraseBonds)
 {
-    // UNDONE: Set this pin low before going into sleep mode.
+    // This pin is used to provide Vcc to the joystick pots and will be set low before going into deep sleep.
     nrf_gpio_pin_set(JOYSTICK_POWER_PIN);
     nrf_gpio_cfg_output(JOYSTICK_POWER_PIN);
 
-    // Configure the pins connected to the joystick and deadman switches as an input with pull-up.
+    // Configure the pins connected to the joystick and deadman switches as an input with pull-up. The deadman switch
+    // will also be set as a sense input to wakeup from deep sleep.
     nrf_gpio_cfg_input(JOYSTICK_PRESS_PIN, NRF_GPIO_PIN_PULLUP);
-    nrf_gpio_cfg_input(DEADMAN_PRESS_PIN, NRF_GPIO_PIN_PULLUP);
+    nrf_gpio_cfg_sense_input(DEADMAN_PRESS_PIN, NRF_GPIO_PIN_PULLUP, NRF_GPIO_PIN_SENSE_LOW);
 
     // UNDONE: What should I do with erase bounds?
     *pEraseBonds = false;
@@ -493,6 +494,9 @@ static void bleAdvertisingEventHandler(ble_adv_evt_t bleAdvertisingEvent)
 
 static void enterDeepSleep(void)
 {
+    // Disable power to the joystick pots.
+    nrf_gpio_pin_clear(JOYSTICK_POWER_PIN);
+
     // Go to system-off mode (this function will not return; wakeup will cause a reset).
     uint32_t errorCode = sd_power_system_off();
     APP_ERROR_CHECK(errorCode);
