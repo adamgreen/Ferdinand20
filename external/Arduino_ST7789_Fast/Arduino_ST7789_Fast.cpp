@@ -46,7 +46,7 @@ static const uint8_t PROGMEM initST7789[] = {
 #define SPI_OBJ ((NRF_SPI_Type*)NRF_DRV_SPI_PERIPHERAL(ST7789_SPI_INSTANCE))
 
 // if CS always connected to the ground then don't do anything for better performance
-#ifdef CS_ALWAYS_LOW
+#if CS_ALWAYS_LOW
 #undef  CS_IDLE
 #undef  CS_ACTIVE
 #define CS_IDLE
@@ -154,11 +154,12 @@ void Arduino_ST7789::commonST7789Init(const uint8_t *cmdList)
   nrf_gpio_pin_set(dcPin);
   nrf_gpio_cfg_output(dcPin);
 
-#ifndef CS_ALWAYS_LOW
-  nrf_gpio_pin_set(csPin);
-  nrf_gpio_cfg_output(csPin);
-  csMask = 1 << csPin;
-#endif
+  if (!CS_ALWAYS_LOW)
+  {
+    nrf_gpio_pin_set(csPin);
+    nrf_gpio_cfg_output(csPin);
+    csMask = 1 << csPin;
+  }
 
   portSet = &NRF_GPIO->OUTSET;
   portClear = &NRF_GPIO->OUTCLR;

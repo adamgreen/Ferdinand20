@@ -6,8 +6,8 @@
 #define _ST7789_FAST_H_
 
 // ------------------------------
-// define for LCD boards where CS pin is internally connected to the ground
-#define CS_ALWAYS_LOW
+// Set to 1 for LCD boards where CS pin is internally connected to the ground and 0 otherwise.
+#define CS_ALWAYS_LOW 1
 
 // Which SPI Master instance (0 or 1) should be used with the screen.
 #define ST7789_SPI_INSTANCE 0

@@ -42,9 +42,9 @@ static const uint16_t scrollingTopMargin = tallTextSize * charHeight + 5;
 
 
 Screen::Screen(uint32_t updatesPerSecond,
-               /* UNDONE: nrf_drv_spi_t* pSpi, */uint8_t mosiPin, uint8_t sckPin, uint8_t csPin, uint8_t dcPin, uint8_t rstPin) :
+               uint8_t mosiPin, uint8_t sckPin, uint8_t csPin, uint8_t dcPin, uint8_t rstPin) :
     m_updatesPerSecond(updatesPerSecond),
-    m_tft(SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, /* pSpi, */ mosiPin, sckPin, dcPin, rstPin, csPin)
+    m_tft(SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, mosiPin, sckPin, dcPin, rstPin, csPin)
 {
     m_blinkUpdates = 0;
     m_blinkManual = false;
@@ -54,10 +54,11 @@ Screen::Screen(uint32_t updatesPerSecond,
     memset(&m_text, 0, sizeof(m_text));
 
     // Can just pull CS low once here instead of multiple times in the LCD driver.
-#ifdef CS_ALWAYS_LOW
-    nrf_gpio_pin_clear(csPin);
-    nrf_gpio_cfg_output(csPin);
-#endif // CS_ALWAYS_LOW
+    if (CS_ALWAYS_LOW)
+    {
+        nrf_gpio_pin_clear(csPin);
+        nrf_gpio_cfg_output(csPin);
+    }
 
     // Initialize current state to invalid values so that first update will update everything.
     memset(&m_currentState, 0xFF, sizeof(m_currentState));
@@ -72,14 +73,16 @@ Screen::Screen(uint32_t updatesPerSecond,
 
 void Screen::update(const PdbState* pState)
 {
-    drawManualAutoMode(pState->isManualMode);
-    drawRemoteIcon(pState->isRemoteConnected);
-    drawRemoteVoltage(pState->isRemoteConnected, pState->remoteBattery);
-    drawMotorIcon(pState->areMotorsEnabled);
-    drawRobotVoltage(pState->robotBattery);
+    PdbState state = *pState;
+
+    drawManualAutoMode(state.isManualMode);
+    drawRemoteIcon(state.isRemoteConnected);
+    drawRemoteVoltage(state.isRemoteConnected, state.remoteBattery);
+    drawMotorIcon(state.areMotorsEnabled);
+    drawRobotVoltage(state.robotBattery);
 
     // Remember the new state.
-    m_currentState = *pState;
+    m_currentState = state;
     m_blinkUpdates++;
     if (m_blinkUpdates >= m_updatesPerSecond)
     {
