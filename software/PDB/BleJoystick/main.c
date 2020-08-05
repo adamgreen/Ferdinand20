@@ -30,8 +30,9 @@
 #include <ble_conn_params.h>
 #include <ble_hci.h>
 #include <ble_nus.h>
-#include <bsp_btn_ble.h>
+#include <nrf_assert.h>
 #include <nrf_adc.h>
+#include <nrf_gpio.h>
 #include <softdevice_handler_appsh.h>
 #include "BleJoyShared.h"
 
@@ -47,6 +48,13 @@
 #define DEADMAN_PRESS_PIN   2
 // This pin provides power to the horizontal and vertical pots.
 #define JOYSTICK_POWER_PIN  30
+
+// Low frequency clock source to be used by the SoftDevice
+// Use the RC low frequency oscillator and calibrate every 4 seconds (16x250ms).
+#define NRF_CLOCK_LFCLKSRC      {.source        = NRF_CLOCK_LF_SRC_XTAL,           \
+                                 .rc_ctiv       = 0,                              \
+                                 .rc_temp_ctiv  = 0,                                \
+                                 .xtal_accuracy = NRF_CLOCK_LF_XTAL_ACCURACY_50_PPM}
 
 
 
@@ -134,8 +142,6 @@ static void initTimers(void);
 static void batteryMeasurementTimeoutHandler(void* pvContext);
 static void joystickMeasurementTimeoutHandler(void* pvContext);
 static void initButtonsAndLeds(bool * pEraseBonds);
-static void bspEventHandler(bsp_event_t event);
-static void enterDeepSleep(void);
 static void initBleStack(void);
 static void bleEventHandler(ble_evt_t * p_ble_evt);
 static void handleBleEventsForApplication(ble_evt_t * pBleEvent);
@@ -144,6 +150,7 @@ static void initBleUartService(void);
 static void nordicUartServiceHandler(ble_nus_t * pNordicUartService, uint8_t * pData, uint16_t length);
 static void initBleAdvertising(void);
 static void bleAdvertisingEventHandler(ble_adv_evt_t bleAdvertisingEvent);
+static void enterDeepSleep(void);
 static void initConnectionParameters(void);
 static void connectionParameterEventHandler(ble_conn_params_evt_t * pEvent);
 static void connectionParameterErrorHandler(uint32_t errorCode);
@@ -251,7 +258,8 @@ static void joystickMeasurementTimeoutHandler(void* pvContext)
     uint32_t errorCode  = ble_nus_string_send(&g_nordicUartService, (void*)&joyData, sizeof(joyData));
     if (errorCode != NRF_SUCCESS &&
         errorCode != NRF_ERROR_INVALID_STATE &&
-        errorCode != BLE_ERROR_GATTS_SYS_ATTR_MISSING)
+        errorCode != BLE_ERROR_GATTS_SYS_ATTR_MISSING &&
+        errorCode != BLE_ERROR_NO_TX_PACKETS)
     {
         APP_ERROR_CHECK(errorCode);
     }
@@ -259,72 +267,16 @@ static void joystickMeasurementTimeoutHandler(void* pvContext)
 
 static void initButtonsAndLeds(bool * pEraseBonds)
 {
-    bsp_event_t startupEvent;
-
     // UNDONE: Set this pin low before going into sleep mode.
     nrf_gpio_pin_set(JOYSTICK_POWER_PIN);
     nrf_gpio_cfg_output(JOYSTICK_POWER_PIN);
-
-    uint32_t errorCode = bsp_init(BSP_INIT_LED | BSP_INIT_BUTTONS,
-                                  APP_TIMER_TICKS(100, APP_TIMER_PRESCALER),
-                                  bspEventHandler);
-    APP_ERROR_CHECK(errorCode);
-
-    errorCode = bsp_btn_ble_init(NULL, &startupEvent);
-    APP_ERROR_CHECK(errorCode);
 
     // Configure the pins connected to the joystick and deadman switches as an input with pull-up.
     nrf_gpio_cfg_input(JOYSTICK_PRESS_PIN, NRF_GPIO_PIN_PULLUP);
     nrf_gpio_cfg_input(DEADMAN_PRESS_PIN, NRF_GPIO_PIN_PULLUP);
 
-    *pEraseBonds = (startupEvent == BSP_EVENT_CLEAR_BONDING_DATA);
-}
-
-static void bspEventHandler(bsp_event_t event)
-{
-    uint32_t errorCode;
-    switch (event)
-    {
-        case BSP_EVENT_SLEEP:
-            enterDeepSleep();
-            break;
-
-        case BSP_EVENT_DISCONNECT:
-            errorCode = sd_ble_gap_disconnect(g_currBleConnection, BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
-            if (errorCode != NRF_ERROR_INVALID_STATE)
-            {
-                APP_ERROR_CHECK(errorCode);
-            }
-            break;
-
-        case BSP_EVENT_WHITELIST_OFF:
-            if (g_currBleConnection == BLE_CONN_HANDLE_INVALID)
-            {
-                errorCode = ble_advertising_restart_without_whitelist();
-                if (errorCode != NRF_ERROR_INVALID_STATE)
-                {
-                    APP_ERROR_CHECK(errorCode);
-                }
-            }
-            break;
-
-        default:
-            break;
-    }
-}
-
-static void enterDeepSleep(void)
-{
-    uint32_t errorCode = bsp_indication_set(BSP_INDICATE_IDLE);
-    APP_ERROR_CHECK(errorCode);
-
-    // Prepare wakeup buttons.
-    errorCode = bsp_btn_ble_sleep_mode_prepare();
-    APP_ERROR_CHECK(errorCode);
-
-    // Go to system-off mode (this function will not return; wakeup will cause a reset).
-    errorCode = sd_power_system_off();
-    APP_ERROR_CHECK(errorCode);
+    // UNDONE: What should I do with erase bounds?
+    *pEraseBonds = false;
 }
 
 static void initBleStack(void)
@@ -363,7 +315,6 @@ static void bleEventHandler(ble_evt_t * pBleEvent)
     ble_nus_on_ble_evt(&g_nordicUartService, pBleEvent);
     handleBleEventsForApplication(pBleEvent);
     ble_advertising_on_ble_evt(pBleEvent);
-    bsp_btn_ble_on_ble_evt(pBleEvent);
 }
 
 static void handleBleEventsForApplication(ble_evt_t * pBleEvent)
@@ -373,14 +324,10 @@ static void handleBleEventsForApplication(ble_evt_t * pBleEvent)
     switch (pBleEvent->header.evt_id)
     {
         case BLE_GAP_EVT_CONNECTED:
-            errorCode = bsp_indication_set(BSP_INDICATE_CONNECTED);
-            APP_ERROR_CHECK(errorCode);
             g_currBleConnection = pBleEvent->evt.gap_evt.conn_handle;
             break; // BLE_GAP_EVT_CONNECTED
 
         case BLE_GAP_EVT_DISCONNECTED:
-            errorCode = bsp_indication_set(BSP_INDICATE_IDLE);
-            APP_ERROR_CHECK(errorCode);
             g_currBleConnection = BLE_CONN_HANDLE_INVALID;
             break; // BLE_GAP_EVT_DISCONNECTED
 
@@ -532,13 +479,9 @@ static void initBleAdvertising(void)
 
 static void bleAdvertisingEventHandler(ble_adv_evt_t bleAdvertisingEvent)
 {
-    uint32_t errorCode;
-
     switch (bleAdvertisingEvent)
     {
         case BLE_ADV_EVT_FAST:
-            errorCode = bsp_indication_set(BSP_INDICATE_ADVERTISING);
-            APP_ERROR_CHECK(errorCode);
             break;
         case BLE_ADV_EVT_IDLE:
             enterDeepSleep();
@@ -546,6 +489,13 @@ static void bleAdvertisingEventHandler(ble_adv_evt_t bleAdvertisingEvent)
         default:
             break;
     }
+}
+
+static void enterDeepSleep(void)
+{
+    // Go to system-off mode (this function will not return; wakeup will cause a reset).
+    uint32_t errorCode = sd_power_system_off();
+    APP_ERROR_CHECK(errorCode);
 }
 
 static void initConnectionParameters(void)
