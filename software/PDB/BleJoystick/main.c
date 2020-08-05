@@ -16,10 +16,11 @@
 
    The hardware pin connections are:
    nRF51 Pin Number     Pin Name            Pin Description
-          1             JOYSTICK_PRESS_PIN  Connected to the joystick's button. Active low w/ software pull-up.
-          3 (AIN4)      JOYSTICK_X_PIN      Connected to the X potentiometer wiper of the joystick.
-          2 (AIN3)      JOYSTICK_Y_PIN      Connected to the Y potentiometer wiper of the joystick.
-          17            DEADMAN_PRESS_PIN   Connected to the deadman switch. Active low w/ external pull-up.
+          23            JOYSTICK_PRESS_PIN  Connected to the joystick's button. Active low w/ software pull-up.
+          5 (AIN6)      JOYSTICK_X_PIN      Connected to the X potentiometer wiper of the joystick.
+          3 (AIN4)      JOYSTICK_Y_PIN      Connected to the Y potentiometer wiper of the joystick.
+          2             DEADMAN_PRESS_PIN   Connected to the deadman switch. Active low w/ external pull-up.
+          30            JOYSTICK_POWER_PIN  Connected to the high side of the joystick pots. Low when sleeping.
 
    This sample is heavily influenced by Nordic's BLE UART Service (ble_app_uart) SDK sample.
 */
@@ -37,14 +38,15 @@
 
 
 // The joystick's X and Y pins are connected to these analog pins.
-#define JOYSTICK_X_PIN      NRF_ADC_CONFIG_INPUT_4
-#define JOYSTICK_Y_PIN      NRF_ADC_CONFIG_INPUT_3
+#define JOYSTICK_X_PIN      NRF_ADC_CONFIG_INPUT_6
+#define JOYSTICK_Y_PIN      NRF_ADC_CONFIG_INPUT_4
 // The switch that goes low when the joystick itself is depressed is connected to this pin. It will be pulled high in
 // software.
-#define JOYSTICK_PRESS_PIN  1
-// UNDONE: Can use internal pull-up later but currently using micro:bit switch with external pull-up.
+#define JOYSTICK_PRESS_PIN  23
 // The switch that goes low when the deadman switch is depressed is connected to this pin.
-#define DEADMAN_PRESS_PIN   17
+#define DEADMAN_PRESS_PIN   2
+// This pin provides power to the horizontal and vertical pots.
+#define JOYSTICK_POWER_PIN  30
 
 
 
@@ -259,10 +261,9 @@ static void initButtonsAndLeds(bool * pEraseBonds)
 {
     bsp_event_t startupEvent;
 
-    // UNDONE: Just need this for the micro:bit board.
-    // Pull column1 of the LED matrix low so that LED will light up when Row1 goes high.
-    nrf_gpio_cfg_output(4);
-    nrf_gpio_pin_clear(4);
+    // UNDONE: Set this pin low before going into sleep mode.
+    nrf_gpio_pin_set(JOYSTICK_POWER_PIN);
+    nrf_gpio_cfg_output(JOYSTICK_POWER_PIN);
 
     uint32_t errorCode = bsp_init(BSP_INIT_LED | BSP_INIT_BUTTONS,
                                   APP_TIMER_TICKS(100, APP_TIMER_PRESCALER),
@@ -272,10 +273,9 @@ static void initButtonsAndLeds(bool * pEraseBonds)
     errorCode = bsp_btn_ble_init(NULL, &startupEvent);
     APP_ERROR_CHECK(errorCode);
 
-    // Configure the pin connected to the joystick switch as an input with pull-up.
+    // Configure the pins connected to the joystick and deadman switches as an input with pull-up.
     nrf_gpio_cfg_input(JOYSTICK_PRESS_PIN, NRF_GPIO_PIN_PULLUP);
-    // UNDONE: Use pull-up here later when using own hardware.
-    nrf_gpio_cfg_input(DEADMAN_PRESS_PIN, NRF_GPIO_PIN_NOPULL);
+    nrf_gpio_cfg_input(DEADMAN_PRESS_PIN, NRF_GPIO_PIN_PULLUP);
 
     *pEraseBonds = (startupEvent == BSP_EVENT_CLEAR_BONDING_DATA);
 }
