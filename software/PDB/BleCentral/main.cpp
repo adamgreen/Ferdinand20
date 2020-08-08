@@ -89,6 +89,7 @@
 // Value of the RTC1 PRESCALER register used by application timer.
 #define APP_TIMER_PRESCALER     0
 // Size of timer operation queues. Includes room for BSP specific timers.
+// UNDONE: Try setting this to 1 and remove above comment about BSP.
 #define APP_TIMER_OP_QUEUE_SIZE 2
 
 // Parameters for configuring how this application scans for nearby BleJoystick peripherals.
@@ -124,15 +125,18 @@
 #define UUID32_SIZE             (32/8)
 #define UUID128_SIZE            (128/8)
 
-// Maximum size of scheduled events - Timer events are placed in this queue.
+// Maximum size of scheduled events - Only timer events are placed in this queue.
 #define SCHED_MAX_EVENT_DATA_SIZE       APP_TIMER_SCHED_EVT_SIZE
 // Maximum number of events to be schedule at once.
-// 2 for timers.
-#define SCHED_QUEUE_SIZE                2
+// UNDONE: Can probably be 2 once I get rid of the BSP code.
+#define SCHED_QUEUE_SIZE                3
 
-// How often the battery voltage level should be measured and the LCD screen contents potentially updated.
-#define UPDATES_PER_SECOND              4
-#define BATTERY_LEVEL_MEAS_INTERVAL     APP_TIMER_TICKS((1000/UPDATES_PER_SECOND), APP_TIMER_PRESCALER)
+// The delay to be used between LCD/UART updates.
+#define LCD_TIMER_DELAY         APP_TIMER_TICKS(16, APP_TIMER_PRESCALER)
+// The number of ticks in a second.
+#define TICKS_PER_SECOND        APP_TIMER_TICKS(1000, APP_TIMER_PRESCALER)
+//Interval to be used between battery voltage level measurements.
+#define BATTERY_TIMER_INTERVAL  APP_TIMER_TICKS((60000), APP_TIMER_PRESCALER)
 
 
 
@@ -141,6 +145,13 @@ struct ManualPacket
 {
     PdbSerialPacketHeader header;
     PdbSerialManualPacket manual;
+};
+
+// Format of full packet when in auto mode.
+struct AutoPacket
+{
+    PdbSerialPacketHeader header;
+    PdbSerialAutoPacket   _auto;
 };
 
 
@@ -177,13 +188,13 @@ static const ble_uuid_t g_bleJoystickUuid =
     .type = BLEJOY_ADVERTISE_UUID_TYPE
 };
 
-// Timer objects used for measuring battery voltage, switch states, and updating LCD.
-APP_TIMER_DEF(g_batteryMeasurementTimer);
+// Timer object used for updating LCD and sending UART packets.
+APP_TIMER_DEF(g_lcdTimer);
+// Timer object used for reading the battery voltage.
+APP_TIMER_DEF(g_batteryTimer);
 
 // Objects used to control the LCD over SPI.
-// UNDONE: static nrf_drv_spi_t    g_spi = NRF_DRV_SPI_INSTANCE(0);
-static Screen           g_screen(UPDATES_PER_SECOND,
-                                 /* UNDONE: &g_spi, */ LCD_MOSI_PIN, LCD_SCK_PIN, LCD_TFTCS_PIN, LCD_TFTDC_PIN, LCD_TFTRST_PIN);
+static Screen  g_screen(TICKS_PER_SECOND, LCD_MOSI_PIN, LCD_SCK_PIN, LCD_TFTCS_PIN, LCD_TFTDC_PIN, LCD_TFTRST_PIN);
 
 // Global object used to track the PDB state. Used for updating the LCD.
 static Screen::PdbState g_state =
@@ -195,7 +206,10 @@ static Screen::PdbState g_state =
     .remoteBattery = 0
 };
 
-// When in manual driving mode, this packet will be sent on each BLE packet received from remote control.
+// Global object used to record the most recent joystick state returned from remote control.
+static BleJoyData   g_joyData;
+
+// The packet sent when in manual driving mode.
 static ManualPacket g_manualPacket =
 {
     .header =
@@ -206,16 +220,25 @@ static ManualPacket g_manualPacket =
     .manual = {
         .x = 0,
         .y = 0,
-        .buttons = 0
+        .robotBattery = 0,
+        .remoteBattery = 0,
+        .flags = 0
     }
 };
 
-// When in auto driving mode, this packet will be sent on a regular basis to let microcontroller know that PDB is still
-// running.
-static PdbSerialPacketHeader g_autoPacket =
+// The packet sent when in auto driving mode.
+static AutoPacket g_autoPacket =
 {
-    .signature = PDBSERIAL_PACKET_SIGNATURE,
-    .length = 0
+    .header =
+    {
+        .signature = PDBSERIAL_PACKET_SIGNATURE,
+        .length = sizeof(PdbSerialAutoPacket)
+    },
+    ._auto = {
+        .robotBattery = 0,
+        .remoteBattery = 0,
+        .flags = 0
+    }
 };
 
 // The states that the code can be in when parsing UART data sent back from the main robot microcontroller.
@@ -245,7 +268,12 @@ static char     g_recvPacketData[Screen::TEXT_LINE_LENGTH + 1];
 
 // Function Prototypes
 static void initTimers(void);
-static void batteryMeasurementTimeoutHandler(void* pvContext);
+static void lcdTimeoutHandler(void* pvContext);
+static void sendSerialPacket(const BleJoyData* pJoyData);
+static void sendBufferToUart(const void* pvData, size_t length);
+static void startLcdTimer(void);
+static void batteryTimeoutHandler(void* pvContext);
+static void readBatteryVoltage(void);
 static void initUart(void);
 static void uartEventHandler(app_uart_evt_t* pEvent);
 static void parseReceivedPacketByte(uint8_t byte);
@@ -261,9 +289,7 @@ static void bleEventHandler(ble_evt_t * pBleEvent);
 static bool isUuidPresent(const ble_uuid_t* pTargetUuid, const ble_gap_evt_adv_report_t* pAdvertiseReport);
 static void initNordicUartServiceClient(void);
 static void nordicUartServiceClientEventHandler(ble_nus_c_t* pNordicUartServiceClient, const ble_nus_c_evt_t* pEvent);
-static void sendSerialPacket(const BleJoyData* pJoyData);
-static void sendBufferToUart(const void* pvData, size_t length);
-static void startTimers(void);
+static void startBatteryTimer(void);
 static void startScanningForNordicUartPeripherals(void);
 static void enterLowPowerModeUntilNextEvent(void);
 
@@ -282,7 +308,8 @@ int main(void)
     initBleStack();
     initNordicUartServiceClient();
 
-    startTimers();
+    startLcdTimer();
+    startBatteryTimer();
     startScanningForNordicUartPeripherals();
 
     for (;;)
@@ -297,40 +324,102 @@ static void initTimers(void)
     // Initialize timer module, making it use the scheduler.
     APP_TIMER_APPSH_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, true);
 
-    // Create battery reading / LCD update timer.
-    uint32_t errorCode = app_timer_create(&g_batteryMeasurementTimer,
-                                          APP_TIMER_MODE_REPEATED,
-                                          batteryMeasurementTimeoutHandler);
+    // Create LCD and UART update timer.
+    uint32_t errorCode = app_timer_create(&g_lcdTimer, APP_TIMER_MODE_SINGLE_SHOT, lcdTimeoutHandler);
+    APP_ERROR_CHECK(errorCode);
+
+    // Create battery voltage sampling timer.
+    errorCode = app_timer_create(&g_batteryTimer, APP_TIMER_MODE_REPEATED, batteryTimeoutHandler);
     APP_ERROR_CHECK(errorCode);
 }
 
-static void batteryMeasurementTimeoutHandler(void* pvContext)
+static void lcdTimeoutHandler(void* pvContext)
 {
+    // Set motor relay enable pin based on latest remote dead man switch state just received.
+    nrf_gpio_pin_write(MOTOR_RELAY_PIN, g_joyData.buttons & BLEJOY_BUTTONS_DEADMAN);
+
     // Read the state of the manual override switch.
     uint32_t manualButtonPressed = nrf_gpio_pin_read(MANUAL_SWITCH_PIN);
     g_state.isManualMode = manualButtonPressed == 1 ? true : false;
 
-    // Process the most recent battery voltage ADC conversion if ready.
-    if (nrf_adc_conversion_finished())
-    {
-        // Read the last ADC battery voltage read.
-        uint32_t adcReading = nrf_adc_result_get();
+    // Set PDB state fields from most recent joystick data.
+    g_state.remoteBattery = g_joyData.batteryVoltage;
+    g_state.areMotorsEnabled = g_joyData.buttons & BLEJOY_BUTTONS_DEADMAN;
 
-        // Convert to 10 X Volts.
-        g_state.robotBattery = adcReading * 36 * BATTERY_VOLTAGE_DIVIDER_TOTAL / (1023 * BATTERY_VOLTAGE_DIVIDER_BOTTOM);
+    // Send serial packet to robot microcontroller.
+    sendSerialPacket(&g_joyData);
 
-        // Start the next conversion.
-        nrf_adc_conversion_event_clean();
-        nrf_adc_start();
-    }
-
-    // Let the LCD update itself.
     g_screen.update(&g_state);
     if (g_recvPacketDataValid)
     {
         g_screen.updateText(g_recvPacketData);
         g_recvPacketDataValid = false;
     }
+
+    // Restart the timer again.
+    startLcdTimer();
+}
+
+static void sendSerialPacket(const BleJoyData* pJoyData)
+{
+    if (g_state.isManualMode)
+    {
+        g_manualPacket.manual.x = g_joyData.x;
+        g_manualPacket.manual.y = g_joyData.y;
+        g_manualPacket.manual.robotBattery = g_state.robotBattery;
+        g_manualPacket.manual.remoteBattery = g_state.remoteBattery;
+        g_manualPacket.manual.flags = ((pJoyData->buttons & BLEJOY_BUTTONS_JOYSTICK) ? PDBSERIAL_FLAGS_JOYSTICK_BUTTON : 0) |
+                                      (g_state.areMotorsEnabled ? PDBSERIAL_FLAGS_MOTORS_ENABLED : 0) |
+                                      (g_state.isRemoteConnected ? PDBSERIAL_FLAGS_REMOTE_CONNECTED : 0);
+        sendBufferToUart(&g_manualPacket, sizeof(g_manualPacket));
+    }
+    else
+    {
+        g_autoPacket._auto.robotBattery = g_state.robotBattery;
+        g_autoPacket._auto.remoteBattery = g_state.remoteBattery;
+        g_autoPacket._auto.flags = (g_state.areMotorsEnabled ? PDBSERIAL_FLAGS_MOTORS_ENABLED : 0) |
+                                   (g_state.isRemoteConnected ? PDBSERIAL_FLAGS_REMOTE_CONNECTED : 0);
+        sendBufferToUart(&g_autoPacket, sizeof(g_autoPacket));
+    }
+}
+
+static void sendBufferToUart(const void* pvData, size_t length)
+{
+    const uint8_t* pData = (const uint8_t*)pvData;
+    while (length-- > 0)
+    {
+        uint32_t errorCode = app_uart_put(*pData++);
+        APP_ERROR_CHECK(errorCode);
+    }
+}
+
+static void startLcdTimer(void)
+{
+    // Start the timer used to send UART packets and update LCD at regular intervals.
+    uint32_t errorCode = app_timer_start(g_lcdTimer, LCD_TIMER_DELAY, NULL);
+    APP_ERROR_CHECK(errorCode);
+}
+
+static void batteryTimeoutHandler(void* pvContext)
+{
+    // Process the most recent battery voltage ADC conversion if ready.
+    if (nrf_adc_conversion_finished())
+    {
+        readBatteryVoltage();
+    }
+}
+
+static void readBatteryVoltage(void)
+{
+    // Read the last ADC battery voltage read.
+    uint32_t adcReading = nrf_adc_result_get();
+
+    // Convert to 10 X Volts.
+    g_state.robotBattery = adcReading * 36 * BATTERY_VOLTAGE_DIVIDER_TOTAL / (1023 * BATTERY_VOLTAGE_DIVIDER_BOTTOM);
+
+    // Start the next conversion.
+    nrf_adc_conversion_event_clean();
+    nrf_adc_start();
 }
 
 static void initUart(void)
@@ -352,7 +441,7 @@ static void initUart(void)
                        UART_RX_BUF_SIZE,
                        UART_TX_BUF_SIZE,
                        uartEventHandler,
-                       APP_IRQ_PRIORITY_LOWEST,
+                       APP_IRQ_PRIORITY_HIGHEST,
                        errorCode);
     APP_ERROR_CHECK(errorCode);
 
@@ -500,9 +589,16 @@ static void initBatteryVoltageReading(void)
                                          .reference = NRF_ADC_CONFIG_REF_VBG };
     nrf_adc_configure((nrf_adc_config_t *)&adcConfig);
 
-    // Start the first battery voltage read, will read and start next conversion in later timer event.
+    // Start the first battery voltage read.
     nrf_adc_input_select(BATTERY_VOLTAGE_PIN);
     nrf_adc_start();
+
+    // Wait for the first battery level translation to complete.
+    while (!nrf_adc_conversion_finished())
+    {
+    }
+    // Read the first battery voltage sample and queue up the next one to be read in the battery timer.
+    readBatteryVoltage();
 }
 
 static void initDatabaseDiscoveryModule(void)
@@ -585,8 +681,6 @@ static void bleEventHandler(ble_evt_t* pBleEvent)
         case BLE_GAP_EVT_CONNECTED:
             errorCode = bsp_indication_set(BSP_INDICATE_CONNECTED);
             APP_ERROR_CHECK(errorCode);
-
-            g_state.isRemoteConnected = true;
 
             // Start discovery of GATT services on this device. The Nordic UART Client waits for a discovery result
             // to find the services it is interested in for sending/receiving UART data.
@@ -749,56 +843,26 @@ static void nordicUartServiceClientEventHandler(ble_nus_c_t* pNordicUartServiceC
             // central device.
             if (pEvent->data_len == sizeof(BleJoyData))
             {
-                BleJoyData joyData;
-                memcpy(&joyData, pEvent->p_data, sizeof(BleJoyData));
+                // Copy the most recent joystick state into the g_joyData global to be used from the LCD timer.
+                memcpy(&g_joyData, pEvent->p_data, sizeof(g_joyData));
 
-                // Set motor relay enable pin based on latest remote dead man switch state just received.
-                nrf_gpio_pin_write(MOTOR_RELAY_PIN, joyData.buttons & BLEJOY_BUTTONS_DEADMAN);
-
-                sendSerialPacket(&joyData);
-
-                g_state.remoteBattery = joyData.batteryVoltage;
-                g_state.areMotorsEnabled = joyData.buttons & BLEJOY_BUTTONS_DEADMAN;
+                // The remote isn't considered connected until we successfully receive its first packet. This stops
+                // a remote battery voltage of 0.0V being displayed on the LCD or sent out the UART.
+                g_state.isRemoteConnected = true;
             }
             break;
         case BLE_NUS_C_EVT_DISCONNECTED:
             // Nordic UART peripheral has disconnected.
+            // Record that it has disconnected.
+            g_state.isRemoteConnected = false;
+
+            // Forget joystick state once no longer connected.
+            memset(&g_joyData, 0, sizeof(g_joyData));
+
             // Start scanning for a reconnect.
             startScanningForNordicUartPeripherals();
             break;
     }
-}
-
-static void sendSerialPacket(const BleJoyData* pJoyData)
-{
-    if (g_state.isManualMode)
-    {
-        g_manualPacket.manual.x = pJoyData->x;
-        g_manualPacket.manual.y = pJoyData->y;
-        g_manualPacket.manual.buttons = pJoyData->buttons;
-        sendBufferToUart(&g_manualPacket, sizeof(g_manualPacket));
-    }
-    else
-    {
-        sendBufferToUart(&g_autoPacket, sizeof(g_autoPacket));
-    }
-}
-
-static void sendBufferToUart(const void* pvData, size_t length)
-{
-    const uint8_t* pData = (const uint8_t*)pvData;
-    while (length-- > 0)
-    {
-        uint32_t errorCode = app_uart_put(*pData++);
-        APP_ERROR_CHECK(errorCode);
-    }
-}
-
-static void startTimers(void)
-{
-    // Start the timers used to measure the battery voltage at regular intervals.
-    uint32_t errorCode = app_timer_start(g_batteryMeasurementTimer, BATTERY_LEVEL_MEAS_INTERVAL, NULL);
-    APP_ERROR_CHECK(errorCode);
 }
 
 static void startScanningForNordicUartPeripherals(void)
@@ -808,8 +872,13 @@ static void startScanningForNordicUartPeripherals(void)
 
     errorCode = bsp_indication_set(BSP_INDICATE_SCANNING);
     APP_ERROR_CHECK(errorCode);
+}
 
-    g_state.isRemoteConnected = false;
+static void startBatteryTimer(void)
+{
+    // Start the timer used to measure the battery voltage.
+    uint32_t errorCode = app_timer_start(g_batteryTimer, BATTERY_TIMER_INTERVAL, NULL);
+    APP_ERROR_CHECK(errorCode);
 }
 
 static void enterLowPowerModeUntilNextEvent(void)

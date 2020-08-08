@@ -39,17 +39,34 @@ int main(void)
         uint8_t packetLength = getPacketLength();
         switch (packetLength)
         {
-            case 0:
-                g_pc.printf("Auto mode heartbeat\r\n");
+            case sizeof(PdbSerialAutoPacket):
+            {
+                PdbSerialAutoPacket autoPacket;
+                readPacket(&autoPacket, sizeof(autoPacket));
+                g_pc.printf("A %u", autoPacket.robotBattery);
+                if (autoPacket.flags & PDBSERIAL_FLAGS_REMOTE_CONNECTED)
+                {
+                    g_pc.printf(" %u R%s",
+                                autoPacket.remoteBattery,
+                                (autoPacket.flags & PDBSERIAL_FLAGS_MOTORS_ENABLED)  ? "M" : " ");
+                }
+                g_pc.printf("\r\n");
                 break;
+            }
             case sizeof(PdbSerialManualPacket):
             {
                 PdbSerialManualPacket manualPacket;
                 readPacket(&manualPacket, sizeof(manualPacket));
-                g_pc.printf("% 4d,% 4d %s %s\r\n",
-                            manualPacket.x, manualPacket.y,
-                            (manualPacket.buttons & PDBSERIAL_BUTTONS_JOYSTICK) ? "JOY" : "   ",
-                            (manualPacket.buttons & PDBSERIAL_BUTTONS_DEADMAN) ? "DEADMAN" : "       ");
+                g_pc.printf("M %u", manualPacket.robotBattery);
+                if (manualPacket.flags & PDBSERIAL_FLAGS_REMOTE_CONNECTED)
+                {
+                    g_pc.printf(" %u R%s%s %d,%d",
+                                manualPacket.remoteBattery,
+                                (manualPacket.flags & PDBSERIAL_FLAGS_MOTORS_ENABLED)  ? "M" : " ",
+                                (manualPacket.flags & PDBSERIAL_FLAGS_JOYSTICK_BUTTON) ? "J" : " ",
+                                 manualPacket.x, manualPacket.y);
+                }
+                g_pc.printf("\r\n");
                 break;
             }
             default:
@@ -57,14 +74,9 @@ int main(void)
                 break;
         }
 
-        if ((iteration & 1) == 0)
+        if ((iteration & 0xF) == 0)
         {
-            // Just ack the even packets.
-            sendPacket(NULL, 0);
-        }
-        else
-        {
-            // The odd packets will send back a string to display.
+            // Only send back some text on every 16th frame.
             char buffer[256];
             int length = snprintf(buffer, sizeof(buffer), "Test #%lu", iteration);
             sendPacket(buffer, length);
@@ -101,7 +113,7 @@ static void sendPacket(const void* pvPacket, size_t length)
     PdbSerialPacketHeader header =
     {
         .signature = PDBSERIAL_PACKET_SIGNATURE,
-        .length = length
+        .length = (uint8_t)length
     };
 
     sendBytes(&header, sizeof(header));

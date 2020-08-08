@@ -20,6 +20,7 @@
 */
 #include <stdio.h>
 #include <string.h>
+#include <app_timer.h>
 #include <nrf_gpio.h>
 #include "Screen.h"
 
@@ -41,14 +42,16 @@ static const uint16_t scrollingTopMargin = tallTextSize * charHeight + 5;
 
 
 
-Screen::Screen(uint32_t updatesPerSecond,
+Screen::Screen(uint32_t ticksPerSecond,
                uint8_t mosiPin, uint8_t sckPin, uint8_t csPin, uint8_t dcPin, uint8_t rstPin) :
-    m_updatesPerSecond(updatesPerSecond),
+    m_ticksPerSecond(ticksPerSecond),
     m_tft(SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, mosiPin, sckPin, dcPin, rstPin, csPin)
 {
-    m_blinkUpdates = 0;
+    m_lastBlinkStartTicks = 0;
     m_blinkManual = false;
+    m_blinkManualState = false;
     m_blinkBle = false;
+    m_blinkBleState = false;
     m_currentTextLine = 0;
 
     memset(&m_text, 0, sizeof(m_text));
@@ -83,10 +86,14 @@ void Screen::update(const PdbState* pState)
 
     // Remember the new state.
     m_currentState = state;
-    m_blinkUpdates++;
-    if (m_blinkUpdates >= m_updatesPerSecond)
+
+    // See if we are ready to start a new 1-second blink interval.
+    uint32_t currentTicks = app_timer_cnt_get();
+    uint32_t elapsedTicks;
+    app_timer_cnt_diff_compute(currentTicks, m_lastBlinkStartTicks, &elapsedTicks);
+    if (elapsedTicks >= m_ticksPerSecond)
     {
-        m_blinkUpdates = 0;
+        m_lastBlinkStartTicks = currentTicks;
     }
 }
 
@@ -97,14 +104,21 @@ void Screen::drawManualAutoMode(bool isManualMode)
         // Turn the "Manual" text on at the beginning of a 1 second interval
         //      - and -
         // Turn the "Manual" text off 3/4 of the way through the 1 second interval.
+        uint32_t currentTicks = app_timer_cnt_get();
+        uint32_t tickThreshold = (m_ticksPerSecond * 3) / 4;
+        uint32_t elapsedTicks;
+        app_timer_cnt_diff_compute(currentTicks, m_lastBlinkStartTicks, &elapsedTicks);
+
         uint16_t color = TFT_WHITE;
-        if (m_blinkUpdates == 0)
+        if (!m_blinkManualState && elapsedTicks < tickThreshold)
         {
             color = TFT_RED;
+            m_blinkManualState = true;
         }
-        else if (m_blinkUpdates == (m_updatesPerSecond * 3) / 4)
+        else if (m_blinkManualState && elapsedTicks >= tickThreshold)
         {
             color = TFT_BLACK;
+            m_blinkManualState = false;
         }
 
         if (color != TFT_WHITE)
@@ -128,6 +142,7 @@ void Screen::drawManualAutoMode(bool isManualMode)
             pCurrText = "Auto";
             pNewText = "Manual";
             newColor = TFT_RED;
+            m_blinkManualState = true;
         }
         else
         {
@@ -173,14 +188,21 @@ void Screen::drawRemoteIcon(bool isRemoteConnected)
         // Turn the BLE icon on at the beginning of a 1 second interval
         //      - and -
         // Turn it off 1/2 of the way through the 1 second interval.
+        uint32_t currentTicks = app_timer_cnt_get();
+        uint32_t tickThreshold = m_ticksPerSecond / 2;
+        uint32_t elapsedTicks;
+        app_timer_cnt_diff_compute(currentTicks, m_lastBlinkStartTicks, &elapsedTicks);
+
         uint16_t color = TFT_WHITE;
-        if (m_blinkUpdates == 0)
+        if (!m_blinkBleState && elapsedTicks < tickThreshold)
         {
             color = TFT_BLUE;
+            m_blinkBleState = true;
         }
-        else if (m_blinkUpdates == m_updatesPerSecond / 2)
+        else if (m_blinkBleState && elapsedTicks >= tickThreshold)
         {
             color = TFT_BLACK;
+            m_blinkBleState = false;
         }
 
         if (color != TFT_WHITE)
@@ -209,6 +231,7 @@ void Screen::drawRemoteIcon(bool isRemoteConnected)
         m_tft.drawBitmap(SCREEN_WIDTH - 5.5*normalTextSize*charWidth, 0, bluetoothIcon, 16, 13, newColor);
 
         m_blinkBle = !isRemoteConnected;
+        m_blinkBleState = m_blinkBle;
     }
 }
 

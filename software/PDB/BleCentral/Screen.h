@@ -29,8 +29,8 @@
 class Screen
 {
     public:
-        Screen(uint32_t updatesPerSecond,
-               /* UNDONE: nrf_drv_spi_t* pSpi, */ uint8_t mosiPin, uint8_t sckPin, uint8_t csPin, uint8_t dcPin,
+        Screen(uint32_t ticksPerSecond,
+               uint8_t mosiPin, uint8_t sckPin, uint8_t csPin, uint8_t dcPin,
                uint8_t rstPin = NRF_DRV_SPI_PIN_NOT_USED);
 
         struct PdbState
@@ -80,14 +80,16 @@ class Screen
             TEXT_LINES = 24 / TEXT_SIZE
         };
 
-        uint32_t        m_updatesPerSecond;
-        uint32_t        m_blinkUpdates;
+        uint32_t        m_ticksPerSecond;
+        uint32_t        m_lastBlinkStartTicks;
         Arduino_ST7789  m_tft;
         PdbState        m_currentState;
         uint8_t         m_currentTextLine;
         char            m_text[TEXT_LINES][TEXT_LINE_LENGTH+1];
         bool            m_blinkManual;
+        bool            m_blinkManualState;
         bool            m_blinkBle;
+        bool            m_blinkBleState;
 
         void drawManualAutoMode(bool isManualMode);
         void drawRemoteIcon(bool isRemoteConnected);

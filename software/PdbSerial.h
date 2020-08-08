@@ -23,11 +23,14 @@
 // PdbSerialPacketHeader::signature byte will always be set to this value to indicate the start of packet.
 #define PDBSERIAL_PACKET_SIGNATURE      0xA5
 
-// Bits that can be set in PdbSerialManualPacket::buttons.
-//  Joystick stick is pressed.
-#define PDBSERIAL_BUTTONS_JOYSTICK      (1 << 0)
-//  Deadman switch is pressed.
-#define PDBSERIAL_BUTTONS_DEADMAN       (1 << 1)
+// Bits that can be set in PdbSerialManualPacket/PdbSerialAutoPacket flags field.
+//  Joystick button is pressed.
+#define PDBSERIAL_FLAGS_JOYSTICK_BUTTON     (1 << 0)
+//  Deadman switch is pressed to enable motors.
+#define PDBSERIAL_FLAGS_MOTORS_ENABLED      (1 << 1)
+//  BLE remote control is connected.
+#define PDBSERIAL_FLAGS_REMOTE_CONNECTED    (1 << 2)
+
 
 
 //  The PDB packets sent in both directions contain a 2 byte header.
@@ -36,7 +39,6 @@ typedef struct PdbSerialPacketHeader
     // This will always be set to PDBSERIAL_PACKET_SIGNATURE (0xA5).
     uint8_t signature;
     // This will be the length of the rest of the packet data.
-    // This can be 0 if just a heartbeat being sent from PDB in auto mode or ACK being sent back to PDB.
     uint8_t length;
 } PdbSerialPacketHeader;
 
@@ -44,11 +46,31 @@ typedef struct PdbSerialPacketHeader
 typedef struct PdbSerialManualPacket
 {
     // X coordinate of joystick: -512 to 511.
+    // Will be zero when PDBSERIAL_FLAGS_REMOTE_CONNECTED isn't set.
     int16_t x;
     // Y coordinate of joystick: -512 to 511.
+    // Will be zero when PDBSERIAL_FLAGS_REMOTE_CONNECTED isn't set.
     int16_t y;
-    // Bitfield to indicate which buttons are being pressed. One of the PDBSERIAL_BUTTONS_* bits from above.
-    uint8_t buttons;
+    // Battery voltage of robot's main LiPo battery. Divide by 10 to get actual voltage.
+    uint8_t robotBattery;
+    // Battery voltage of BLE remote control's battery. Divide by 10 to get actual voltage.
+    // Will be zero when PDBSERIAL_FLAGS_REMOTE_CONNECTED isn't set.
+    uint8_t remoteBattery;
+    // Bitfield of flags. One of the PDBSERIAL_FLAGS_* bits from above.
+    uint8_t flags;
 } PdbSerialManualPacket;
+
+// Packet sent from PDB when in auto mode.
+typedef struct PdbSerialAutoPacket
+{
+    // Battery voltage levels. Divide by 10 to get actual voltage.
+    uint8_t robotBattery;
+    // Battery voltage of BLE remote control's battery. Divide by 10 to get actual voltage.
+    // Will be zero when PDBSERIAL_FLAGS_REMOTE_CONNECTED isn't set.
+    uint8_t remoteBattery;
+    // Bitfield of flags. One of the PDBSERIAL_FLAGS_* bits from above.
+    uint8_t flags;
+} PdbSerialAutoPacket;
+
 
 #endif // PDB_SERIAL_H_
