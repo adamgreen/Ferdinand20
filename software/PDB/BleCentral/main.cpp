@@ -17,9 +17,9 @@
    * Provides option to allow the user to take manual control with wireless BLE joystick in non-competition
      scenarios. A switch is provided on the PDB to enable this mode.
    * UART connectivity to the robot's main microcontroller
-     * Sends joystick and deadman switch state from PDB to robot's main microcontroller.
+     * Sends battery voltages, joystick and deadman switch state from PDB to robot's main microcontroller.
      * Receives status text to be displayed on screen from robot's main microcontroller.
-   * Updates the onboard OLED screen with:
+   * Updates the onboard LCD display with:
      * LiPo battery voltage
      * Wireless BLE remote battery voltage
      * Manual/Auto mode
@@ -28,6 +28,16 @@
 
    The hardware pin connections are:
    nRF51 Pin Number     Pin Name            Pin Description
+    3                   RX_PIN_NUMBER       UART Receive Input
+    5                   TX_PIN_NUMBER       UART Transmit Output
+    24                  MOTOR_RELAY_PIN     Relay Enable Output (Pulls ground down to Gnd via NPN transistor)
+    15                  MANUAL_SWITCH_PIN   Manual Switch Input (Pulled low when user flips manual switch on)
+    12                  LCD_SCK_PIN         LCD SPI Clock Output
+    11                  LCD_MOSI_PIN        LCD SPI MOSI Output
+    2                   LCD_TFTDC_PIN       LCD Data/Command Output
+    8                   LCD_TFTCS_PIN       LCD SPI Chip Select Output
+    23                  LCD_TFTRST_PIN      LCD Reset Output
+    6 (AIN7)            BATTERY_VOLTAGE_PIN LiPo Battery Voltage Analog Input (via 300/600 ohm voltage divider)
 
    This sample is heavily influenced by Nordic's BLE UART Service Client (ble_app_uart_c) SDK sample.
 */
@@ -51,8 +61,8 @@
 
 
 // The UART pins.
-#define RX_PIN_NUMBER  3
-#define TX_PIN_NUMBER  5
+#define RX_PIN_NUMBER           3
+#define TX_PIN_NUMBER           5
 
 // The output pin used to turn control the motor power relay.
 #define MOTOR_RELAY_PIN         24
