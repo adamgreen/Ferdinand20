@@ -13,6 +13,45 @@ Tracking the build of my robot to compete in the
 
 
 
+---
+## August 9th, 2020
+### Remote Control PCBs
+The remote control PCBs arrived from OSHPark earlier this month.
+<br>![Remote Control Bare PCBs](photos/20200808-02.jpg)<br>
+A day after the boards arrived, I soldered them up.
+<br>![Remote Control Soldered PCB Top](photos/20200808-03.jpg)
+<br>![Remote Control Soldered PCB Bottom](photos/20200808-04.jpg)<br>
+There are only a few things I would change if I were to respin this board:
+* The ground pads didn't have enough thermal relief. The ground plane was pretty large on this board and it really wicked a lot of heat away from the soldering iron.
+* The pads on the right angled dead man switch should have been longer to make it easier to make contact with the soldering iron.
+
+Once I had the PCBs soldered up, I updated the firmware to work on them and then got to quickly finalizing the code.
+
+### Remote Control Current Usage
+With the remote control code finalized I was to start measuring the remote's current usage in various states:
+| BLE State                   | Current |
+|-----------------------------|---------|
+| Fast Advertising            | 2mA     |
+| Normal Advertising          | 1.1mA   |
+| Connected & Sending JoyData | 1.5mA   |
+| Deep Sleep                  | 20µA    |
+
+The 2xAAA batteries should be able to power the device in deep sleep for quite some time. That means that I don't need to use a power switch on the remote control. I already have it coded to enter deep sleep after 4 minutes of not being connected to the PDB and pressing the dead man switch will wake it up so that it can attempt to reconnect to the PDB.
+
+### Power Distribution Board - More Firmware Improvements
+The following photos show the top and bottom of the PDB PCB after I applied bodge wires to work around the mistakes that I made in the original PCB design:
+<br>![PDB Top](photos/20200808-05.jpg)<br>
+![PDB Bottom](photos/20200808-06.jpg)<br>
+
+Over the last week, I have continued to work on the PDB to improve its firmware:
+* I added a serial connection between the PDB and the LPC1768 based robot microcontroller. This included code which can send the latest PDB and remote control status to the robot microcontroller and accept informational text sent from the robot to display on the LCD.
+* I improved the performance of the ST7789 LCD driver by porting @cbm80amiga's [Arduino_ST7789_Fast](https://github.com/cbm80amiga/Arduino_ST7789_Fast) library and then tweaked it to get the best performance in my nRF51422 setup.
+
+![Complete PDB Setup](photos/20200808-07.jpg)<br>
+
+
+
+---
 ## July 31st, 2020
 ### Power Distribution Board - Firmware Updates
 ![Photo of latest PDB firmware running](photos/20200731-01.jpg)
@@ -40,6 +79,7 @@ I received an email from OSHPark yesterday indicating that the PCBs for the remo
 
 
 
+---
 ## July 25th, 2020
 ### Power Distribution Board Version 1 - Ready for Action
 ![Initial PDB Testing](photos/20200725-01.jpg)
