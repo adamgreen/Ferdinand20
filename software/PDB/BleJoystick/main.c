@@ -39,8 +39,8 @@
 
 
 // The joystick's X and Y pins are connected to these analog pins.
-#define JOYSTICK_X_PIN      NRF_ADC_CONFIG_INPUT_6
-#define JOYSTICK_Y_PIN      NRF_ADC_CONFIG_INPUT_4
+#define JOYSTICK_X_PIN      NRF_ADC_CONFIG_INPUT_4
+#define JOYSTICK_Y_PIN      NRF_ADC_CONFIG_INPUT_6
 // The switch that goes low when the joystick itself is depressed is connected to this pin. It will be pulled high in
 // software.
 #define JOYSTICK_PRESS_PIN  23
