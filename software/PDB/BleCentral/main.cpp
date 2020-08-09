@@ -35,8 +35,6 @@
 #include <app_uart.h>
 #include <app_scheduler.h>
 #include <app_timer_appsh.h>
-#include <bsp.h>
-#include <bsp_btn_ble.h>
 #include <ble.h>
 #include <ble_advdata.h>
 #include <ble_db_discovery.h>
@@ -46,10 +44,15 @@
 #include <softdevice_handler.h>
 #include <nrf_adc.h>
 #include <nrf_delay.h>
+#include <nrf_gpio.h>
 #include "../BleJoyShared.h"
 #include "../../PdbSerial.h"
 #include "Screen.h"
 
+
+// The UART pins.
+#define RX_PIN_NUMBER  3
+#define TX_PIN_NUMBER  5
 
 // The output pin used to turn control the motor power relay.
 #define MOTOR_RELAY_PIN         24
@@ -71,6 +74,12 @@
 #define BATTERY_VOLTAGE_DIVIDER_BOTTOM  327
 #define BATTERY_VOLTAGE_DIVIDER_TOP     681
 #define BATTERY_VOLTAGE_DIVIDER_TOTAL   (BATTERY_VOLTAGE_DIVIDER_BOTTOM + BATTERY_VOLTAGE_DIVIDER_TOP)
+
+// Low frequency clock source to be used by the SoftDevice
+#define NRF_CLOCK_LFCLKSRC      {.source        = NRF_CLOCK_LF_SRC_XTAL,           \
+                                 .rc_ctiv       = 0,                              \
+                                 .rc_temp_ctiv  = 0,                                \
+                                 .xtal_accuracy = NRF_CLOCK_LF_XTAL_ACCURACY_50_PPM}
 
 // This firmware acts as a BLE central with a single link to the BleJoystick peripheral.
 #define CENTRAL_LINK_COUNT      1
@@ -344,8 +353,6 @@ static void uartEventHandler(app_uart_evt_t* pEvent);
 static void parseReceivedPacketByte(uint8_t byte);
 static uint32_t interlockedIncrement(volatile uint32_t* pVal);
 static void initButtonsAndLeds(void);
-static void bspEventHandler(bsp_event_t event);
-static void enterSleepMode(void);
 static void initBatteryVoltageReading(void);
 static void initDatabaseDiscoveryModule(void);
 static void databaseDiscoveryEventHandler(ble_db_discovery_evt_t* pEvent);
@@ -634,49 +641,6 @@ static void initButtonsAndLeds(void)
 
     // Configure the pin connected to the manual mode override switch as an input with pull-down.
     nrf_gpio_cfg_input(MANUAL_SWITCH_PIN, NRF_GPIO_PIN_PULLDOWN);
-
-    bsp_event_t startupEvent;
-    uint32_t errorCode = bsp_init(BSP_INIT_LED,
-                                  APP_TIMER_TICKS(100, APP_TIMER_PRESCALER),
-                                  bspEventHandler);
-    APP_ERROR_CHECK(errorCode);
-
-    errorCode = bsp_btn_ble_init(NULL, &startupEvent);
-    APP_ERROR_CHECK(errorCode);
-}
-
-static void bspEventHandler(bsp_event_t event)
-{
-    uint32_t errorCode;
-    switch (event)
-    {
-        case BSP_EVENT_SLEEP:
-            enterSleepMode();
-            break;
-        case BSP_EVENT_DISCONNECT:
-            errorCode = sd_ble_gap_disconnect(g_nordicUartServiceClient.conn_handle,
-                                              BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
-            if (errorCode != NRF_ERROR_INVALID_STATE)
-            {
-                APP_ERROR_CHECK(errorCode);
-            }
-            break;
-        default:
-            break;
-    }
-}
-
-static void enterSleepMode(void)
-{
-    uint32_t errorCode = bsp_indication_set(BSP_INDICATE_IDLE);
-    APP_ERROR_CHECK(errorCode);
-
-    errorCode = bsp_btn_ble_sleep_mode_prepare();
-    APP_ERROR_CHECK(errorCode);
-
-    // This function won't return but will wakeup with a reset instead.
-    errorCode = sd_power_system_off();
-    APP_ERROR_CHECK(errorCode);
 }
 
 static void initBatteryVoltageReading(void)
@@ -743,7 +707,6 @@ static void bleEventDispatcher(ble_evt_t* pBleEvent)
 
     // Then dispatch the BLE events to the various modules we have instantiated so that they can process the ones they
     // are interested in.
-    bsp_btn_ble_on_ble_evt(pBleEvent);
     ble_db_discovery_on_ble_evt(&g_bleDatabaseDiscovery, pBleEvent);
     ble_nus_c_on_ble_evt(&g_nordicUartServiceClient, pBleEvent);
 }
@@ -768,18 +731,10 @@ static void bleEventHandler(ble_evt_t* pBleEvent)
                 errorCode = sd_ble_gap_connect(&pAdvertiseReport->peer_addr,
                                                &g_bleScanParameters,
                                                &g_bleConnectionParameters);
-                if (errorCode == NRF_SUCCESS)
-                {
-                    errorCode = bsp_indication_set(BSP_INDICATE_IDLE);
-                    APP_ERROR_CHECK(errorCode);
-                }
             }
             break;
         }
         case BLE_GAP_EVT_CONNECTED:
-            errorCode = bsp_indication_set(BSP_INDICATE_CONNECTED);
-            APP_ERROR_CHECK(errorCode);
-
             // Start discovery of GATT services on this device. The Nordic UART Client waits for a discovery result
             // to find the services it is interested in for sending/receiving UART data.
             errorCode = ble_db_discovery_start(&g_bleDatabaseDiscovery, pBleEvent->evt.gap_evt.conn_handle);
@@ -966,9 +921,6 @@ static void nordicUartServiceClientEventHandler(ble_nus_c_t* pNordicUartServiceC
 static void startScanningForNordicUartPeripherals(void)
 {
     uint32_t errorCode = sd_ble_gap_scan_start(&g_bleScanParameters);
-    APP_ERROR_CHECK(errorCode);
-
-    errorCode = bsp_indication_set(BSP_INDICATE_SCANNING);
     APP_ERROR_CHECK(errorCode);
 }
 
