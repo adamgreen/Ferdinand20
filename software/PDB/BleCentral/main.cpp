@@ -84,7 +84,7 @@
 
 // The size of the transmit and receive arrays for buffering the UART data to and from the main robot uC.
 #define UART_TX_BUF_SIZE        256
-#define UART_RX_BUF_SIZE        256
+#define UART_RX_BUF_SIZE        1
 
 // Value of the RTC1 PRESCALER register used by application timer.
 #define APP_TIMER_PRESCALER     0
@@ -152,6 +152,69 @@ struct AutoPacket
 {
     PdbSerialPacketHeader header;
     PdbSerialAutoPacket   _auto;
+};
+
+// Circular queue class used for serial data received from robot microcontroller for display on LCD.
+template <uint32_t SIZE>
+class CircularQueue
+{
+    public:
+        CircularQueue()
+        {
+            m_pushIndex = 0;
+            m_popIndex = 0;
+        }
+
+        bool isFull()
+        {
+            return m_pushIndex + 1 == m_popIndex;
+        }
+
+        bool isEmpty()
+        {
+            return m_pushIndex == m_popIndex;
+        }
+
+        uint32_t freeByteCount()
+        {
+            uint32_t pushIndex = m_pushIndex;
+            uint32_t popIndex = m_popIndex;
+
+            if (pushIndex < popIndex)
+            {
+                return popIndex - pushIndex - 1;
+            }
+            else
+            {
+                return (SIZE - 1) - (pushIndex - popIndex);
+            }
+        }
+
+        void push(uint8_t byte)
+        {
+            ASSERT ( !isFull() );
+            m_data[m_pushIndex] = byte;
+            m_pushIndex = nextIndex(m_pushIndex);
+        }
+
+        uint8_t pop()
+        {
+            ASSERT ( !isEmpty() );
+            uint8_t byte = m_data[m_popIndex];
+            m_popIndex = nextIndex(m_popIndex);
+            return byte;
+        }
+
+
+    protected:
+        uint32_t nextIndex(uint32_t index)
+        {
+            return (index + 1) % SIZE;
+        }
+
+        volatile uint32_t m_pushIndex;
+        volatile uint32_t m_popIndex;
+        volatile uint8_t  m_data[SIZE];
 };
 
 
@@ -246,23 +309,24 @@ static enum UartRecvState
 {
     UART_RECV_PACKET_START,
     UART_RECV_PACKET_LENGTH,
-    UART_RECV_PACKET_DATA
+    UART_RECV_PACKET_DATA,
+    UART_RECV_IGNORE_DATA
 } g_recvPacketState = UART_RECV_PACKET_START;
 
-// Incremented each time a packet is received from the main robot microcontroller.
-static uint32_t g_recvPacketCount = 0;
+// Number of received packets that had to be dropped because of queue overflow.
+static uint32_t g_recvPacketIgnoredCount = 0;
 
-// Set to true if data in g_recvPacketData is valid.
-static bool     g_recvPacketDataValid = false;
+// Number of currently available packets to be pulled from queue.
+static volatile uint32_t g_recvPacketQueueCount = 0;
 
-// Length of data in g_recvPacketData.
-static size_t   g_recvPacketDataLength = 0;
+// Length of packet data currently being placed in queue or being dropped.
+static uint32_t g_recvPacketLength = 0;
 
-// Current write index into g_recvPacketData.
-static size_t   g_recvPacketDataIndex = 0;
+// Progress of transferring packet data into queue or being dropped.
+static uint32_t g_recvPacketIndex = 0;
 
-// The last string received from the main robot microcontroller.
-static char     g_recvPacketData[Screen::TEXT_LINE_LENGTH + 1];
+// Circular queue used for serial data received from robot microcontroller for display on LCD.
+static CircularQueue<256> g_recvPacketQueue;
 
 
 
@@ -271,12 +335,14 @@ static void initTimers(void);
 static void lcdTimeoutHandler(void* pvContext);
 static void sendSerialPacket(const BleJoyData* pJoyData);
 static void sendBufferToUart(const void* pvData, size_t length);
+static uint32_t interlockedDecrement(volatile uint32_t* pVal);
 static void startLcdTimer(void);
 static void batteryTimeoutHandler(void* pvContext);
 static void readBatteryVoltage(void);
 static void initUart(void);
 static void uartEventHandler(app_uart_evt_t* pEvent);
 static void parseReceivedPacketByte(uint8_t byte);
+static uint32_t interlockedIncrement(volatile uint32_t* pVal);
 static void initButtonsAndLeds(void);
 static void bspEventHandler(bsp_event_t event);
 static void enterSleepMode(void);
@@ -346,15 +412,28 @@ static void lcdTimeoutHandler(void* pvContext)
     g_state.remoteBattery = g_joyData.batteryVoltage;
     g_state.areMotorsEnabled = g_joyData.buttons & BLEJOY_BUTTONS_DEADMAN;
 
+    g_screen.update(&g_state);
+    if (g_recvPacketQueueCount > 0)
+    {
+        char buffer[Screen::TEXT_LINE_LENGTH + 1];
+        char* pBuffer = buffer;
+
+        uint8_t textLength = g_recvPacketQueue.pop();
+        for (uint8_t i = 0 ; i < textLength ; i++)
+        {
+            uint8_t byte = g_recvPacketQueue.pop();
+            if (i < sizeof(buffer) - 1)
+            {
+                *pBuffer++ = byte;
+            }
+        }
+        *pBuffer = '\0';
+        g_screen.updateText(buffer);
+        interlockedDecrement(&g_recvPacketQueueCount);
+    }
+
     // Send serial packet to robot microcontroller.
     sendSerialPacket(&g_joyData);
-
-    g_screen.update(&g_state);
-    if (g_recvPacketDataValid)
-    {
-        g_screen.updateText(g_recvPacketData);
-        g_recvPacketDataValid = false;
-    }
 
     // Restart the timer again.
     startLcdTimer();
@@ -391,6 +470,16 @@ static void sendBufferToUart(const void* pvData, size_t length)
         uint32_t errorCode = app_uart_put(*pData++);
         APP_ERROR_CHECK(errorCode);
     }
+}
+
+static uint32_t interlockedDecrement(volatile uint32_t* pVal)
+{
+    uint32_t newValue;
+    CRITICAL_REGION_ENTER();
+        newValue = *pVal - 1;
+        *pVal = newValue;
+    CRITICAL_REGION_EXIT();
+    return newValue;
 }
 
 static void startLcdTimer(void)
@@ -471,7 +560,7 @@ static void uartEventHandler(app_uart_evt_t* pEvent)
 
 static void parseReceivedPacketByte(uint8_t byte)
 {
-    uint8_t length = 0;
+    uint32_t length = 0;
 
     switch (g_recvPacketState)
     {
@@ -485,45 +574,54 @@ static void parseReceivedPacketByte(uint8_t byte)
             length = byte;
             if (length == 0)
             {
-                // Received a simple ack packet with no data.
+                // Received a packet with no data so setup to wait for start of next packet.
                 g_recvPacketState = UART_RECV_PACKET_START;
-                g_recvPacketCount++;
+            }
+            else if (g_recvPacketQueue.freeByteCount() < length + 1) // +1 for length prefix.
+            {
+                // Queue doesn't contain enough room for this packet so ignore it.
+                g_recvPacketLength = length;
+                g_recvPacketIndex = 0;
+                g_recvPacketState = UART_RECV_IGNORE_DATA;
             }
             else
             {
-                if (g_recvPacketDataValid)
-                {
-                    // Just drop packet if we are still writing the last one to the screen.
-                    g_recvPacketState = UART_RECV_PACKET_START;
-                    g_recvPacketCount++;
-                }
-                g_recvPacketDataLength = length;
-                g_recvPacketDataIndex = 0;
+                g_recvPacketQueue.push(length);
+                g_recvPacketLength = length;
+                g_recvPacketIndex = 0;
                 g_recvPacketState = UART_RECV_PACKET_DATA;
             }
             break;
         case UART_RECV_PACKET_DATA:
-            if (g_recvPacketDataIndex < sizeof(g_recvPacketData))
-            {
-                // Only place byte in buffer if there is room for it. Drop it on the floor otherwise.
-                g_recvPacketData[g_recvPacketDataIndex] = byte;
-            }
-            g_recvPacketDataIndex++;
-            if (g_recvPacketDataIndex >= g_recvPacketDataLength)
+            g_recvPacketQueue.push(byte);
+            g_recvPacketIndex++;
+            if (g_recvPacketIndex >= g_recvPacketLength)
             {
                 // Have finished receiving packet data.
-                // NULL terminate the data as it is a string to be displayed on the screen.
-                if (g_recvPacketDataIndex > sizeof(g_recvPacketData) - 1)
-                {
-                    g_recvPacketDataIndex = sizeof(g_recvPacketData) - 1;
-                }
-                g_recvPacketData[g_recvPacketDataIndex] = '\0';
-                g_recvPacketDataValid = true;
-                g_recvPacketCount++;
+                interlockedIncrement(&g_recvPacketQueueCount);
+                g_recvPacketState = UART_RECV_PACKET_START;
+            }
+            break;
+        case UART_RECV_IGNORE_DATA:
+            g_recvPacketIndex++;
+            if (g_recvPacketIndex >= g_recvPacketLength)
+            {
+                // Have finished receiving packet data.
+                g_recvPacketIgnoredCount++;
                 g_recvPacketState = UART_RECV_PACKET_START;
             }
             break;
     }
+}
+
+static uint32_t interlockedIncrement(volatile uint32_t* pVal)
+{
+    uint32_t newValue;
+    CRITICAL_REGION_ENTER();
+        newValue = *pVal + 1;
+        *pVal = newValue;
+    CRITICAL_REGION_EXIT();
+    return newValue;
 }
 
 static void initButtonsAndLeds(void)

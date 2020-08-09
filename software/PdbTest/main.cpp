@@ -74,7 +74,7 @@ int main(void)
                 break;
         }
 
-        if ((iteration & 0xF) == 0)
+        if ((iteration & 0x7) == 0)
         {
             // Only send back some text on every 16th frame.
             char buffer[256];
