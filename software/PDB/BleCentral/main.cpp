@@ -91,6 +91,7 @@
                                  .rc_temp_ctiv  = 0,                                \
                                  .xtal_accuracy = NRF_CLOCK_LF_XTAL_ACCURACY_50_PPM}
 
+
 // This firmware acts as a BLE central with a single link to the BleJoystick peripheral.
 #define CENTRAL_LINK_COUNT      1
 // This application doesn't need to act as a BLE peripheral.
@@ -107,8 +108,7 @@
 
 // Value of the RTC1 PRESCALER register used by application timer.
 #define APP_TIMER_PRESCALER     0
-// Size of timer operation queues. Includes room for BSP specific timers.
-// UNDONE: Try setting this to 1 and remove above comment about BSP.
+// Size of timer operation queues.
 #define APP_TIMER_OP_QUEUE_SIZE 2
 
 // Parameters for configuring how this application scans for nearby BleJoystick peripherals.
@@ -147,8 +147,7 @@
 // Maximum size of scheduled events - Only timer events are placed in this queue.
 #define SCHED_MAX_EVENT_DATA_SIZE       APP_TIMER_SCHED_EVT_SIZE
 // Maximum number of events to be schedule at once.
-// UNDONE: Can probably be 2 once I get rid of the BSP code.
-#define SCHED_QUEUE_SIZE                3
+#define SCHED_QUEUE_SIZE                2
 
 // The delay to be used between LCD/UART updates.
 #define LCD_TIMER_DELAY         APP_TIMER_TICKS(16, APP_TIMER_PRESCALER)
