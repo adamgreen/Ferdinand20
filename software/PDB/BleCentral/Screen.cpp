@@ -76,16 +76,14 @@ Screen::Screen(uint32_t ticksPerSecond,
 
 void Screen::update(const PdbState* pState)
 {
-    PdbState state = *pState;
-
-    drawManualAutoMode(state.isManualMode);
-    drawRemoteIcon(state.isRemoteConnected);
-    drawRemoteVoltage(state.isRemoteConnected, state.remoteBattery);
-    drawMotorIcon(state.areMotorsEnabled);
-    drawRobotVoltage(state.robotBattery);
+    drawManualAutoMode(pState->isManualMode);
+    drawRemoteIcon(pState->isRemoteConnected);
+    drawRemoteVoltage(pState->isRemoteConnected, pState->remoteBattery);
+    drawMotorIcon(pState->areMotorsEnabled);
+    drawRobotVoltage(pState->robotBattery);
 
     // Remember the new state.
-    m_currentState = state;
+    m_currentState = *pState;
 
     // See if we are ready to start a new 1-second blink interval.
     uint32_t currentTicks = app_timer_cnt_get();

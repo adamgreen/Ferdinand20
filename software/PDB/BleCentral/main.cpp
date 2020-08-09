@@ -128,6 +128,10 @@
 // If 1, ignore unknown devices (those not in the whitelist).
 #define SCAN_SELECTIVE          0
 
+// If the lcdTimeoutHandler() routine doesn't see new BLE JoyData packets for this many iterations then it considers
+// the remote control to have been disconnected.
+#define MAX_MISSED_BLE_PACKETS  2
+
 // Timings for how often peripheral and central should communicate over the link. The shorter the interval, the more
 // data that can be sent over the link but uses more CPU and power resources.
 // Minimum acceptable connection interval in milliseconds. Connection interval uses 1.25 ms units.
@@ -290,6 +294,15 @@ static Screen::PdbState g_state =
 // Global object used to record the most recent joystick state returned from remote control.
 static BleJoyData   g_joyData;
 
+// Count of BLE packets that have been received from the remote control.
+static volatile uint32_t    g_blePacketCount = 0;
+
+// The last count seen in g_blePacketCount by lcdTimeoutHandler().
+static uint32_t             g_lastBlePacketCount = 0;
+
+// The number of times lcdTimeoutHandler() has seen no new BLE packets.
+static uint32_t             g_missingBlePacketCount = 0;
+
 // The packet sent when in manual driving mode.
 static ManualPacket g_manualPacket =
 {
@@ -351,7 +364,8 @@ static CircularQueue<256> g_recvPacketQueue;
 // Function Prototypes
 static void initTimers(void);
 static void lcdTimeoutHandler(void* pvContext);
-static void sendSerialPacket(const BleJoyData* pJoyData);
+static void checkForMissingBlePackets(Screen::PdbState* pState, BleJoyData* pJoyData);
+static void sendSerialPacket(const Screen::PdbState* pState, const BleJoyData* pJoyData);
 static void sendBufferToUart(const void* pvData, size_t length);
 static uint32_t interlockedDecrement(volatile uint32_t* pVal);
 static void startLcdTimer(void);
@@ -417,18 +431,27 @@ static void initTimers(void)
 
 static void lcdTimeoutHandler(void* pvContext)
 {
+    // Take a snapshot of the remote and PDB state as they exist at the beginning of this timer. That way one part of
+    // this handler doesn't see a different state than another part.
+    Screen::PdbState state = g_state;
+    BleJoyData       joyData = g_joyData;
+
+    // Mark remote as not being connected if we haven't received any packets from it for a few iterations of this
+    // callback.
+    checkForMissingBlePackets(&state, &joyData);
+
     // Set motor relay enable pin based on latest remote dead man switch state just received.
-    nrf_gpio_pin_write(MOTOR_RELAY_PIN, g_joyData.buttons & BLEJOY_BUTTONS_DEADMAN);
+    nrf_gpio_pin_write(MOTOR_RELAY_PIN, joyData.buttons & BLEJOY_BUTTONS_DEADMAN);
 
     // Read the state of the manual override switch.
     uint32_t manualButtonPressed = nrf_gpio_pin_read(MANUAL_SWITCH_PIN);
-    g_state.isManualMode = manualButtonPressed == 1 ? true : false;
+    state.isManualMode = (manualButtonPressed == 1);
 
     // Set PDB state fields from most recent joystick data.
-    g_state.remoteBattery = g_joyData.batteryVoltage;
-    g_state.areMotorsEnabled = g_joyData.buttons & BLEJOY_BUTTONS_DEADMAN;
+    state.remoteBattery = joyData.batteryVoltage;
+    state.areMotorsEnabled = joyData.buttons & BLEJOY_BUTTONS_DEADMAN;
 
-    g_screen.update(&g_state);
+    g_screen.update(&state);
     if (g_recvPacketQueueCount > 0)
     {
         char buffer[Screen::TEXT_LINE_LENGTH + 1];
@@ -449,31 +472,53 @@ static void lcdTimeoutHandler(void* pvContext)
     }
 
     // Send serial packet to robot microcontroller.
-    sendSerialPacket(&g_joyData);
+    sendSerialPacket(&state, &joyData);
 
     // Restart the timer again.
     startLcdTimer();
 }
 
-static void sendSerialPacket(const BleJoyData* pJoyData)
+static void checkForMissingBlePackets(Screen::PdbState* pState, BleJoyData* pJoyData)
 {
-    if (g_state.isManualMode)
+    if (g_blePacketCount == g_lastBlePacketCount)
     {
-        g_manualPacket.manual.x = g_joyData.x;
-        g_manualPacket.manual.y = g_joyData.y;
-        g_manualPacket.manual.robotBattery = g_state.robotBattery;
-        g_manualPacket.manual.remoteBattery = g_state.remoteBattery;
+        // No new BLE packets from the remote control since the last time this function ran.
+        g_missingBlePacketCount++;
+        if (g_missingBlePacketCount > MAX_MISSED_BLE_PACKETS)
+        {
+            // Not receiving BLE packets from remote control so force deadman switch status to unpressed state.
+            pJoyData->buttons &= ~BLEJOY_BUTTONS_DEADMAN;
+            pState->isRemoteConnected = false;
+        }
+    }
+    else
+    {
+        // Remember that we have seen this latest BLE packet.
+        g_lastBlePacketCount = g_blePacketCount;
+        g_missingBlePacketCount = 0;
+    }
+
+}
+
+static void sendSerialPacket(const Screen::PdbState* pState, const BleJoyData* pJoyData)
+{
+    if (pState->isManualMode)
+    {
+        g_manualPacket.manual.x = pJoyData->x;
+        g_manualPacket.manual.y = pJoyData->y;
+        g_manualPacket.manual.robotBattery = pState->robotBattery;
+        g_manualPacket.manual.remoteBattery = pState->remoteBattery;
         g_manualPacket.manual.flags = ((pJoyData->buttons & BLEJOY_BUTTONS_JOYSTICK) ? PDBSERIAL_FLAGS_JOYSTICK_BUTTON : 0) |
-                                      (g_state.areMotorsEnabled ? PDBSERIAL_FLAGS_MOTORS_ENABLED : 0) |
-                                      (g_state.isRemoteConnected ? PDBSERIAL_FLAGS_REMOTE_CONNECTED : 0);
+                                      (pState->areMotorsEnabled ? PDBSERIAL_FLAGS_MOTORS_ENABLED : 0) |
+                                      (pState->isRemoteConnected ? PDBSERIAL_FLAGS_REMOTE_CONNECTED : 0);
         sendBufferToUart(&g_manualPacket, sizeof(g_manualPacket));
     }
     else
     {
-        g_autoPacket._auto.robotBattery = g_state.robotBattery;
-        g_autoPacket._auto.remoteBattery = g_state.remoteBattery;
-        g_autoPacket._auto.flags = (g_state.areMotorsEnabled ? PDBSERIAL_FLAGS_MOTORS_ENABLED : 0) |
-                                   (g_state.isRemoteConnected ? PDBSERIAL_FLAGS_REMOTE_CONNECTED : 0);
+        g_autoPacket._auto.robotBattery = pState->robotBattery;
+        g_autoPacket._auto.remoteBattery = pState->remoteBattery;
+        g_autoPacket._auto.flags = (pState->areMotorsEnabled ? PDBSERIAL_FLAGS_MOTORS_ENABLED : 0) |
+                                   (pState->isRemoteConnected ? PDBSERIAL_FLAGS_REMOTE_CONNECTED : 0);
         sendBufferToUart(&g_autoPacket, sizeof(g_autoPacket));
     }
 }
@@ -911,6 +956,9 @@ static void nordicUartServiceClientEventHandler(ble_nus_c_t* pNordicUartServiceC
                 // The remote isn't considered connected until we successfully receive its first packet. This stops
                 // a remote battery voltage of 0.0V being displayed on the LCD or sent out the UART.
                 g_state.isRemoteConnected = true;
+
+                // Let the LCD update timer know that we have received a BLE packet recently.
+                g_blePacketCount++;
             }
             break;
         case BLE_NUS_C_EVT_DISCONNECTED:
