@@ -31,6 +31,7 @@ SRC_FILES += \
   $(SDK_ROOT)/components/drivers_nrf/gpiote/nrf_drv_gpiote.c \
   $(SDK_ROOT)/components/drivers_nrf/uart/nrf_drv_uart.c \
   $(SDK_ROOT)/components/drivers_nrf/hal/nrf_adc.c \
+  $(SDK_ROOT)/components/drivers_nrf/wdt/nrf_drv_wdt.c \
   $(PROJ_DIR)/main.cpp \
   $(PROJ_DIR)/Screen.cpp \
   $(SDK_ROOT)/external/segger_rtt/RTT_Syscalls_GCC.c \

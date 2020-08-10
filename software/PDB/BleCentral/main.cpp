@@ -55,6 +55,7 @@
 #include <nrf_adc.h>
 #include <nrf_delay.h>
 #include <nrf_gpio.h>
+#include <nrf_drv_wdt.h>
 #include "../BleJoyShared.h"
 #include "../../PdbSerial.h"
 #include "Screen.h"
@@ -94,6 +95,9 @@
 // Motors will be disabled once the 2S LiPo battery reaches this voltage to protect the battery from under voltage.
 //  64 = 6.4V
 #define ROBOT_LOW_BATTERY       64
+
+// The LCD update timer must feed the watchdog in this time interval (msec) or the PDB will be reset.
+#define WATCHDOG_TIMEOUT        250
 
 // This firmware acts as a BLE central with a single link to the BleJoystick peripheral.
 #define CENTRAL_LINK_COUNT      1
@@ -366,6 +370,9 @@ static uint32_t g_recvPacketIndex = 0;
 // Circular queue used for serial data received from robot microcontroller for display on LCD.
 static CircularQueue<256> g_recvPacketQueue;
 
+// Watchdog channel to be fed by lcdTimeoutHandler().
+static nrf_drv_wdt_channel_id g_watchdogChannel;
+
 
 
 // Function Prototypes
@@ -392,6 +399,8 @@ static void bleEventHandler(ble_evt_t * pBleEvent);
 static bool isUuidPresent(const ble_uuid_t* pTargetUuid, const ble_gap_evt_adv_report_t* pAdvertiseReport);
 static void initNordicUartServiceClient(void);
 static void nordicUartServiceClientEventHandler(ble_nus_c_t* pNordicUartServiceClient, const ble_nus_c_evt_t* pEvent);
+static void startWatchdog(void);
+static void watchdogTimeoutHandler(void);
 static void startBatteryTimer(void);
 static void startScanningForNordicUartPeripherals(void);
 static void enterLowPowerModeUntilNextEvent(void);
@@ -411,6 +420,7 @@ int main(void)
     initBleStack();
     initNordicUartServiceClient();
 
+    startWatchdog();
     startLcdTimer();
     startBatteryTimer();
     startScanningForNordicUartPeripherals();
@@ -486,6 +496,9 @@ static void lcdTimeoutHandler(void* pvContext)
 
     // Send serial packet to robot microcontroller.
     sendSerialPacket(&state, &joyData);
+
+    // Feed the watchdog timer.
+    nrf_drv_wdt_channel_feed(g_watchdogChannel);
 
     // Restart the timer again.
     startLcdTimer();
@@ -998,6 +1011,32 @@ static void startScanningForNordicUartPeripherals(void)
 {
     uint32_t errorCode = sd_ble_gap_scan_start(&g_bleScanParameters);
     APP_ERROR_CHECK(errorCode);
+}
+
+static void startWatchdog(void)
+{
+    nrf_drv_wdt_config_t config =
+    {
+        .behaviour = NRF_WDT_BEHAVIOUR_RUN_SLEEP,
+        .reload_value = WATCHDOG_TIMEOUT,
+        .interrupt_priority = APP_IRQ_PRIORITY_LOWEST
+    };
+
+    uint32_t errorCode = nrf_drv_wdt_init(&config, watchdogTimeoutHandler);
+    APP_ERROR_CHECK(errorCode);
+
+    errorCode = nrf_drv_wdt_channel_alloc(&g_watchdogChannel);
+    APP_ERROR_CHECK(errorCode);
+
+    nrf_drv_wdt_enable();
+}
+
+static void watchdogTimeoutHandler(void)
+{
+    while (true)
+    {
+        // Do nothing and just wait for the microcontroller to reset.
+    }
 }
 
 static void startBatteryTimer(void)
