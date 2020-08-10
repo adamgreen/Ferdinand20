@@ -17,7 +17,7 @@ obj/
 
 # Final macOS binaries.
 /software/blemri/macos/blemri
-/software/PDB/macosTest/BleJoystickTest
+/software/RemoteControlTest/RemoteControlTest
 
 # Build output for GCC4MBED based builds.
 LPC1768/

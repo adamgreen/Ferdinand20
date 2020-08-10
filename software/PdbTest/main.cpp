@@ -12,7 +12,7 @@
 */
 // Test program to echo serial data received from Power Distribution Board to stdout.
 #include <mbed.h>
-#include "../PdbSerial.h"
+#include "../include/PdbSerial.h"
 
 
 RawSerial g_pc(USBTX, USBRX);

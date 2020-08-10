@@ -20,7 +20,7 @@ CLANG_FLAGS := -g -Wall -Werror -MMD -MP
 OBJDIR := obj
 
 # Build this sample.
-CONSOLE_APP := BleJoystickTest
+CONSOLE_APP := RemoteControlTest
 CONSOLE_OBJ := $(call OBJS,.,$(OBJDIR))
 DEPS += $(patsubst %.o,%.d,$(CONSOLE_OBJ))
 FRAMEWORKS := -framework Foundation -framework AppKit -framework CoreBluetooth

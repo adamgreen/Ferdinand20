@@ -34,7 +34,7 @@
 #include <nrf_adc.h>
 #include <nrf_gpio.h>
 #include <softdevice_handler_appsh.h>
-#include "BleJoyShared.h"
+#include "../include/BleJoyShared.h"
 
 
 
@@ -59,7 +59,7 @@
 
 
 // The name of this device.
-#define DEVICE_NAME                     "BleJoystick"
+#define DEVICE_NAME                     "RemoteControl"
 
 // How often the battery voltage level should be measured. 1/2 minute.
 #define BATTERY_LEVEL_MEAS_INTERVAL     APP_TIMER_TICKS(30000, APP_TIMER_PRESCALER)
