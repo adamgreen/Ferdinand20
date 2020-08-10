@@ -42,16 +42,66 @@ static const uint16_t scrollingTopMargin = tallTextSize * charHeight + 5;
 
 
 
+Screen::Blinker::Blinker(uint32_t offTime, uint16_t foregroundColor, uint16_t backgroundColor) :
+    m_offTime(offTime),
+    m_backgroundColor(backgroundColor),
+    m_foregroundColor(foregroundColor),
+    m_isOn(true),
+    m_isBlinking(false)
+{
+}
+
+void Screen::Blinker::calcColor(uint32_t time, bool* pColorChanged, uint16_t* pNewColor)
+{
+    // Return early if blink isn't enabled.
+    if (!m_isBlinking)
+    {
+        *pColorChanged = false;
+        return;
+    }
+
+    bool isNowOn;
+    if (time < m_offTime)
+    {
+        isNowOn = true;
+    }
+    else
+    {
+        isNowOn = false;
+    }
+
+    if (isNowOn == m_isOn)
+    {
+        // Let the caller know that the colour hasn't changed since the last call.
+        *pColorChanged = false;
+        return;
+    }
+
+    // Get here if the color has just changed.
+    *pColorChanged = true;
+    if (isNowOn)
+    {
+        *pNewColor = m_foregroundColor;
+    }
+    else
+    {
+        *pNewColor = m_backgroundColor;
+    }
+    m_isOn = isNowOn;
+}
+
+
+
 Screen::Screen(uint32_t ticksPerSecond,
                uint8_t mosiPin, uint8_t sckPin, uint8_t csPin, uint8_t dcPin, uint8_t rstPin) :
     m_ticksPerSecond(ticksPerSecond),
+    m_manualBlinker((ticksPerSecond * 3) / 4, TFT_RED, TFT_BLACK),
+    m_bleBlinker(ticksPerSecond / 2, TFT_BLUE, TFT_BLACK),
+    m_robotVoltageBlinker(ticksPerSecond / 2, TFT_RED, TFT_BLACK),
+    m_remoteVoltageBlinker(ticksPerSecond / 2, TFT_RED, TFT_BLACK),
     m_tft(SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, mosiPin, sckPin, dcPin, rstPin, csPin)
 {
     m_lastBlinkStartTicks = 0;
-    m_blinkManual = false;
-    m_blinkManualState = false;
-    m_blinkBle = false;
-    m_blinkBleState = false;
     m_currentTextLine = 0;
 
     memset(&m_text, 0, sizeof(m_text));
@@ -76,57 +126,38 @@ Screen::Screen(uint32_t ticksPerSecond,
 
 void Screen::update(const PdbState* pState)
 {
-    drawManualAutoMode(pState->isManualMode);
-    drawRemoteIcon(pState->isRemoteConnected);
-    drawRemoteVoltage(pState->isRemoteConnected, pState->remoteBattery);
+    uint32_t currentTicks = app_timer_cnt_get();
+    uint32_t elapsedTicks;
+    app_timer_cnt_diff_compute(currentTicks, m_lastBlinkStartTicks, &elapsedTicks);
+
+    drawManualAutoMode(elapsedTicks, pState->isManualMode);
+    drawRemoteIcon(elapsedTicks, pState->isRemoteConnected);
+    drawRemoteVoltage(elapsedTicks, pState->isRemoteConnected, pState->remoteBattery);
     drawMotorIcon(pState->areMotorsEnabled);
-    drawRobotVoltage(pState->robotBattery);
+    drawRobotVoltage(elapsedTicks, pState->robotBattery);
 
     // Remember the new state.
     m_currentState = *pState;
 
     // See if we are ready to start a new 1-second blink interval.
-    uint32_t currentTicks = app_timer_cnt_get();
-    uint32_t elapsedTicks;
-    app_timer_cnt_diff_compute(currentTicks, m_lastBlinkStartTicks, &elapsedTicks);
     if (elapsedTicks >= m_ticksPerSecond)
     {
         m_lastBlinkStartTicks = currentTicks;
     }
 }
 
-void Screen::drawManualAutoMode(bool isManualMode)
+void Screen::drawManualAutoMode(uint32_t time, bool isManualMode)
 {
-    if (m_blinkManual)
+    bool     hasNewColor = false;
+    uint16_t newColor = TFT_BLACK;
+    m_manualBlinker.calcColor(time, &hasNewColor, &newColor);
+    if (hasNewColor)
     {
-        // Turn the "Manual" text on at the beginning of a 1 second interval
-        //      - and -
-        // Turn the "Manual" text off 3/4 of the way through the 1 second interval.
-        uint32_t currentTicks = app_timer_cnt_get();
-        uint32_t tickThreshold = (m_ticksPerSecond * 3) / 4;
-        uint32_t elapsedTicks;
-        app_timer_cnt_diff_compute(currentTicks, m_lastBlinkStartTicks, &elapsedTicks);
-
-        uint16_t color = TFT_WHITE;
-        if (!m_blinkManualState && elapsedTicks < tickThreshold)
-        {
-            color = TFT_RED;
-            m_blinkManualState = true;
-        }
-        else if (m_blinkManualState && elapsedTicks >= tickThreshold)
-        {
-            color = TFT_BLACK;
-            m_blinkManualState = false;
-        }
-
-        if (color != TFT_WHITE)
-        {
-            // Write "Manual" in red or black.
-            m_tft.setCursor(0, 0);
-            m_tft.setTextSize(normalTextSize);
-            m_tft.setTextColor(color);
-            m_tft.print("Manual");
-        }
+        // Write "Manual" in red or black.
+        m_tft.setCursor(0, 0);
+        m_tft.setTextSize(normalTextSize);
+        m_tft.setTextColor(newColor);
+        m_tft.print("Manual");
     }
 
     if (isManualMode != m_currentState.isManualMode)
@@ -134,19 +165,19 @@ void Screen::drawManualAutoMode(bool isManualMode)
         // Manual/Auto mode has changed so update it on the screen.
         const char* pCurrText;
         const char* pNewText;
-        uint16_t newColor;
         if (isManualMode)
         {
             pCurrText = "Auto";
             pNewText = "Manual";
             newColor = TFT_RED;
-            m_blinkManualState = true;
+            m_manualBlinker.enable();
         }
         else
         {
             pCurrText = "Manual";
             pNewText = "Auto";
             newColor = TFT_WHITE;
+            m_manualBlinker.disable();
         }
 
         // Erase current mode text.
@@ -160,12 +191,10 @@ void Screen::drawManualAutoMode(bool isManualMode)
         m_tft.setTextSize(normalTextSize);
         m_tft.setTextColor(newColor);
         m_tft.print(pNewText);
-
-        m_blinkManual = isManualMode;
     }
 }
 
-void Screen::drawRemoteIcon(bool isRemoteConnected)
+void Screen::drawRemoteIcon(uint32_t time, bool isRemoteConnected)
 {
     const uint8_t bluetoothIcon[] = { 0x0c, 0x00, // 00001100 00000000
                                         0x0a, 0x00, // 00001010 00000000
@@ -181,67 +210,61 @@ void Screen::drawRemoteIcon(bool isRemoteConnected)
                                         0x0a, 0x00, // 00001010 00000000
                                         0x0c, 0x00};// 00001100 00000000
 
-    if (m_blinkBle)
+    bool     hasNewColor = false;
+    uint16_t newColor = TFT_BLACK;
+    m_bleBlinker.calcColor(time, &hasNewColor, &newColor);
+    if (hasNewColor)
     {
-        // Turn the BLE icon on at the beginning of a 1 second interval
-        //      - and -
-        // Turn it off 1/2 of the way through the 1 second interval.
-        uint32_t currentTicks = app_timer_cnt_get();
-        uint32_t tickThreshold = m_ticksPerSecond / 2;
-        uint32_t elapsedTicks;
-        app_timer_cnt_diff_compute(currentTicks, m_lastBlinkStartTicks, &elapsedTicks);
-
-        uint16_t color = TFT_WHITE;
-        if (!m_blinkBleState && elapsedTicks < tickThreshold)
-        {
-            color = TFT_BLUE;
-            m_blinkBleState = true;
-        }
-        else if (m_blinkBleState && elapsedTicks >= tickThreshold)
-        {
-            color = TFT_BLACK;
-            m_blinkBleState = false;
-        }
-
-        if (color != TFT_WHITE)
-        {
-            // Set BLE icon to blue or black.
-            m_tft.drawBitmap(SCREEN_WIDTH - 5.5*normalTextSize*charWidth, 0, bluetoothIcon, 16, 13, color);
-        }
+        // Set BLE icon to blue or black.
+        m_tft.drawBitmap(SCREEN_WIDTH - 5.5*normalTextSize*charWidth, 0, bluetoothIcon, 16, 13, newColor);
     }
 
     if (isRemoteConnected != m_currentState.isRemoteConnected)
     {
         // Remote connection state has changed so update it on the screen.
-        uint16_t newColor = TFT_BLUE;
         if (!isRemoteConnected)
         {
             newColor = TFT_BLACK;
             // Erase last remote battery voltage displayed when remote it no longer connected.
             drawBatteryVoltage(SCREEN_WIDTH - 4*normalTextSize*charWidth, 0, normalTextSize, TFT_BLACK, m_currentState.remoteBattery);
+            m_remoteVoltageBlinker.disable();
+            m_bleBlinker.enable();
         }
         else
         {
+            newColor = TFT_BLUE;
             // Force battery level to be displayed below by making the old and new voltages mismatch.
             m_currentState.remoteBattery = 0xFF;
+            m_bleBlinker.disable();
         }
 
         m_tft.drawBitmap(SCREEN_WIDTH - 5.5*normalTextSize*charWidth, 0, bluetoothIcon, 16, 13, newColor);
-
-        m_blinkBle = !isRemoteConnected;
-        m_blinkBleState = m_blinkBle;
     }
 }
 
-void Screen::drawRemoteVoltage(bool isRemoteConnected, uint8_t remoteBattery)
+void Screen::drawRemoteVoltage(uint32_t time, bool isRemoteConnected, uint8_t remoteBattery)
 {
+    bool     hasNewColor = false;
+    uint16_t newColor = TFT_BLACK;
+    m_remoteVoltageBlinker.calcColor(time, &hasNewColor, &newColor);
+    if (hasNewColor)
+    {
+        drawBatteryVoltage(SCREEN_WIDTH - 4*normalTextSize*charWidth, 0, normalTextSize, newColor, remoteBattery);
+    }
+
     if (isRemoteConnected && remoteBattery != m_currentState.remoteBattery)
     {
         // When remote is connected, draw when remote's battery voltage has changed.
-        uint16_t batteryColor = TFT_GREEN;
+        uint16_t batteryColor;
         if (remoteBattery <= REMOTE_LOW_BATTERY)
         {
             batteryColor = TFT_RED;
+            m_remoteVoltageBlinker.enable();
+        }
+        else
+        {
+            batteryColor = TFT_GREEN;
+            m_remoteVoltageBlinker.disable();
         }
         // Erase old remote battery voltage before displaying new voltage.
         drawBatteryVoltage(SCREEN_WIDTH - 4*normalTextSize*charWidth, 0, normalTextSize, TFT_BLACK, m_currentState.remoteBattery);
@@ -278,8 +301,16 @@ void Screen::drawMotorIcon(bool areMotorsEnabled)
     }
 }
 
-void Screen::drawRobotVoltage(uint8_t robotBattery)
+void Screen::drawRobotVoltage(uint32_t time, uint8_t robotBattery)
 {
+    bool     hasNewColor = false;
+    uint16_t newColor = TFT_BLACK;
+    m_robotVoltageBlinker.calcColor(time, &hasNewColor, &newColor);
+    if (hasNewColor)
+    {
+        drawBatteryVoltage(SCREEN_WIDTH/2 - 2*tallTextSize*charWidth, 0, tallTextSize, newColor, robotBattery);
+    }
+
     if (robotBattery != m_currentState.robotBattery)
     {
         // Robot's battery voltage has changed so update it.
@@ -287,10 +318,14 @@ void Screen::drawRobotVoltage(uint8_t robotBattery)
         if (robotBattery <= ROBOT_ERROR_BATTERY)
         {
             batteryColor = TFT_RED;
+            m_robotVoltageBlinker.setForegroundColor(TFT_RED);
+            m_robotVoltageBlinker.enable();
         }
         else if (robotBattery <= ROBOT_WARN_BATTERY)
         {
             batteryColor = TFT_ORANGE;
+            m_robotVoltageBlinker.setForegroundColor(TFT_ORANGE);
+            m_robotVoltageBlinker.enable();
         }
         // Erase old robot battery voltage before displaying new voltage.
         drawBatteryVoltage(SCREEN_WIDTH/2 - 2*tallTextSize*charWidth, 0, tallTextSize, TFT_BLACK, m_currentState.robotBattery);

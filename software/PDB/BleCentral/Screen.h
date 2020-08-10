@@ -80,22 +80,41 @@ class Screen
             TEXT_LINES = 24 / TEXT_SIZE
         };
 
+        // Helper class for blinking indicators and text.
+        class Blinker
+        {
+            public:
+                Blinker(uint32_t offTime, uint16_t backgroundColor, uint16_t foregroundColor);
+
+                void calcColor(uint32_t time, bool* pColorChanged, uint16_t* pNewColor);
+                void setForegroundColor(uint16_t foregroundColor) { m_foregroundColor = foregroundColor; }
+                void enable() { m_isBlinking = true; m_isOn = true; }
+                void disable() { m_isBlinking = false; }
+
+            protected:
+                uint32_t    m_offTime;
+                uint16_t    m_backgroundColor;
+                uint16_t    m_foregroundColor;
+                bool        m_isOn;
+                bool        m_isBlinking;
+        };
+
         uint32_t        m_ticksPerSecond;
         uint32_t        m_lastBlinkStartTicks;
+        Blinker         m_manualBlinker;
+        Blinker         m_bleBlinker;
+        Blinker         m_robotVoltageBlinker;
+        Blinker         m_remoteVoltageBlinker;
         Arduino_ST7789  m_tft;
         PdbState        m_currentState;
         uint8_t         m_currentTextLine;
         char            m_text[TEXT_LINES][TEXT_LINE_LENGTH+1];
-        bool            m_blinkManual;
-        bool            m_blinkManualState;
-        bool            m_blinkBle;
-        bool            m_blinkBleState;
 
-        void drawManualAutoMode(bool isManualMode);
-        void drawRemoteIcon(bool isRemoteConnected);
-        void drawRemoteVoltage(bool isRemoteConnected, uint8_t remoteVoltage);
+        void drawManualAutoMode(uint32_t time, bool isManualMode);
+        void drawRemoteIcon(uint32_t time, bool isRemoteConnected);
+        void drawRemoteVoltage(uint32_t time, bool isRemoteConnected, uint8_t remoteVoltage);
         void drawMotorIcon(bool areMotorsEnabled);
-        void drawRobotVoltage(uint8_t robotVoltage);
+        void drawRobotVoltage(uint32_t time, uint8_t robotVoltage);
         void drawBatteryVoltage(uint16_t x, uint16_t y, uint8_t size, uint16_t color, uint8_t voltage);
         void eraseTextLine(uint8_t line);
         void drawTextLine(uint8_t line, uint16_t color);
