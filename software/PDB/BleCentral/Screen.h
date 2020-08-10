@@ -132,9 +132,7 @@ class Screen
             // Battery voltage will be displayed as orange text one it reaches this voltage.
             ROBOT_WARN_BATTERY = 70,    // 7.0V
             // Battery voltage will be display as red text once it reaches this voltage.
-            ROBOT_ERROR_BATTERY = 67,   // 6.7V
-            // Motors will be disabled once it reaches this voltage to protect the battery from under voltage.
-            ROBOT_LOW_BATTERY = 64      // 6.4V
+            ROBOT_ERROR_BATTERY = 67    // 6.7V
         };
 };
 

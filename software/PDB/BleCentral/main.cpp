@@ -91,6 +91,9 @@
                                  .rc_temp_ctiv  = 0,                                \
                                  .xtal_accuracy = NRF_CLOCK_LF_XTAL_ACCURACY_50_PPM}
 
+// Motors will be disabled once the 2S LiPo battery reaches this voltage to protect the battery from under voltage.
+//  64 = 6.4V
+#define ROBOT_LOW_BATTERY       64
 
 // This firmware acts as a BLE central with a single link to the BleJoystick peripheral.
 #define CENTRAL_LINK_COUNT      1
@@ -281,6 +284,10 @@ APP_TIMER_DEF(g_batteryTimer);
 // Objects used to control the LCD over SPI.
 static Screen  g_screen(TICKS_PER_SECOND, LCD_MOSI_PIN, LCD_SCK_PIN, LCD_TFTCS_PIN, LCD_TFTDC_PIN, LCD_TFTRST_PIN);
 
+// This global is set if the robot's LiPo battery drops below the minimum allowed voltage.
+// Once set, the motors can no longer be enabled with the deadman switch without power cycling the PDB.
+static volatile bool g_isBatteryTooLow = false;
+
 // Global object used to track the PDB state. Used for updating the LCD.
 static Screen::PdbState g_state =
 {
@@ -440,6 +447,12 @@ static void lcdTimeoutHandler(void* pvContext)
     // callback.
     checkForMissingBlePackets(&state, &joyData);
 
+    // Make sure that motors get disabled once the LiPo battery voltage gets too low.
+    if (g_isBatteryTooLow)
+    {
+        joyData.buttons &= ~BLEJOY_BUTTONS_DEADMAN;
+    }
+
     // Set motor relay enable pin based on latest remote dead man switch state just received.
     nrf_gpio_pin_write(MOTOR_RELAY_PIN, joyData.buttons & BLEJOY_BUTTONS_DEADMAN);
 
@@ -566,6 +579,12 @@ static void readBatteryVoltage(void)
 
     // Convert to 10 X Volts.
     g_state.robotBattery = adcReading * 36 * BATTERY_VOLTAGE_DIVIDER_TOTAL / (1023 * BATTERY_VOLTAGE_DIVIDER_BOTTOM);
+
+    // Set global flag if the battery level ever gets too low so that motors can be disabled to protect the battery.
+    if (g_state.robotBattery <= ROBOT_LOW_BATTERY)
+    {
+        g_isBatteryTooLow = true;
+    }
 
     // Start the next conversion.
     nrf_adc_conversion_event_clean();
