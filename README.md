@@ -14,6 +14,18 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## August 11th, 2020
+### Feature Complete
+I now consider the firmware for the [Power Distribution Board](software/PDB) and [Remote Control](software/RemoteControl) units to be feature complete. I have also implemented the [PdbSerial driver](software/PdbSerial) to make it easier for the robot microcontroller to interact with the PDB. The inbound auto/manual packets from the PDB are processed in the UART ISR as the bytes arrive and the outbound informational text to the PDB are sent in the background using DMA.
+
+### Next Steps
+* Connect the motor power outputs from the PDB to the LPC1768 robot microcontroller board.
+* Write code for the LPC1768 to let it be driven around via the remote control when the PDB is in manual driving mode.
+* Start working on the OpenSCAD design of the panel to be mounted on Sawppy to contain the PDB electronics.
+
+
+
+---
 ## August 9th, 2020
 ### Remote Control PCBs
 The remote control PCBs arrived from OSHPark earlier this month.
