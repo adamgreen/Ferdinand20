@@ -1,9 +1,11 @@
 PROJECT         := PdbTest
 DEVICES         := LPC1768
-GCC4MBED_DIR    := ../../gcc4mbed
+GCC4MBED_DIR    := ../../../gcc4mbed
 NO_FLOAT_SCANF  := 1
 NO_FLOAT_PRINTF := 0
 GCC4MBED_TYPE   := Develop
+
+USER_LIBS       := !../../PdbSerial ../../GPDMA
 
 MBED_OS_ENABLE  := 0
 #MRI_ENABLE      := 1

@@ -13,8 +13,8 @@
 /* This header contains the data structure used to transfer information between the Power Distribution Board and the
    main robot microcontroller.
 */
-#ifndef PDB_SERIAL_H_
-#define PDB_SERIAL_H_
+#ifndef PDB_PACKET_H_
+#define PDB_PACKET_H_
 
 #include <stdint.h>
 
@@ -73,4 +73,4 @@ typedef struct PdbSerialAutoPacket
 } PdbSerialAutoPacket;
 
 
-#endif // PDB_SERIAL_H_
+#endif // PDB_PACKET_H_

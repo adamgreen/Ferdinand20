@@ -57,7 +57,7 @@
 #include <nrf_gpio.h>
 #include <nrf_drv_wdt.h>
 #include "../include/BleJoyShared.h"
-#include "../include/PdbSerial.h"
+#include "../include/PdbPacket.h"
 #include "Screen.h"
 
 
