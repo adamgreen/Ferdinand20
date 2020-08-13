@@ -16,11 +16,19 @@
 #include <mbed.h>
 #include <stdarg.h>
 #include <DebugSerial.h>
+#include <PdbSerial.h>
 #include <SawppyDrive.h>
 
 
 // Set to non-zero to have SawppyDrive object log the servo settings on each update to GDB.
 #define LOG_SAWPPY_DRIVE 0
+
+// Number of milliseconds from g_stateChageStartTime to ensure we're stopped.
+#define WAIT_FOR_STOP 600
+// Number of milliseconds from g_stateChageStartTime for a transition. Should be greater than WAIT_FOR_STOP.
+#define WAIT_TRANSITION 1000
+
+
 
 // This is the DebugSerial object which can asynchronously log text to GDB without blocking the CPU like printf() does.
 static DebugSerial<256> g_debugSerial;
@@ -47,24 +55,24 @@ static bool             g_haveGlobalConstructorsRun = false;
 // Enumeration tracking current state of rover control
 enum RoverState { driving, enterTurnInPlace, turnInPlace, enterDriving };
 
-enum RoverState state = driving;
-uint32_t stateChangeStart; // track time in transition for enterX states
-#define WAIT_FOR_STOP 600 // number of milliseconds from stateChangeStart to ensure we're stopped.
-#define WAIT_TRANSITION 1000 // number of milliseconds from stateChangeStart for a transition. Should be greater than WAIT_FOR_STOP
-Timer g_timer;
+enum RoverState g_state = driving;
+uint32_t        g_stateChageStartTime;
+Timer           g_timer;
+PdbSerial       g_pdb(p13, p14);
+uint32_t        g_lastPacketTimestamp = 0;
+
 
 
 // Function Prototypes
 static void setup();
 static void loop();
-static int32_t getSelection(const char* pDisplay, int32_t min, int32_t max);
 
 
 int main(void)
 {
     g_haveGlobalConstructorsRun = true;
     setup();
-    while (1)
+    while (true)
     {
         loop();
     }
@@ -73,107 +81,61 @@ int main(void)
 // Runs once upon startup.
 static void setup()
 {
-    // Start in driving state
-    state = driving;
+    g_timer.start();
+    g_state = driving;
 }
 
 // Runs regularly as long as there is power to microcontroller.
 static void loop()
 {
-    int32_t steering = 0; // -100 to 100, retrieved by JoyDrive::getSteering()
-    int32_t velocity = 0; // -100 to 100, retrieved by JoyDrive::getVelocity()
-    int32_t duration = 0;
-
-    // UNDONE: Save joystick code for later.
-    bool triggerStateChange = false;
-#ifdef UNDONE
-    float invert = 1.0f; // Multiplier for implementing RoverWheel.rollServoInverted
-    bool triggerStateChange = (digitalRead(INPLACE_BUTTON) == LOW); // Read button that commands turn-in-place mode.
-    delay(100);
-    steering = jd.getSteering(); // Read steering potentiometer
-    delay(100);
-    velocity = jd.getVelocity(); // Read velocity potentiometer
-#endif // UNDONE
-
-    // Prompt user for next motion to execute.
-    printf("\n");
-    printf("1. Drive\n");
-    printf("2. Turn In Place\n");
-    printf("3. Do the Twist!\n");
-    int32_t selection = getSelection("Selection", 1, 3);
-    switch (selection)
+    PdbSerial::PdbSerialPacket pdbPacket = g_pdb.getLatestPacket();
+    if (pdbPacket.timestamp == g_lastPacketTimestamp ||
+        pdbPacket.type == PdbSerial::PDBSERIAL_AUTO_PACKET ||
+        (pdbPacket.data._manual.flags & PDBSERIAL_FLAGS_MOTORS_ENABLED) == 0)
     {
-        case 1:
-            steering = getSelection("Steering (%)", -100, 100);
-            velocity = getSelection("Velocity (%)", -100, 100);
-            duration = getSelection("Duration (msec)", 0, 60000);
-            state = driving;
-            break;
-        case 2:
-            steering = getSelection("Steering (%)", -100, 100);
-            duration = getSelection("Duration (msec)", 0, 60000);
-            state = turnInPlace;
-            break;
-        case 3:
-            // Get the wheels turned to the right angle but don't rotate yet.
-            g_drive.turnInPlace(0);
-            wait_ms(500);
-            // Twist clockwise.
-            g_drive.turnInPlace(100);
-            wait_ms(1000);
-            // Short pause before changing direction.
-            g_drive.stopAll();
-            wait_ms(250);
-            // Twist counter-clockwise.
-            g_drive.turnInPlace(-100);
-            wait_ms(1000);
-            // Let rest of code continue running with a 0 velocity turn in place.
-            steering = 0;
-            duration = 0;
-            state = turnInPlace;
-            break;
+        // Haven't received a new manual packet with the deadman switch pressed so ignore this packet.
+        return;
     }
+    g_lastPacketTimestamp = pdbPacket.timestamp;
+
+    PdbSerialManualPacket* pManual = &pdbPacket.data._manual;
+    int32_t steering = ((int32_t)pManual->x * 100) / 512;
+    int32_t velocity = ((int32_t)pManual->y * 100) / 512;
+    bool    isJoystickPressed = pManual->flags & PDBSERIAL_FLAGS_JOYSTICK_BUTTON;
 
     uint32_t currTime = g_timer.read_ms();
-    // State changes can only be triggered when going slowly or stopped
-    if (triggerStateChange && abs(velocity) < 10 && abs(steering) < 10)
+    // State changes can only be triggered when going slowly or stopped.
+    if (isJoystickPressed && abs(velocity) < 10 && abs(steering) < 10)
     {
-        if (state == driving)
+        if (g_state == driving)
         {
             // If we were slowed, command a stop now, and start our transition timer.
             velocity = 0;
-
-            stateChangeStart = currTime;
-
-            // UNDONE: Change code around once have joystick.
-            wait_ms(WAIT_TRANSITION);
-            state = turnInPlace;
-            // UNDONE: state = enterTurnInPlace;
+            g_stateChageStartTime = currTime;
+            g_state = enterTurnInPlace;
+            g_pdb.outputStringToPDB("TurnInPlace...");
         }
-        else if (state == turnInPlace)
+        else if (g_state == turnInPlace)
         {
             // If we were slowed, command a stop now, and start our transition timer.
             velocity = 0;
-
-            stateChangeStart = currTime;
-
-            // UNDONE: Change code around once have joystick.
-            wait_ms(WAIT_TRANSITION);
-            state = driving;
-            // UNDONE: state = enterDriving;
+            g_stateChageStartTime = currTime;
+            g_state = enterDriving;
+            g_pdb.outputStringToPDB("Drive...");
         }
         g_drive.stopAll();
     }
 
-    uint32_t elapsedTime = currTime - stateChangeStart;
-    if (state == enterTurnInPlace)
+    uint32_t elapsedTime = currTime - g_stateChageStartTime;
+    if (g_state == enterTurnInPlace)
     {
         velocity = 0;
-        if (elapsedTime > WAIT_TRANSITION && !triggerStateChange)
+        if (elapsedTime > WAIT_TRANSITION && !isJoystickPressed)
         {
             // We've waited long enough for everything to settle
             // and button has been released.
-            state = turnInPlace;
+            g_state = turnInPlace;
+            g_pdb.outputStringToPDB("TurningInPlace");
         }
         else if(elapsedTime > WAIT_FOR_STOP)
         {
@@ -182,14 +144,15 @@ static void loop()
         }
     }
 
-    if (state == enterDriving)
+    if (g_state == enterDriving)
     {
         velocity = 0;
-        if (elapsedTime > WAIT_TRANSITION && !triggerStateChange)
+        if (elapsedTime > WAIT_TRANSITION && !isJoystickPressed)
         {
             // We've waited long enough for everything to settle
             // and button has been released.
-            state = driving;
+            g_state = driving;
+            g_pdb.outputStringToPDB("Driving");
         }
         else if(elapsedTime > WAIT_FOR_STOP)
         {
@@ -198,41 +161,14 @@ static void loop()
         }
     }
 
-    if (state == turnInPlace)
+    if (g_state == turnInPlace)
     {
         g_drive.turnInPlace(steering);
     }
 
-    if (state == driving)
+    if (g_state == driving)
     {
         g_drive.drive(steering, velocity);
-    }
-
-    wait_ms(duration);
-    // UNDONE: Don't want this stop for joystick mode.
-    g_drive.stopAll();
-}
-
-static int32_t getSelection(const char* pDisplay, int32_t min, int32_t max)
-{
-    while (true)
-    {
-        printf("%s [%ld to %ld]: ", pDisplay, min, max);
-
-        char lineBuffer[16];
-        char* pResult = fgets(lineBuffer, sizeof(lineBuffer), stdin);
-        if (pResult == NULL)
-        {
-            printf("error: Invalid selection.\n");
-            continue;
-        }
-        long selection = strtol(lineBuffer, NULL, 10);
-        if (selection < min || selection > max)
-        {
-            printf("error: Invalid selection.\n");
-            continue;
-        }
-        return selection;
     }
 }
 

@@ -137,7 +137,7 @@
 
 // If the lcdTimeoutHandler() routine doesn't see new BLE JoyData packets for this many iterations then it considers
 // the remote control to have been disconnected.
-#define MAX_MISSED_BLE_PACKETS  2
+#define MAX_MISSED_BLE_PACKETS  30
 
 // Timings for how often peripheral and central should communicate over the link. The shorter the interval, the more
 // data that can be sent over the link but uses more CPU and power resources.
