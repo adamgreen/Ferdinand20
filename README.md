@@ -14,6 +14,19 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## August 12th, 2020
+### PDB Installed - Kind Of
+![PDB Hacked onto Sawppy](photos/20200812-01.jpg)<br>
+Since I haven't designed the panel for the PDB yet, I used elastic bands to mount the PDB to the Sawppy frame for now. Hacky but it worked! Once the PDB was temporarily mounted I was able to update the SawwpyDrive test code to make use of the PdbSerial driver to drive the rover around using the remote control.
+
+When I first started using the remote control with Sawppy I noticed that the motor power relay would click on and off as I moved around the robot. I ended up increasing the **MAX_MISSED_BLE_PACKETS** define in the PDB firmware to allow up to 30 missed packets before flagging the remote as disconnected.
+
+### Next Steps
+* Start working on the OpenSCAD design of the panel to be mounted on Sawppy to contain the PDB electronics.
+
+
+
+---
 ## August 11th, 2020
 ### Feature Complete
 I now consider the firmware for the [Power Distribution Board](software/PDB) and [Remote Control](software/RemoteControl) units to be feature complete. I have also implemented the [PdbSerial driver](software/PdbSerial) to make it easier for the robot microcontroller to interact with the PDB. The inbound auto/manual packets from the PDB are processed in the UART ISR as the bytes arrive and the outbound informational text to the PDB are sent in the background using DMA.
