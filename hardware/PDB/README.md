@@ -17,3 +17,8 @@ Description | Quantity | Part Number(s)
 [Molex_SPOX_5267-04A_1x04_P2.50mm_Vertica](https://www.digikey.com/product-detail/en/0022035045/WM18888-ND) | 1 | J4
 [Molex_SPOX_5267-03A_1x03_P2.50mm_Vertical](https://www.digikey.com/product-detail/en/0022035035/900-0022035035-ND) | 2 | J5, J6
 [Sparkfun SPDT-JQX-15F Relay](https://www.sparkfun.com/products/10924) | 1 | K1
+[Adafruit 1.54" 240x240 Wide Angle TFT LCD Display](https://www.adafruit.com/product/3787) | 1 | J2
+[Metal Pushbutton - Latching (16mm, Green)](https://www.sparkfun.com/products/11973) | 1 | J5
+[Toggle Switch and Cover - Illuminated (Red)](https://www.sparkfun.com/products/11310) | 1 | J6
+[XT60 Connectors - Male/Female Pair](https://www.sparkfun.com/products/10474) | 1 | J1
+[Deans Connectors - Male/Female Pair](https://www.digikey.com/product-detail/en/PRT-11864/1568-1659-ND) | 1 | J3
