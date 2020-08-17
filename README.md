@@ -14,6 +14,27 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## August 16th, 2020
+### 3D Printed PDB Panel
+![Photo of PDB Installed #1](photos/20200816-01.jpg)
+![Photo of PDB Installed #2](photos/20200816-02.jpg)
+
+This weekend I finished the OpenSCAD design for the PDB enclosure and got it mounted on the Sawppy frame. It works but there are some things I might improve in the future:
+* It is a little larger than I would like. It doesn't really fit in with the scale of the Sawppy rover itself.
+* The switch labels are a bit hard to read. I should use a more legible (fatter & simpler) font. Switching to one layer of white filament for the layer that bridges behind the text does make it pop though so I will continue to do that in the future.
+* Tilt the screen up to make it easier to view when standing behind it.
+
+I demoed my rover at today's online [Vancouver Robotics Club meetup](https://www.meetup.com/VancouverRoboticsClub). It was nice to have made enough progress on it to have something that I could actually demo.
+
+### SRS Robothon 2020 Cancelled
+Donna Smith was at today's meetup and announced that [Robothon will be cancelled for 2020](https://robothon.org/2020/05/18/announcing-robothon-20202/). I now have another year to get this rover ready for competition.
+
+### Next Steps
+* Start working on the OpenSCAD design of the enclosure for the remote control based on my existing prototype.
+
+
+
+---
 ## August 12th, 2020
 ### PDB Installed - Kind Of
 ![PDB Hacked onto Sawppy](photos/20200812-01.jpg)<br>
