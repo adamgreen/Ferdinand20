@@ -11,6 +11,7 @@
     GNU General Public License for more details.
 */
 // Case to contain the electronics for the remote control.
+use <Sparkfun_9032.scad>
 
 
 // Parameters
@@ -38,7 +39,6 @@ union() {
     }
     translate([0, 0, 6]) PcbWithJoystick();
 }
-
 
 
 
@@ -168,33 +168,47 @@ module PcbWithJoystick() {
     translate([-33/2, -43/2, 0]) {
         union() {
             // Place joystick on PCB as found in PCB layout.
-            translate([15.5, 15.5, -3.2])
-                // Center Sparkfun joystick drawing.
+            translate([9.46+16/2, 7+16/2, 1.6])
                 joystick();
-            // PCB
-            cube([33, 43, 1.6]);
+            difference() {
+                // PCB, Place lower left corner at origin to make it easier to match KiCAD part placements.
+                translate([33/2, 43/2, 0]) 
+                    roundedRect(cornerRadius=7.62, width=33, length=43, height=1.6);
+                // Remove 4 x 3.2mm corner mounting holes.
+                translate([71.882-68.834, 117.856-111.76, -0.1]) 
+                    cylinder(r=3.2/2, h=1.6+0.2);
+                translate([98.552-68.834, 117.856-111.76, -0.1]) 
+                    cylinder(r=3.2/2, h=1.6+0.2);
+                translate([71.882-68.834, 148.844-111.76, -0.1]) 
+                    cylinder(r=3.2/2, h=1.6+0.2);
+                translate([98.552-68.834, 148.844-111.76, -0.1]) 
+                    cylinder(r=3.2/2, h=1.6+0.2);
+            }
+            // Right angle deadman switch.
+            translate([14+7.0/2, 10.1, 0]) rotate([0, 180, 0]) rightAngleSwitch(); 
         }
     }
 }
 
-// Draws a rough version of the Sparkfun joystick.
-module joystick() {
-    // 9032.stl contains a non-manifold version created by Sparkfun.
-    //translate([-26.6/2, -26.6/2, 0]) import("9032.stl");
-    union() {
-        hull() {
-            difference() {
-                translate([0, 0, 18.9]) sphere(d=32);
-                cube([40, 40, 64], center=true);
-            }
-            translate([0, 0, 30]) cylinder(d=20.5, h=0.1);
-        }
-        translate([0, 0, 24]) cylinder(d=11.3, h=6);
-        difference() {
-            translate([0, 0, 10.8]) sphere(d=29);
-            cube([40, 40, 32], center=true);
-        }
-        translate([0, 0, 10.5]) cube([15.5, 15.9, 12], center=true);
+module roundedRect(cornerRadius, width, length, height) {
+    hull() {
+        translate([width/2-cornerRadius, length/2-cornerRadius, height/2]) 
+            cylinder(r=cornerRadius, h=height, center=true);
+        translate([-(width/2-cornerRadius), -(length/2-cornerRadius), height/2]) 
+            cylinder(r=cornerRadius, h=height, center=true);
+        translate([-(width/2-cornerRadius), length/2-cornerRadius, height/2]) 
+            cylinder(r=cornerRadius, h=height, center=true);
+        translate([width/2-cornerRadius, -(length/2-cornerRadius), height/2]) 
+            cylinder(r=cornerRadius, h=height, center=true);
+    }
+}
+
+module rightAngleSwitch() {
+    translate([-6.0/2, 0, 0]) union() {
+        cube([6.0, 3.7, 7.0]);
+        translate([6.0/2, 0, 4.0]) 
+            rotate([90, 0, 0]) 
+                cylinder(d=3.4, h=1.3);
     }
 }
 
