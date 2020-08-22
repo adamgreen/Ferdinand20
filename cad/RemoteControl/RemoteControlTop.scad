@@ -30,14 +30,69 @@ buttonHeight = 15;
 buttonZPos = 16;
 buttonSlant = 1;
 
+pcbStandOffOD = 6.0;
+pcbStandOffID = 2.5;
+pcbStandOffHeight = 100.0; // Will be truncated to fit inside body.
+pcbStandOffHoleHeight = 8.0;
+pcbStandOffX = 26.67;
+pcbStandOffY = 30.988;
+
+pcbZ = 9.0;
+pcbThickness = 1.6;
+
+joystickHole = 25.0;
 
 
-union() {
-    scale([0.9, 1.1, 1.0]) {
-        rotate([0, 0, 180]) Button();
-        MainBody();
+difference() {
+    union() {
+        scale([0.9, 1.1, 1.0]) {
+            difference() {
+                MainBody();
+                // Hollow it out and leave ~2mm of shell.
+                translate([0, 0, -2.0]) scale([0.93, 0.93, 1.0]) MainBody();
+            }
+            // UNDONE: Update button to have arm that comes back to push the switch.
+            rotate([0, 0, 180]) Button();
+            // UNDONE: Come up with button track solution.
+            
+        }
+        // Standoffs from top to which the PCB will be mounted.
+        intersection() {
+            // Just keep the parts of the standoff which fall inside of the main body.
+            MainBody();
+            union() {
+                translate([pcbStandOffX/2, pcbStandOffY/2, pcbZ+pcbThickness]) 
+                    standOff(od=pcbStandOffOD, id=pcbStandOffID, h=pcbStandOffHeight, holeH=pcbStandOffHoleHeight);
+                translate([-pcbStandOffX/2, -pcbStandOffY/2, pcbZ+pcbThickness])
+                    standOff(od=pcbStandOffOD, id=pcbStandOffID, h=pcbStandOffHeight, holeH=pcbStandOffHoleHeight);
+                translate([-pcbStandOffX/2, pcbStandOffY/2, pcbZ+pcbThickness]) 
+                    standOff(od=pcbStandOffOD, id=pcbStandOffID, h=pcbStandOffHeight, holeH=pcbStandOffHoleHeight);
+            }
+        }
+        // One of the standoffs needs to have notch cut out of it to make room for joystick rotation.
+        difference() {
+            intersection() {
+                MainBody();
+                translate([pcbStandOffX/2, -pcbStandOffY/2, pcbZ+pcbThickness])
+                    standOff(od=pcbStandOffOD, id=pcbStandOffID, h=pcbStandOffHeight, holeH=pcbStandOffHoleHeight);
+            }
+            // Approximate the rotation of the joystick with an enlarged sphere.
+            translate([(9.46+16/2)-33/2, (7+16/2)-43/2, 20.0]) sphere(d=28.0);
+        }
     }
-    translate([0, 0, 6]) PcbWithJoystick();
+    // Hole on top for joystick.
+    translate([(9.46+16/2)-33/2, (7+16/2)-43/2, bodyHeight]) 
+        cylinder(d=joystickHole, h=5, center=true);
+}
+// Insert mock PCB inside of controller for size check.
+%translate([0, 0, pcbZ]) PcbWithJoystick();
+
+
+module standOff(od, id, h, holeH) {
+    difference() {
+        cylinder(d=od, h=h);
+        translate([0, 0, -0.1]) cylinder(d=id, h=holeH+0.2);
+    }
 }
 
 
@@ -65,9 +120,6 @@ module MainBody() {
     hull() {
         // Rounded edge for the bottom oval.
         RoundedBodyEdge(bodyEdgeRadius);
-        // UNDONE: I don't think this is needed to make room for the PCB.
-        // Rounded edge for oval that designates the bottom of the slant.
-        *RoundedBodyEdge(bodyLowerHeight - bodyEdgeRadius);
         // Rounded edge for the top oval with the front removed to make room for the slant.
         difference() {
             RoundedBodyEdge(bodyHeight - bodyEdgeRadius);
@@ -75,7 +127,7 @@ module MainBody() {
                 cube([topDiameter, topDiameter, 2*bodyEdgeRadius], center=true);
         }
         // The rounded edge that goes across the top of the body to start the slant.
-        // Built it 2 pieces so that a nice union of the two top rings occurs.
+        // Built in 2 pieces so that a nice union of the two top rings occurs.
         intersection() {
             TopOfBodySlant(bodySlantLength);
             RoundedBodyEdge(bodyHeight - bodyEdgeRadius);
@@ -168,7 +220,7 @@ module PcbWithJoystick() {
     translate([-33/2, -43/2, 0]) {
         union() {
             // Place joystick on PCB as found in PCB layout.
-            translate([9.46+16/2, 7+16/2, 1.6])
+            translate([9.46+16/2, 7+16/2, pcbThickness])
                 joystick();
             difference() {
                 // PCB, Place lower left corner at origin to make it easier to match KiCAD part placements.

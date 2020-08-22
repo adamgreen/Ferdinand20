@@ -1,6 +1,6 @@
 <img src="photos/20191029-01.jpg" alt="Sawppy Rover" width="320"/><br>
 Tracking the build of my robot to compete in the
-[Seattle Robotics Society's Robo-Magellan](https://robothon.org/rules-robo-magellan/) competition to be held on October 3rd, 2020 at the Seattle Center.
+[Seattle Robotics Society's Robo-Magellan](https://robothon.org/rules-robo-magellan/) competition that was to be held on October 3rd, 2020 at the Seattle Center but is now cancelled due to COVID-19. Development of this robot will continue in hopes that it can compete in 2021.
 
 
 
@@ -10,6 +10,17 @@ Tracking the build of my robot to compete in the
 [Notes from my stalled 2016 attempt](https://github.com/adamgreen/Ferdinand16#readme) <br>
 [How to Clone GitHub Repository](#clone-this-repo-and-its-submodules) <br>
 [Sawppy the Rover Build Instructions](https://github.com/Roger-random/Sawppy_Rover#readme) <br>
+
+
+
+---
+## August 21st, 2020
+I have been busy with OpenSCAD this week, trying to turn my previous remote control mockup into a functional enclosure. I still have quite a bit more work to do before I complete it but I thought I would share some photos of my current progress:<br>
+* I designed a mockup of the PCB with joystick installed to digitally place in the enclosure and check for fit.<br>
+![Photo of 3D printed representation of PCB/Joystick](photos/20200821-01.jpg)
+* I now have everything in the top portion of the remote control completed except for the button to activate the deadman switch.<br>
+![Test print of remote control top from top](photos/20200821-02.jpg)
+![Test print of remote control top from bottom](photos/20200821-03.jpg)
 
 
 
