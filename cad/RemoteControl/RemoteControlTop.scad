@@ -12,23 +12,16 @@
 */
 // Case to contain the electronics for the remote control.
 use <Sparkfun_9032.scad>
+include <Common.scad>
 
 
 // Parameters
-pcbDiameter = 54;
-pcbClearance = 3;
-
 bodyHeight = 27;
 bodyLowerHeight = 9;
 bodyEdgeRadius = 2;
 bodySlantStart = 9;
 
-buttonAngle = 45;
-buttonEdgeRadius = 0.5;
-buttonThickness = 3;
-buttonHeight = 15;
-buttonZPos = 16;
-buttonSlant = 1;
+buttonHoleTolerance = 1.03;
 
 pcbStandOffOD = 6.0;
 pcbStandOffID = 2.5;
@@ -36,26 +29,43 @@ pcbStandOffHeight = 100.0; // Will be truncated to fit inside body.
 pcbStandOffHoleHeight = 8.0;
 pcbStandOffX = 26.67;
 pcbStandOffY = 30.988;
-
 pcbZ = 9.0;
 pcbThickness = 1.6;
 
 joystickHole = 25.0;
 
 
+// Calculated values
+bodySlantLength = 2 * sqrt(pow(topRadius, 2) - pow(bodySlantStart, 2));
+
+
 difference() {
     union() {
-        scale([0.9, 1.1, 1.0]) {
+        scale([bodyWidthScale, bodyLengthScale, 1.0]) {
             difference() {
-                MainBody();
-                // Hollow it out and leave ~2mm of shell.
-                translate([0, 0, -2.0]) scale([0.93, 0.93, 1.0]) MainBody();
+                union() {
+                    difference() {
+                        MainBody();
+                        // Hollow it out and leave ~2mm of shell.
+                        translate([0, 0, -2.0]) scale([0.93, 0.93, 1.0]) MainBody();
+                    }
+                    // Create some extra support inside of the shell to support the deadman button.
+                    ButtonSupport();
+                }
+                // Make hole for button to pass through.
+                // NOTE: Not leaving any tolerance on the sides. Sand down the final button to make it
+                //       fit but stay tight enough that it can't tilt off axis and jam when pressed.
+                translate([0, 0.01, buttonZPos]) rotate([0, 0, 180]) {
+                    scale([1.0, 1.0, buttonHoleTolerance]) {
+                        Button();
+                        ButtonArmSlot();
+                    }
+                }
+
             }
-            // UNDONE: Update button to have arm that comes back to push the switch.
-            rotate([0, 0, 180]) Button();
-            // UNDONE: Come up with button track solution.
-            
+            %translate([0, 0, buttonZPos]) rotate([0, 0, 180]) Button();
         }
+        
         // Standoffs from top to which the PCB will be mounted.
         intersection() {
             // Just keep the parts of the standoff which fall inside of the main body.
@@ -83,32 +93,13 @@ difference() {
     // Hole on top for joystick.
     translate([(9.46+16/2)-33/2, (7+16/2)-43/2, bodyHeight]) 
         cylinder(d=joystickHole, h=5, center=true);
+    
+    // UNDONE: Just print the front of the device for button testing.
+    translate([0, 38.0, 0]) cube([100, 100, 100], center=true);
+    translate([0, 0, -40]) cube([100, 100, 100], center=true);
 }
 // Insert mock PCB inside of controller for size check.
 %translate([0, 0, pcbZ]) PcbWithJoystick();
-
-
-module standOff(od, id, h, holeH) {
-    difference() {
-        cylinder(d=od, h=h);
-        translate([0, 0, -0.1]) cylinder(d=id, h=holeH+0.2);
-    }
-}
-
-
-
-// Calculated values
-topDiameter = pcbDiameter + 2 * pcbClearance;
-topRadius = topDiameter / 2;
-buttonEdgeDistance = topRadius+buttonThickness-buttonEdgeRadius;
-buttonEdgeAngle = asin(buttonEdgeRadius/buttonEdgeDistance);
-// Increase the circumference by buttonSlant. circumference = radians * radius.
-// insideRadians * insideRadius = outsideRadians * outsideRadius + 2 * buttonSlant.
-buttonInsideAngle = rad2deg((deg2rad(buttonAngle) * buttonEdgeDistance + 2 * buttonSlant) / topRadius);
-bodySlantLength = 2 * sqrt(pow(topRadius, 2) - pow(bodySlantStart, 2));
-
-function deg2rad(a) = a * PI / 180;
-function rad2deg(a) = a * 180 / PI;
 
 
 
@@ -153,65 +144,23 @@ module TopOfBodySlant(width) {
             cylinder(r=bodyEdgeRadius, h=width, center=true);
 }
 
-// Draws the deadman switch button.
-module Button() {
+// Draws a standoff with the desired inner and outer diameters.
+module standOff(od, id, h, holeH) {
     difference() {
-        hull() {
-            ButtonCorners();
-            ButtonEdges();
-            ButtonInside();
+        cylinder(d=od, h=h);
+        translate([0, 0, -0.1]) cylinder(d=id, h=holeH+0.2);
+    }
+}
+
+module ButtonSupport() {
+    translate([0, 0, buttonZPos]) {
+        difference() {
+            cylinder(r=topRadius, h=buttonHeight+2*buttonSlant+2.0, center=true);
+            translate([0, buttonBumperLocation, 0]) 
+                cube([topDiameter, topDiameter, buttonHeight+2*buttonSlant+2.0+0.2], center=true);
         }
-        // Finalize by carving out the inner concave surface of the button that is 
-        // left after the hull operation.
-        translate([0, 0, buttonZPos]) cylinder(r=topRadius, h=buttonHeight+2*buttonSlant+0.1, center=true);
     }
 }
-
-// Finds the corner of the rounded edges by intersecting full horizontal/vertical edges.
-module ButtonCorners() {
-    intersection() {
-        for(i =[-1:2:1])
-            HorizontalButtonEdge(buttonAngle, i);
-        for (i = [-1:2:1])
-            VerticalButtonEdge(0, i);
-    }
-}
-// Draws the button edges, but not the whole length. 
-// Instead go a bit shorter to meetup with corners.
-module ButtonEdges() {
-    for(i =[-1:2:1])
-        HorizontalButtonEdge(buttonAngle-2*buttonEdgeRadius, i);
-    for (i = [-1:2:1])
-        VerticalButtonEdge(buttonEdgeRadius, i);
-}
-
-// Draw the inside curved surface of the button.
-module ButtonInside() {
-    rotate([0, 0, 90-buttonInsideAngle/2]) translate([0, 0, buttonZPos]) 
-        rotate_extrude(angle=buttonInsideAngle) 
-            translate([topRadius, 0, 0]) square([0.1, buttonHeight+2*buttonSlant], center=true);
-}
-
-// Draws the horizontal button edge. 
-// Caller specifies degrees it should span and whether it should go on top or bottom.
-module HorizontalButtonEdge(a, topOrBottom) {
-    rotate([0, 0, (90-a/2)])
-        translate([0, 0, buttonZPos+topOrBottom*(buttonHeight/2-buttonEdgeRadius)]) 
-            rotate_extrude(angle=a) 
-            translate([buttonEdgeDistance, 0, 0]) 
-                circle(r=buttonEdgeRadius);
-}
-
-// Draws the vertical button edge. 
-// Caller specifies clearance on ends and whether it should draw left or right edge.
-module VerticalButtonEdge(clearance, leftOrRight) {
-    translate([leftOrRight*sin(buttonAngle/2-buttonEdgeAngle)*buttonEdgeDistance, 
-               cos(buttonAngle/2-buttonEdgeAngle)*buttonEdgeDistance, 
-               buttonZPos-buttonHeight/2+clearance]) 
-        cylinder(r=buttonEdgeRadius, h=buttonHeight-2*clearance);
-
-}
-
 
 
 // Draws the PCB with thumb joystick. Centered on X/Y origin, bottom of PCB at Z=0.
@@ -225,7 +174,7 @@ module PcbWithJoystick() {
             difference() {
                 // PCB, Place lower left corner at origin to make it easier to match KiCAD part placements.
                 translate([33/2, 43/2, 0]) 
-                    roundedRect(cornerRadius=7.62, width=33, length=43, height=1.6);
+                    RoundedRect(cornerRadius=7.62, width=33, length=43, height=1.6);
                 // Remove 4 x 3.2mm corner mounting holes.
                 translate([71.882-68.834, 117.856-111.76, -0.1]) 
                     cylinder(r=3.2/2, h=1.6+0.2);
@@ -239,19 +188,6 @@ module PcbWithJoystick() {
             // Right angle deadman switch.
             translate([14+7.0/2, 10.1, 0]) rotate([0, 180, 0]) rightAngleSwitch(); 
         }
-    }
-}
-
-module roundedRect(cornerRadius, width, length, height) {
-    hull() {
-        translate([width/2-cornerRadius, length/2-cornerRadius, height/2]) 
-            cylinder(r=cornerRadius, h=height, center=true);
-        translate([-(width/2-cornerRadius), -(length/2-cornerRadius), height/2]) 
-            cylinder(r=cornerRadius, h=height, center=true);
-        translate([-(width/2-cornerRadius), length/2-cornerRadius, height/2]) 
-            cylinder(r=cornerRadius, h=height, center=true);
-        translate([width/2-cornerRadius, -(length/2-cornerRadius), height/2]) 
-            cylinder(r=cornerRadius, h=height, center=true);
     }
 }
 
