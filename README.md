@@ -14,6 +14,16 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## August 27th, 2020
+I am still cranking away at OpenSCAD, working on the enclosure for the remote control. I have been iterating on the design of the button used to depress the deadman switch so I have just been printing that portion of the remote control top to speed things up:<br>
+![Test print of remote control from top](photos/20200827-01.jpg)
+![Test print of remote control from bottom](photos/20200827-02.jpg)
+
+I will be taking a break from this project for a few days while I work on another project. Once I am done with that, I will start working on the handle for the remote control.
+
+
+
+---
 ## August 21st, 2020
 I have been busy with OpenSCAD this week, trying to turn my previous remote control mockup into a functional enclosure. I still have quite a bit more work to do before I complete it but I thought I would share some photos of my current progress:<br>
 * I designed a mockup of the PCB with joystick installed to digitally place in the enclosure and check for fit.<br>
