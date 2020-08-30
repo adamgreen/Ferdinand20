@@ -108,8 +108,8 @@ module ButtonThroughEnclosure() {
 module ButtonBumper() {
     translate([0, topRadius-buttonBumperLocation-buttonBumperThickness/2, -buttonBumperWidth/2])
         rotate([90, 0, 0]) 
-            translate([0, 0, -1.0/2]) 
-                RoundedRect(2.0, buttonInsideWidth+buttonBumperWidth*2, buttonInsideHeight+buttonBumperWidth, 1.0);
+            translate([0, 0, -buttonBumperThickness/2]) 
+                RoundedRect(2.0, buttonInsideWidth+buttonBumperWidth*2, buttonInsideHeight+buttonBumperWidth, buttonBumperThickness);
 }
 
 // Draw the arm that goes from the deadman button to the right angled switch.
