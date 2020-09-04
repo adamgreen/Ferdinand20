@@ -10,9 +10,12 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 */
-// Deadman button to be placed inside of remote control top to press deadman switch.
+// Case to contain the electronics for the remote control.
 include <Common.scad>
 
 
-rotate([0.0, 180.0, 0.0]) scale([bodyWidthScale, bodyLengthScale, 1.0])
-    Button();
+// Draw the remote control handle.
+%RemoteControlHandle();
+// Insert the battery pack into the middle of the pack for fitment check.
+translate([0, 0, heightClearance])BatteryPack();
+
