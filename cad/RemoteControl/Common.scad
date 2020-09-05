@@ -41,8 +41,6 @@ joystickHoleDiameter = 25.0;
 
 // Dimensions of the lip placed around the large hole in the bottom of the remote control top.
 // The handle will have a matching piece to mate with this lip.
-// UNDONE: Might be able to get rid of this since I have the slope anyway.
-handleLipTotalThickness = 4.0;
 // The thickness of the oval at the top of handle which mates with the remote top.
 handleLipThickness = 2.0;
 // The amount of lip that the handle should come into contact with.
@@ -57,8 +55,9 @@ pcbStandOffOD = 6.0;
 // Inner diameter of the 4 PCB standoffs in the remote control top.
 // Currently set to be tapped for M3 screw.
 pcbStandOffID = 2.5;
-// UNDONE: Do I really need this.
-pcbStandOffHeight = 100.0; // Will be truncated to fit inside body.
+// Large value used when it doesn't matter exactly how long something is since it will 
+// be booleaned with something else to restrict object to proper length.
+longLength = 100.0;
 // How far the M3 bolt can be screwed into the standoff.
 pcbStandOffHoleHeight = 8.0;
 // The PCB is centered in the remote control top. 
@@ -124,12 +123,6 @@ flangePoints = [[0, 0], [0, flangeHeight], [flangeWidth, 0]];
 // How angled should the handle be with respect to the top of the remote.
 rampAngle = 30.0;
 
-// The thickness of the top oval which mates with the top of the remote.
-topOvalThickness = handleLipThickness;
-
-// The radius of the oval at the top of the handle should be smaller than the remote top to which it mates by this amount.
-topOvalClearance = handleLipStart;
-
 
 
 
@@ -192,11 +185,11 @@ module RemoteControlTop() {
                 union() {
                     // Add 3 of the standoffs.
                     translate([pcbStandOffX/2, pcbStandOffY/2, pcbZ+pcbThickness]) 
-                        StandOff(od=pcbStandOffOD, id=pcbStandOffID, h=pcbStandOffHeight, holeH=pcbStandOffHoleHeight);
+                        StandOff(od=pcbStandOffOD, id=pcbStandOffID, h=longLength, holeH=pcbStandOffHoleHeight);
                     translate([-pcbStandOffX/2, -pcbStandOffY/2, pcbZ+pcbThickness])
-                        StandOff(od=pcbStandOffOD, id=pcbStandOffID, h=pcbStandOffHeight, holeH=pcbStandOffHoleHeight);
+                        StandOff(od=pcbStandOffOD, id=pcbStandOffID, h=longLength, holeH=pcbStandOffHoleHeight);
                     translate([-pcbStandOffX/2, pcbStandOffY/2, pcbZ+pcbThickness]) 
-                        StandOff(od=pcbStandOffOD, id=pcbStandOffID, h=pcbStandOffHeight, holeH=pcbStandOffHoleHeight);
+                        StandOff(od=pcbStandOffOD, id=pcbStandOffID, h=longLength, holeH=pcbStandOffHoleHeight);
                 }
             }
             // The last standoff needs to have notch cut out of it to make room for joystick rotation.
@@ -204,7 +197,7 @@ module RemoteControlTop() {
                 intersection() {
                     MainBody();
                     translate([pcbStandOffX/2, -pcbStandOffY/2, pcbZ+pcbThickness])
-                        StandOff(od=pcbStandOffOD, id=pcbStandOffID, h=pcbStandOffHeight, holeH=pcbStandOffHoleHeight);
+                        StandOff(od=pcbStandOffOD, id=pcbStandOffID, h=longLength, holeH=pcbStandOffHoleHeight);
                 }
                 // Approximate the rotation of the joystick with an enlarged sphere.
                 translate([(9.46+16/2)-33/2, (7+16/2)-43/2, 20.0]) sphere(d=28.0);
@@ -288,11 +281,11 @@ module LipForHandle() {
     // * A recessed lip into which the handle will mate.
     // * An outer ring that extends from the previously mentioned lip and the outside of the top enclosure.
     difference() {
-        cylinder(r1=topRadius-bodyEdgeRadius-handleLipStart, r2=topRadius-bodyEdgeRadius, h=handleLipTotalThickness+handleLipSlopeHeight);
+        cylinder(r1=topRadius-bodyEdgeRadius-handleLipStart, r2=topRadius-bodyEdgeRadius, h=handleLipSlopeHeight);
         translate([0, 0, -0.01]) 
             cylinder(r=topRadius-bodyEdgeRadius-handleLipStart, h=handleLipThickness+0.01);
         translate([0, 0, -0.01]) 
-            cylinder(r=topRadius-bodyEdgeRadius-(handleLipStart+handleLipWidth), h=handleLipTotalThickness+handleLipSlopeHeight+0.02);
+            cylinder(r=topRadius-bodyEdgeRadius-(handleLipStart+handleLipWidth), h=handleLipSlopeHeight+0.02);
     }
 }
 
@@ -496,7 +489,7 @@ rampHeight = tan(rampAngle) * totalRadius;
 handleHeight = batteryPackHeight + rampHeight + tan(rampAngle)*batteryPackWidth/2 + 2 * heightClearance;
 // Top oval needs to be reduced by the specified clearance value, to match the mating
 // indent in the remote control top.
-topOvalRadius = topRadius - topOvalClearance;
+topOvalRadius = topRadius - bodyEdgeRadius - handleLipStart;
 
 
 // Draw the handle and use scale to make it into an oval.
@@ -514,9 +507,11 @@ module RemoteControlHandle() {
             // Mask off the top to slant it.
             TopMask();
         }
-        DrawTopOval();
         DrawBottomFlange();
     }
+    // Use the remote control top oval scales for the mating oval at the top of the handle.
+    scale([bodyLengthScale, bodyWidthScale, 1.0])
+        DrawTopOval();
 }
 
 // Draws the ramp at the top of the handle to apply an angle between it and the main
@@ -546,7 +541,7 @@ module DrawBottomFlange() {
 module DrawTopOval() {
     translate([0, 0, handleHeight-rampHeight]) 
         rotate([0, rampAngle, 0]) 
-            cylinder(r=topOvalRadius, h=topOvalThickness);
+            cylinder(r=topOvalRadius, h=handleLipThickness);
 }
 
 // Draw the rough shape of the 2x AAA battery pack.
