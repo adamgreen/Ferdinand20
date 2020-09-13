@@ -141,19 +141,6 @@ handleTongueThickness=handleLipThickness/2;
 handleTongueDepth=1.0;
 handleTongueAngle=20.0;
 
-// Hole and standoff used to attach handle to remote control top with M3 screw.
-// Outer diameter of the standoff in the remote control top.
-mountHoleStandOffOD = 6.0;
-// Inner diameter of the 4 standoff in the remote control top.
-// Currently set to be tapped for M3 screw.
-mountHoleStandOffID = 2.5;
-// How far the M3 bolt can be screwed into the standoff.
-mountHoleStandOffHoleHeight = 8.0;
-// The mounting hole diameter.
-mountHoleDiameter = 3.2;
-// The mounting hole is offset by these amounts in the X axis.
-mountHoleStandOffX = 26.0;
-
 
 
 
@@ -223,8 +210,6 @@ module RemoteControlTop() {
                         StandOff(od=pcbStandOffOD, id=pcbStandOffID, h=longLength, holeH=pcbStandOffHoleHeight);
                     translate([-pcbStandOffX/2, pcbStandOffY/2, pcbZ+pcbThickness]) 
                         StandOff(od=pcbStandOffOD, id=pcbStandOffID, h=longLength, holeH=pcbStandOffHoleHeight);
-                    translate([0, mountHoleStandOffX, handleLipThickness])
-                        StandOff(od=mountHoleStandOffOD, id=mountHoleStandOffID, h=longLength, holeH=mountHoleStandOffHoleHeight);
                 }
             }
             // The last standoff needs to have notch cut out of it to make room for joystick rotation.
@@ -611,9 +596,6 @@ module DrawTopOval() {
         // Carve out a hole for the battery pack.
         rotate([0, -rampAngle, 0])
             cube([batteryHoleWidth, batteryHoleThickness, longLength], center=true);
-        // Carve out hole for the M3 screw to mount to remote top.
-        translate([mountHoleStandOffX, 0, -0.1])
-            cylinder(d=mountHoleDiameter, h=handleLipThickness+0.2);
     }
     // Add tongue to mate with remote control top.
     translate([0, 0, (handleLipThickness-handleTongueThickness)/2])
