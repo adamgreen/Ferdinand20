@@ -14,12 +14,14 @@
 include <Common.scad>
 
 
-// Draw the top of the remote control.
-RemoteControlTop();
-// Insert the deadman button in front of controller for size check.
-%scale([bodyWidthScale, bodyLengthScale, 1.0])
-    translate([0, 0, buttonZPos]) 
-        rotate([0, 0, 180]) 
-            Button();
-// Insert mock PCB inside of controller for size check.
-%translate([0, 0, pcbZ]) PcbWithJoystick();
+rotate([0, 180.0, 0]) {
+    // Draw the top of the remote control.
+    RemoteControlTop();
+    // Insert the deadman button in front of controller for size check.
+    %scale([bodyWidthScale, bodyLengthScale, 1.0])
+        translate([0, 0, buttonZPos]) 
+            rotate([0, 0, 180]) 
+                Button();
+    // Insert mock PCB inside of controller for size check.
+    %translate([0, 0, pcbZ]) PcbWithJoystick();
+}

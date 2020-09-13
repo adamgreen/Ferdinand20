@@ -15,7 +15,7 @@ include <Common.scad>
 
 
 // Draw the remote control handle.
-%RemoteControlHandle();
+RemoteControlHandle();
 // Insert the battery pack into the middle of the pack for fitment check.
-translate([0, 0, heightClearance])BatteryPack();
+*translate([0, 0, heightClearance]) BatteryPack();
 

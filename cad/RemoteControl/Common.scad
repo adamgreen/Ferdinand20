@@ -122,6 +122,37 @@ flangePoints = [[0, 0], [0, flangeHeight], [flangeWidth, 0]];
 
 // How angled should the handle be with respect to the top of the remote.
 rampAngle = 30.0;
+// The depth of the indent in the top oval used to mate with the main handle.
+handleIndent = 0.25;
+
+// The amount of extra negative space to leave for the battery pack to fit into the handle.
+handleBatteryPackClearance = 0.25;
+// The dimensions of the snap hook used to hold the battery pack in.
+batteryHookWidth = 8.0;
+batteryHookTotalHeight = 15.0;
+batteryHookArmThickness = 2.0;
+batteryHookThickness = batteryHookArmThickness + 2.5;
+batteryHookHeight = 4.0;
+// The desired clearance around the battery hook.
+batteryHookClearance = 1.0;
+
+// The thickness of the tongue between handle and top.
+handleTongueThickness=handleLipThickness/2;
+handleTongueDepth=1.0;
+handleTongueAngle=20.0;
+
+// Hole and standoff used to attach handle to remote control top with M3 screw.
+// Outer diameter of the standoff in the remote control top.
+mountHoleStandOffOD = 6.0;
+// Inner diameter of the 4 standoff in the remote control top.
+// Currently set to be tapped for M3 screw.
+mountHoleStandOffID = 2.5;
+// How far the M3 bolt can be screwed into the standoff.
+mountHoleStandOffHoleHeight = 8.0;
+// The mounting hole diameter.
+mountHoleDiameter = 3.2;
+// The mounting hole is offset by these amounts in the X axis.
+mountHoleStandOffX = 26.0;
 
 
 
@@ -140,6 +171,7 @@ topRadius = topDiameter / 2;
 bodySlantLength = 2 * sqrt(pow(topRadius, 2) - pow(bodySlantStart, 2));
 // How high up into the inside of the enclosure does the lip have to start based on the desired angle?
 handleLipSlopeHeight = (handleLipWidth+handleLipStart)*tan(90.0-handleLipSlopeAngle);
+
 
 // Draws the top of the remote control.
 module RemoteControlTop() {
@@ -177,19 +209,22 @@ module RemoteControlTop() {
 
                 }
             }
-            
+
             // Add standoffs from top to which the PCB will be mounted.
+            // Also include the standoff for the mounting screw.
             intersection() {
                 // Use intersection to just keep the parts of the standoff which fall inside of the main body.
                 MainBody();
                 union() {
-                    // Add 3 of the standoffs.
+                    // Add 3 of the PCB standoffs.
                     translate([pcbStandOffX/2, pcbStandOffY/2, pcbZ+pcbThickness]) 
                         StandOff(od=pcbStandOffOD, id=pcbStandOffID, h=longLength, holeH=pcbStandOffHoleHeight);
                     translate([-pcbStandOffX/2, -pcbStandOffY/2, pcbZ+pcbThickness])
                         StandOff(od=pcbStandOffOD, id=pcbStandOffID, h=longLength, holeH=pcbStandOffHoleHeight);
                     translate([-pcbStandOffX/2, pcbStandOffY/2, pcbZ+pcbThickness]) 
                         StandOff(od=pcbStandOffOD, id=pcbStandOffID, h=longLength, holeH=pcbStandOffHoleHeight);
+                    translate([0, mountHoleStandOffX, handleLipThickness])
+                        StandOff(od=mountHoleStandOffOD, id=mountHoleStandOffID, h=longLength, holeH=mountHoleStandOffHoleHeight);
                 }
             }
             // The last standoff needs to have notch cut out of it to make room for joystick rotation.
@@ -206,6 +241,10 @@ module RemoteControlTop() {
         // Remove hole on top for joystick.
         translate([(9.46+16/2)-33/2, (7+16/2)-43/2, bodyHeight]) 
             cylinder(d=joystickHoleDiameter, h=5, center=true);
+        // Remove slot to mate with handle tongue.
+        translate([0, 0.01, (handleLipThickness-handleTongueThickness)/2]) 
+            rotate([0, 0, 90.0]) 
+                ArcedTongue();
         
         // UNDONE: Just print the front of the device for button testing.
         *translate([0, 38.0, 0]) cube([100, 100, 100], center=true);
@@ -281,11 +320,11 @@ module LipForHandle() {
     // * A recessed lip into which the handle will mate.
     // * An outer ring that extends from the previously mentioned lip and the outside of the top enclosure.
     difference() {
-        cylinder(r1=topRadius-bodyEdgeRadius-handleLipStart, r2=topRadius-bodyEdgeRadius, h=handleLipSlopeHeight);
+        cylinder(r=topRadius-bodyEdgeRadius, h=handleLipSlopeHeight+handleLipThickness);
         translate([0, 0, -0.01]) 
             cylinder(r=topRadius-bodyEdgeRadius-handleLipStart, h=handleLipThickness+0.01);
-        translate([0, 0, -0.01]) 
-            cylinder(r=topRadius-bodyEdgeRadius-(handleLipStart+handleLipWidth), h=handleLipSlopeHeight+0.02);
+        translate([0, 0, handleLipThickness-0.01]) 
+            cylinder(r1=topRadius-bodyEdgeRadius-(handleLipStart+handleLipWidth), r2=topRadius-bodyEdgeRadius, h=handleLipSlopeHeight+0.02);
     }
 }
 
@@ -490,28 +529,49 @@ handleHeight = batteryPackHeight + rampHeight + tan(rampAngle)*batteryPackWidth/
 // Top oval needs to be reduced by the specified clearance value, to match the mating
 // indent in the remote control top.
 topOvalRadius = topRadius - bodyEdgeRadius - handleLipStart;
+// Dimensions of the battery hole with clearance.
+batteryHoleWidth=batteryPackWidth+handleBatteryPackClearance;
+batteryHoleThickness=batteryPackThickness+handleBatteryPackClearance;
 
 
 // Draw the handle and use scale to make it into an oval.
 module RemoteControlHandle() {
-    scale([handleXScale, handleYScale, 1.0]) union() {
-        // The main cylinder with finger grip rings and slanted top.
+    let(hookHoleThickness=batteryHookThickness+batteryHookClearance,
+        hookHoleWidth=batteryHookWidth+batteryHookClearance,
+        hookArmHeight=batteryHookTotalHeight-batteryHookHeight,
+        hookHoleLength=batteryHookTotalHeight+batteryHookClearance) 
+    {
         difference() {
             union() {
-                // The main cylinder of the handle.
-                cylinder(d=totalDiameter, h=handleHeight);
-                // The rings that form the grip and separate the fingers holding the remote.
-                for(i=[0:len(fingerRingHeights)-1])
-                    DrawFingerRing(handleHeight-fingerRingHeights[i]);
+                scale([handleXScale, handleYScale, 1.0]) union() {
+                    // The main cylinder with finger grip rings and slanted top.
+                    difference() {
+                        union() {
+                            // The main cylinder of the handle.
+                            cylinder(d=totalDiameter, h=handleHeight);
+                            // The rings that form the grip and separate the fingers holding the remote.
+                            for(i=[0:len(fingerRingHeights)-1])
+                                DrawFingerRing(handleHeight-fingerRingHeights[i]);
+                        }
+                        // Mask off the top to slant it.
+                        TopMask();
+                    }
+                    DrawBottomFlange();
+                }
             }
-            // Mask off the top to slant it.
-            TopMask();
+            // Carve out a hole for the battery pack.
+            translate([0, 0, longLength/2+heightClearance]) 
+                cube([batteryHoleWidth, batteryHoleThickness, longLength], center=true);
+            // Carve out a hole for the battery clip.
+            translate([-batteryHoleWidth/2-hookHoleThickness/2+0.01, 0, heightClearance+batteryPackHeight+hookHoleLength/2-hookArmHeight+0.01])
+                cube([hookHoleThickness, hookHoleWidth, hookHoleLength], center=true);
+            translate([-batteryHoleWidth/2-batteryHookArmThickness+0.01, 0, heightClearance+0.1])
+                BatteryClip();
+            translate([-batteryHoleWidth/2-batteryHookArmThickness/2+0.01, 0, heightClearance+longLength/2])
+                cube([batteryHookArmThickness, batteryHookWidth, longLength], center=true);
+            
         }
-        DrawBottomFlange();
     }
-    // Use the remote control top oval scales for the mating oval at the top of the handle.
-    scale([bodyLengthScale, bodyWidthScale, 1.0])
-        DrawTopOval();
 }
 
 // Draws the ramp at the top of the handle to apply an angle between it and the main
@@ -539,9 +599,54 @@ module DrawBottomFlange() {
 
 // Draws the too oval which mates with the top of the remote control.
 module DrawTopOval() {
-    translate([0, 0, handleHeight-rampHeight]) 
-        rotate([0, rampAngle, 0]) 
+    difference() {
+        // Draw the oval.
+        scale([bodyLengthScale, bodyWidthScale, 1.0])
             cylinder(r=topOvalRadius, h=handleLipThickness);
+        // Carve out indent for main handle to mate with.
+        translate([0, 0, handleIndent])
+            rotate([0, -rampAngle, 0])
+                translate([0, 0, -(handleHeight-rampHeight)]) 
+                    RemoteControlHandle();
+        // Carve out a hole for the battery pack.
+        rotate([0, -rampAngle, 0])
+            cube([batteryHoleWidth, batteryHoleThickness, longLength], center=true);
+        // Carve out hole for the M3 screw to mount to remote top.
+        translate([mountHoleStandOffX, 0, -0.1])
+            cylinder(d=mountHoleDiameter, h=handleLipThickness+0.2);
+    }
+    // Add tongue to mate with remote control top.
+    translate([0, 0, (handleLipThickness-handleTongueThickness)/2])
+        ArcedTongue();
+}
+
+// Draw the battery clip insert to be glued into the handle.
+module BatteryClip() {
+    SnapHook(width=batteryHookWidth, totalHeight=batteryPackHeight+batteryHookHeight, armThickness=batteryHookArmThickness, hookThickness=batteryHookThickness, hookHeight=batteryHookHeight);
+    translate([0, -batteryHookWidth/2, -batteryHookArmThickness]) 
+        cube([batteryHoleWidth+batteryHookArmThickness, batteryHookWidth, batteryHookArmThickness]);
+}
+
+// Draws a snap hook (clip) with the specified dimensions.
+module SnapHook(width, totalHeight, armThickness, hookThickness, hookHeight) {
+    // The arm to which the hook is attached.
+    translate([0, -width/2, 0]) 
+        cube([armThickness, width, totalHeight-hookHeight]);
+    // The triangular hook at end of arm.
+    translate([0, 0, totalHeight-hookHeight]) 
+        rotate([90, 0, 0]) 
+            linear_extrude(height=width, center=true) 
+                polygon([[0, 0], [hookThickness, 0], [0, hookHeight]]);
+}
+
+// Draws an arced tongue. Positive used on handle oval and negative used on mating surface in remote top.
+module ArcedTongue() {
+    scale([bodyLengthScale, bodyWidthScale, 1.0])
+        rotate([0, 0, 180.0-handleTongueAngle/2]) 
+            translate([0, 0, handleTongueThickness/2]) 
+                rotate_extrude(angle=handleTongueAngle) 
+                    translate([topOvalRadius+0.0, 0]) 
+                        square([handleTongueDepth, handleTongueThickness]);
 }
 
 // Draw the rough shape of the 2x AAA battery pack.
