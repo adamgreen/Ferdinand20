@@ -14,6 +14,16 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## September 14th, 2020
+I completed the first functional prototype of the remote control enclosure last weekend.
+
+![1st Functional Remote Prototype](photos/20200913-01.jpg)
+
+I still have tweaking that I want to do on its 3D design. Before I do that though, I will probably switch back to the 3D design of the Power Distribution Board Panel and apply some tweaks that I have been thinking about since I mounted the last one on my bot.
+
+
+
+---
 ## August 27th, 2020
 I am still cranking away at OpenSCAD, working on the enclosure for the remote control. I have been iterating on the design of the button used to depress the deadman switch so I have just been printing that portion of the remote control top to speed things up:<br>
 ![Test print of remote control from top](photos/20200827-01.jpg)
