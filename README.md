@@ -25,7 +25,7 @@ I have completed the updates to the PDB enclosure to make it smaller and look le
 ![Photo of new PDB Installed #1](photos/20200926-01.jpg)
 ![Photo of new PDB Installed #2](photos/20200926-02.jpg)
 
-I made it smaller by dropping the large covered toggle switch for the manual/auto mode selection and instead used the same model as the power switch. I am currently using a green lit one since that is what I had on hand but I will probably purchase a red one and use it in the future instead. I also rotated the PCB by 90° which helped reduce the height of the enclosure. The OpenSCAD design was modified to take the dimensions of the PCB, switches, and label text to automatically calculate the smallest enclosure size.
+I made it smaller by dropping the large covered toggle switch for the manual/auto mode selection and instead used the same model as the power switch. I am currently using a green lit one since that is what I had on hand but I will probably purchase a red one and use it in the future instead. I also rotated the PCB by 90° which helped reduce the height of the enclosure. The OpenSCAD design was modified to take the dimensions of the PCB, switches, and label text to automatically calculate the smallest possible enclosure size.
 
 Once I had the size reduced, I added a top and removable back panel to hide the internal electronics and make it a bit more tolerant of wet outdoor conditions.
 
