@@ -14,10 +14,5 @@
 // Contains LCD, Power and Manual switches.
 include <Common.scad>
 
-//difference() {
-    rotate([180, 0, 0])
-        PDB();
-//    cube([120, 120, (sideDepth-7.0)*2], center=true);
-//    translate([0, 0, sideDepth+120/2+0.01])
-//        cube([120, 120, 120], center=true);
-//}
+rotate([180, 0, 0])
+    PDB();

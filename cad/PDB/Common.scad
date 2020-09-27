@@ -23,14 +23,10 @@ pcbHeight = 50.86;
 // Desired clearance around the PCB.
 pcbClearance = 2.0;
 
-// Dimensions for triangular internal braces.
-braceRadius = 2;
-// UNDONE: braceXOffset = 51/2 + 3 + braceRadius;
-
 // Dimensions of round power switch.
 powerSwitchDiameter = 16.2;
 powerSwitchRadius = powerSwitchDiameter / 2;
-powerSwitchClearanceDiameter = 22.0; // UNDONE: (20.0+21.7)/2;
+powerSwitchClearanceDiameter = 22.0;
 
 // Dimensions of switch label text.
 textSize = 4;
@@ -43,9 +39,6 @@ panelCornerRadius = 2.5;
 panelWidth = panelCornerRadius*4 + pcbWidth + pcbClearance*2 + powerSwitchClearanceDiameter;
 panelHeight = panelCornerRadius*4 + max(pcbHeight + pcbClearance*2, 2*powerSwitchClearanceDiameter, 2*powerSwitchDiameter+2*textSize);
 panelThickness = 4;
-
-// Where the triangular internal brace should be located to fortify the switches.
-braceXOffset = -panelWidth/2 + 2*panelCornerRadius + powerSwitchClearanceDiameter + braceRadius;
 
 // Dimensions of viewable area of LCD.
 lcdViewableWidth = 28.32;
@@ -73,7 +66,6 @@ mountHoleDiameter = 2.5+0.2;
 mountHoleRadius = mountHoleDiameter / 2;
 mountHoleWidth = 36.83;
 mountHoleHeight = 38.862;
-// UNDONE: mountHoleBuryDepth = 4.5 - standoffHeight;
 
 // Where to center the screen.
 screenCenterDistanceFromRight = panelCornerRadius*2 + pcbClearance + pcbWidth/2;
@@ -84,13 +76,6 @@ manualSwitchDiameter = 12;
 manualSwitchRadius = manualSwitchDiameter/2;
 manualSwitchKeyWidth = 1.7;
 manualSwitchKeyHeight = 1.0;
-// Dimensions of manual switch cover plate.
-manualSwitchCoverRadius = 2.0;
-manualSwitchCoverUpperWidth = 15.2;
-manualSwitchCoverUpperHeight = 7.0;
-manualSwitchCoverLowerWidth = 17.2;
-manualSwitchCoverLowerHeight = 40.75 - manualSwitchCoverUpperHeight;
-manualSwitchCoverThickness = 0.84;
 
 // Dimensions for bottom of enclosure.
 sideDepth = 40;
@@ -99,12 +84,6 @@ bottomHolesRadius = 3.5 / 2;
 bottomHolesZOffset = sideDepth + bottomHolesRadius;
 bottomHolesXOffset = 39.65 / 2;
 
-// Dimensions of groove along top of sides for later mounting of top/back piece.
-grooveDepth = panelCornerRadius;
-grooveHeight = panelCornerRadius;
-grooveLength = sideDepth - 5 * 2;
-grooveTopOffset = 3 + grooveHeight/2;
-
 // Place power switch in upper left corner.
 powerSwitchX = -panelWidth/2 + panelCornerRadius*2 + powerSwitchClearanceDiameter/2;
 powerSwitchY = panelHeight/2 - panelCornerRadius*2 - powerSwitchClearanceDiameter/2;
@@ -112,38 +91,36 @@ powerSwitchY = panelHeight/2 - panelCornerRadius*2 - powerSwitchClearanceDiamete
 manualSwitchX = -panelWidth/2 + panelCornerRadius*2 + powerSwitchClearanceDiameter/2;
 manualSwitchY = powerSwitchY - 2*textClearance - textSize - 2*powerSwitchRadius; // UNDONE: -panelHeight/2 + (panelHeight - mountHoleWidth)/2; 
 
-// Calculate offset of manual switch cover plate with respect to switch center itself.
-manualSwitchCoverOffset = 19.96;
-
 // Dimensions of the sliding door on the back of the PDB.
-// Thickness of the top of the door. It will also have the following lip.
-doorTopThickness = 6.0;
-// How much of a lip the door will have at the top to act as a handle.
-doorTopOverlap = 1.0;
-// The slope of the door edge, used to calculate the required door thickness.
-doorSlope = 45;
+// The thickness of the back panel.
+doorThickness = 3.0;
 // How much open space there should be at the bottom of the door to allow cable entry.
 doorOpening = 20.0;
 // How much clearance to add for the matching slot in the PDB.
 doorClearance = 0.1;
+// Diameter of hole used to mount the door to the back of the enclosure.
+doorMountHoleDiameter = 3.5;
+// Standoff on top of back of enclosure threaded insert to mount back panel.
+// Inner diameter
+doorMountID = 5.2;
+// Outer diameter
+doorMountOD = 10.0;
+// Length of mounting standoff before tapering off.
+doorMountLength = 6.35;
 
 
 
-
-// The sliding back door of the PDB.
+// The panel that partially covers the back of the enclosure.
 module Door(clearance) {
     let(doorHeight = panelHeight - 2*panelCornerRadius - doorOpening,
-        doorWidth = panelWidth-2*panelCornerRadius+2*clearance,
-        doorThickness = panelCornerRadius*tan(doorSlope))
+        doorWidth = panelWidth-2*panelCornerRadius+2*clearance)
     {
-        translate([0, doorOpening/2+panelCornerRadius, 0]) {
-            hull() {
-                translate([0, 0, doorThickness/2+clearance])
-                    cube([doorWidth, doorHeight, 0.0001], center=true);
-                translate([0, 0, -doorThickness/2-clearance])
-                    cube([doorWidth-2*panelCornerRadius, doorHeight, 0.0001], center=true);
+        translate([0, doorOpening/2, 0])
+            difference() {
+                cube([doorWidth, doorHeight, doorThickness], center=true);
+                translate([0, doorHeight/2-doorMountOD/2-panelCornerRadius, 0])
+                    cylinder(d=doorMountHoleDiameter, h=doorThickness+0.002, center=true);
             }
-        }
     }
 }
 
@@ -151,7 +128,7 @@ module PDB() {
     difference() {
         Case();
         // Make slot for sliding back door.
-        translate([0, 0.001, -sideDepth+doorTopThickness/2])
+        translate([0, 0, -sideDepth+doorThickness/2-0.001])
             Door(clearance=doorClearance);
     }
 }
@@ -204,6 +181,21 @@ module Case() {
     translate([screenCenterX+mountHoleWidth/2, -mountHoleHeight/2, -standoffHeight])
         Standoff(radius=standoffRadius, holeRadius=mountHoleRadius, height=standoffHeight);
 
+    // Add standoff for attaching back panel.
+    translate([0, panelHeight/2-2*panelCornerRadius-5.0, -sideDepth+6.35/2+doorThickness])
+    difference() {
+        hull() {
+            translate([0, doorMountOD/2, 0])
+                cube([doorMountOD, 0.001, doorMountLength], center=true);
+            cylinder(d=doorMountOD, h=doorMountLength, center=true);
+            translate([0, doorMountOD, doorMountOD])
+                cylinder(d=doorMountOD, h=0.001, center=true);
+        }
+        cylinder(d=doorMountID, h=doorMountLength+0.002, center=true);
+        translate([0, doorMountOD, 0])
+            cube([doorMountOD, doorMountOD, doorMountOD*2+0.002], center=true);
+    }
+    
     // Add bottom of enclosure with mounting holes removed.
     difference() {
         hull() {
@@ -255,19 +247,6 @@ module Case() {
                 rotate([180, 0, 0]) 
                     cylinder(r=panelCornerRadius, h=sideDepth);
         }
-    }
-
-    // UNDONE: The panel face is probably strong enough for buttons without these.
-    // Add internal braces to help support the switches.
-    braceAngle = atan2(panelHeight, sideDepth);
-    braceInset = braceRadius * tan(braceAngle);
-    *hull() {
-        translate([braceXOffset, -(panelHeight/2-panelCornerRadius), 0]) 
-            rotate([180, 0, 0]) 
-                cylinder(r=braceRadius, h=sideDepth);
-        translate([braceXOffset, -panelHeight/2+braceInset, -sideDepth+braceInset]) 
-            rotate([-braceAngle, 0, 0]) 
-                cylinder(r=braceRadius, h=sqrt(panelHeight*panelHeight+sideDepth*sideDepth)-braceRadius-braceInset);
     }
 }
 
