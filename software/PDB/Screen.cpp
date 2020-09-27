@@ -27,7 +27,7 @@
 
 
 // Orientation of the screen.
-#define SCREEN_ORIENTATION 3
+#define SCREEN_ORIENTATION 0
 
 // Size to use for normal text on screen.
 static const uint8_t normalTextSize = 2;
