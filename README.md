@@ -14,6 +14,13 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## October 19th, 2020
+### Project on Pause
+If the 2020 running of the SRS Robo-Magellan competition hadn't been cancelled this year, it would have been run a couple of weekends ago. I wouldn't have had enough ready to actually compete this year though. I haven't even started on the main robot control electronics yet. Before I finalize the PDB design and start working on those main control electronics, I want to take a break and work on some other foolish electronic projects. Hopefully I can get back to this project before the end of the year and get it ready for next year's competition.
+
+
+
+---
 ## September 27th, 2020
 I have completed the updates to the PDB enclosure to make it smaller and look less out of place on the back of the Sawppy rover.
 
