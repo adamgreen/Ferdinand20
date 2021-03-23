@@ -1,6 +1,6 @@
 <img src="photos/20191029-01.jpg" alt="Sawppy Rover" width="320"/><br>
 Tracking the build of my robot to compete in the
-[Seattle Robotics Society's Robo-Magellan](https://robothon.org/rules-robo-magellan/) competition that was to be held on October 3rd, 2020 at the Seattle Center but is now cancelled due to COVID-19. Development of this robot will continue in hopes that it can compete in 2021.
+[Seattle Robotics Society's Robo-Magellan](https://robothon.org/rules-robo-magellan/) competition that was to be held on October 3rd, 2020 at the Seattle Center but is now cancelled due to COVID-19. Development of this robot will continue in hopes that it can compete in the future.
 
 
 
@@ -10,6 +10,24 @@ Tracking the build of my robot to compete in the
 [Notes from my stalled 2016 attempt](https://github.com/adamgreen/Ferdinand16#readme) <br>
 [How to Clone GitHub Repository](#clone-this-repo-and-its-submodules) <br>
 [Sawppy the Rover Build Instructions](https://github.com/Roger-random/Sawppy_Rover#readme) <br>
+
+
+
+---
+## March 23rd, 2021
+### Starting Back Up
+I paused this project for a few months to get some work done on other projects:
+* [Halloween foam pumpkin with dragon eyes](https://github.com/adamgreen/DragonEyes).
+* Updated my [NeoPixel Christmas tree](https://github.com/adamgreen/NeoPixelTree) to use a more robust 3D printed frame with a pre-made string of lights.
+* Learned more about OpenSCAD by designing a few things that I needed around the house.
+* I completed the [RoboGrok online robotics courses](http://www.robogrok.com), Robotics 1 and Robotics 2. While some of the material in the course is applicable to mobile robots like this one, it concentrated more on industrial type of applications (ie. robotic arms).
+
+### Next Steps
+* The [RoboGrok course](http://www.robogrok.com) had some interesting sections on computer vision. I would like to take some of my vision coursework and try modifying it to detect traffic cones for the [Robo-Magellan](https://robothon.org/rules-robo-magellan/) competition.
+* The BLE connection between the power distribution board and the remote control that I built for the bot last year isn't as reliable as my initial prototypes. I want to do some experiments to determine what the actual cause is so that I can redesign it in the future.
+* Figure out how I want to progress on the IMU front by picking one of the following approaches:
+  * Hack up a connection to the IMU that I built for my earlier [Ferdinand16](https://github.com/adamgreen/Ferdinand16) attempt.
+  * Port the Ferdinand16 firmware to work with the [NXP 9-DoF Breakout Board - FXOS8700 + FXAS21002](https://www.adafruit.com/product/3463) IMU board that I bought from Adafruit when I started working on Ferdinand20.
 
 
 
