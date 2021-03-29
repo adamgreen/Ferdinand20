@@ -38,3 +38,6 @@ socket.log
 *.sch-bak
 *.net
 fp-info-cache
+
+# Rust build output
+target/
