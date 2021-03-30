@@ -14,6 +14,32 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## March 29th, 2021
+### Cone Detection?
+The computer vision unit of the [RoboGrok course](http://www.robogrok.com) showed a way to highlight red objects by subtracting the green and blue channel values from the red channel value so that only pixels with red and no blue and/or green component would show up brighter. The following two screen captures show what a traffic cone and a Robothon 2015 t-shirt look like when viewed with this red-only pixel filter applied. The left window in each screen capture shows the full RGB of the scene and the right window shows the same scene with the red-only filter applied.
+#### Normal Indoor Lighting
+![ScreenCapture of cone in normal light](photos/20210329-01.png)
+#### Reduced Indoor Lighting
+![ScreenCapture of cone in less light](photos/20210329-02.png)
+
+Some key takeaways from this experiment:
+* In both lighting situations, the traffic cone always shows up as one of the brightest things in the red-only image. When testing inside, I never really got any false negatives where the cone wouldn't show up as one of the brightest objects in the red-only image.
+* There are false positives, as we can see that the orange Robothon t-shirt shows up quite bright as well.
+* Running connected components on the red-only image could segment the image into separate bright red/orange objects like the traffic cone and t-shirt.
+* Additional object recognition algorithms would need to be run on each of the segmented objects to remove the false positives and only identify the traffic cones of interest.
+* During previous outdoor testing I noticed that traffic cones show up as bright white when all color channels are saturated by the bright sunlight. I need to perform more outdoor testing to see if I need to add a physical filter such as [this one](https://openmv.io/collections/products/products/polarizing-filter).
+
+### Future Computer Vision Work
+I have decided not to continue with this experimentation on my MacBook Air any further as I plan to use the [OpenMV camera](https://openmv.io) on the actual robot and it makes more sense to continue future experimentation with that device instead.
+
+When I get back to looking at cone detection, I should probably first address these work items:
+* Code review the OpenMV code base and see how it is implemented incase I want to modify some of the low level C/C++ code instead of just using the Python layer.
+* Can I attach the OpenMV camera to my robot, drive it around, and record video footage? This would be useful for future playback and testing while I develop/refine the cone detection algorithm.
+* Do some internet searching to see if anyone else has already come up with a robust cone detector using the OpenMV camera.
+
+
+
+---
 ## March 23rd, 2021
 ### Starting Back Up
 I paused this project for a few months to get some work done on other projects:
@@ -23,7 +49,7 @@ I paused this project for a few months to get some work done on other projects:
 * I completed the [RoboGrok online robotics courses](http://www.robogrok.com), Robotics 1 and Robotics 2. While some of the material in the course is applicable to mobile robots like this one, it concentrated more on industrial type of applications (ie. robotic arms).
 
 ### Next Steps
-* The [RoboGrok course](http://www.robogrok.com) had some interesting sections on computer vision. I would like to take some of my vision coursework and try modifying it to detect traffic cones for the [Robo-Magellan](https://robothon.org/rules-robo-magellan/) competition.
+* ~~The [RoboGrok course](http://www.robogrok.com) had some interesting sections on computer vision. I would like to take some of my vision coursework and try modifying it to detect traffic cones for the [Robo-Magellan](https://robothon.org/rules-robo-magellan/) competition.~~
 * The BLE connection between the power distribution board and the remote control that I built for the bot last year isn't as reliable as my initial prototypes. I want to do some experiments to determine what the actual cause is so that I can redesign it in the future.
 * Figure out how I want to progress on the IMU front by picking one of the following approaches:
   * Hack up a connection to the IMU that I built for my earlier [Ferdinand16](https://github.com/adamgreen/Ferdinand16) attempt.
@@ -104,7 +130,7 @@ I demoed my rover at today's online [Vancouver Robotics Club meetup](https://www
 Donna Smith was at today's meetup and announced that [Robothon will be cancelled for 2020](https://robothon.org/2020/05/18/announcing-robothon-20202/). I now have another year to get this rover ready for competition.
 
 ### Next Steps
-* Start working on the OpenSCAD design of the enclosure for the remote control based on my existing prototype.
+* ~~Start working on the OpenSCAD design of the enclosure for the remote control based on my existing prototype.~~
 
 
 
@@ -117,7 +143,7 @@ Since I haven't designed the panel for the PDB yet, I used elastic bands to moun
 When I first started using the remote control with Sawppy I noticed that the motor power relay would click on and off as I moved around the robot. I ended up increasing the **MAX_MISSED_BLE_PACKETS** define in the PDB firmware to allow up to 30 missed packets before flagging the remote as disconnected.
 
 ### Next Steps
-* Start working on the OpenSCAD design of the panel to be mounted on Sawppy to contain the PDB electronics.
+* ~~Start working on the OpenSCAD design of the panel to be mounted on Sawppy to contain the PDB electronics.~~
 
 
 
@@ -127,9 +153,9 @@ When I first started using the remote control with Sawppy I noticed that the mot
 I now consider the firmware for the [Power Distribution Board](software/PDB) and [Remote Control](software/RemoteControl) units to be feature complete. I have also implemented the [PdbSerial driver](software/PdbSerial) to make it easier for the robot microcontroller to interact with the PDB. The inbound auto/manual packets from the PDB are processed in the UART ISR as the bytes arrive and the outbound informational text to the PDB are sent in the background using DMA.
 
 ### Next Steps
-* Connect the motor power outputs from the PDB to the LPC1768 robot microcontroller board.
-* Write code for the LPC1768 to let it be driven around via the remote control when the PDB is in manual driving mode.
-* Start working on the OpenSCAD design of the panel to be mounted on Sawppy to contain the PDB electronics.
+* ~~Connect the motor power outputs from the PDB to the LPC1768 robot microcontroller board.~~
+* ~~Write code for the LPC1768 to let it be driven around via the remote control when the PDB is in manual driving mode.~~
+* ~~Start working on the OpenSCAD design of the panel to be mounted on Sawppy to contain the PDB electronics.~~
 
 
 
@@ -216,8 +242,8 @@ As I was soldering up the board and testing it, there were a few things I notice
 * I need to connect an ADC capable pin on the nRF51 module to the battery voltage so that it can report the battery voltage to the user on the LCD. I will rework the current board to correct this issue.
 
 ### Next Steps
-* Finalize the PDB firmware. It is easier to work on the PDB firmware while the electronics are on the desk since it makes the SWD debugging port more accessible.
-* Start working on the OpenSCAD design of the panel to be mounted on Sawppy to contain the PDB electronics.
+* ~~Finalize the PDB firmware. It is easier to work on the PDB firmware while the electronics are on the desk since it makes the SWD debugging port more accessible.~~
+* ~~Start working on the OpenSCAD design of the panel to be mounted on Sawppy to contain the PDB electronics.~~
 
 
 
@@ -261,8 +287,8 @@ I have uploaded the resulting KiCAD layout to [OSHPark](https://oshpark.com) and
 <img src="hardware/PDB/pcb_back.png" alt="PDB PCB Back" width="240" height="303"/>
 
 ### Next Steps
-* Design a PCB for the BLE based remote control electronics.
-* Solder up the PDB once the PCB arrives from OSHPark.
+* ~~Design a PCB for the BLE based remote control electronics.~~
+* ~~Solder up the PDB once the PCB arrives from OSHPark.~~
 
 
 
@@ -342,9 +368,9 @@ I have always used [Eagle](https://www.autodesk.com/products/eagle/overview) for
 
 ### Next Steps
 I have a few more things that I want to experiment with before I start designing the PCB for the Power Distribution Board:
-* Implement a nRF51 driver for [Adafruit's 1.54" 240x240 TFT Display](https://www.adafruit.com/product/3787) so that I can compare its  performance in sunlight to [Adafruit's 1.5" OLED Display](https://www.adafruit.com/product/1431).
+* ~~Implement a nRF51 driver for [Adafruit's 1.54" 240x240 TFT Display](https://www.adafruit.com/product/3787) so that I can compare its  performance in sunlight to [Adafruit's 1.5" OLED Display](https://www.adafruit.com/product/1431).~~
 <br>![Adafruit 1.54" TFT Breakout](photos/20200520-02.jpg)
-* Implement code to switch the motor voltage from the LiPo batteries using [SparkFun's Beefcake Relay Control Kit (Ver. 2.0)](https://www.sparkfun.com/products/13815) and verify that it works as expected.
+* ~~Implement code to switch the motor voltage from the LiPo batteries using [SparkFun's Beefcake Relay Control Kit (Ver. 2.0)](https://www.sparkfun.com/products/13815) and verify that it works as expected.~~
 <br>![Relay Kit all soldered up](photos/20200217-02.jpg)
 
 
@@ -610,9 +636,9 @@ I decided to order a ratcheting action crimper from Pololu. It seemed like the m
 | 1        | [Crimping Tool: 0.1-1.0 mm² Capacity, 16-28 AWG](https://www.pololu.com/product/1928) |
 
 ### Next Steps
-* Implement the new wiring harness for the 10 LewanSoul LX-16A servo actuators once the required parts arrive.
-* Connect my existing mbed-LPC1768 soldered prototype board to the LX-16A servos and port Roger Cheng's existing [Arduino sample code](https://github.com/Roger-random/Sawppy_Rover/tree/master/arduino_sawppy) to run on it.
-* I have decided to ignore the [Ferdinand16](https://github.com/adamgreen/Ferdinand16/tree/master/firmware/robot) code for now and concentrate on fleshing out the electronics for this rover now that I have the initial mechanical build completed. I want to leave the bulk of the software coding until later in the project and instead concentrate on the parts that I am less experienced with and usually get stuck on (ie. mechanical and electronics).
+* ~~Implement the new wiring harness for the 10 LewanSoul LX-16A servo actuators once the required parts arrive.~~
+* ~~Connect my existing mbed-LPC1768 soldered prototype board to the LX-16A servos and port Roger Cheng's existing [Arduino sample code](https://github.com/Roger-random/Sawppy_Rover/tree/master/arduino_sawppy) to run on it.~~
+* ~~I have decided to ignore the [Ferdinand16](https://github.com/adamgreen/Ferdinand16/tree/master/firmware/robot) code for now and concentrate on fleshing out the electronics for this rover now that I have the initial mechanical build completed. I want to leave the bulk of the software coding until later in the project and instead concentrate on the parts that I am less experienced with and usually get stuck on (ie. mechanical and electronics).~~
 
 
 
@@ -622,9 +648,9 @@ I decided to order a ratcheting action crimper from Pololu. It seemed like the m
 I finished my [Sawppy build](https://github.com/Roger-random/Sawppy_Rover/tree/master/docs#readme) over the weekend though I still have to work on the electronics before I can test having it move around.
 
 ### Next Steps
-* Design and implement a wiring harness for the 10 LewanSoul LX-16A servo actuators.
-* Finish the mechanical build by taking the moving pieces apart and filing flat the areas of the 8mm rods where the setscrews make contact.
-* Connect my existing mbed-LPC1768 soldered prototype board to the LX-16A servos and port Roger Cheng's existing [Arduino sample code](https://github.com/Roger-random/Sawppy_Rover/tree/master/arduino_sawppy) to run on it.
+* ~~Design and implement a wiring harness for the 10 LewanSoul LX-16A servo actuators.~~
+* ~~Finish the mechanical build by taking the moving pieces apart and filing flat the areas of the 8mm rods where the setscrews make contact.~~
+* ~~Connect my existing mbed-LPC1768 soldered prototype board to the LX-16A servos and port Roger Cheng's existing [Arduino sample code](https://github.com/Roger-random/Sawppy_Rover/tree/master/arduino_sawppy) to run on it.~~
 * Code review and get back up to speed on the dead reckoning code that I previously started for [Ferdinand16](https://github.com/adamgreen/Ferdinand16/tree/master/firmware/robot). I can then continue developing and testing this code using my existing Arlo platform inside and outside on smoother terrain until I complete my new [Sawppy](https://github.com/Roger-random/Sawppy_Rover#readme) based chassis.
 
 
@@ -867,8 +893,8 @@ The LX-16A uses its potentiometer to provide position feedback when running in a
 BLEMRI has worked a champ for wirelessly uploading and debugging the LX-16A servo driver test code. I never encountered any issues with its use during the development and testing of this driver. When I used the ESP8266 version on previous projects, I would sometimes hit issues where **mriprog** would fail to switch from the GDB protocol to the faster serial protocol used by the second stage bootloader. Maybe I corrected the issue when I fixed bugs found in **mriprog** during the development of BLEMRI.
 
 ### Next Steps
-* Teardown one of my LX-16A servos and see what can be seen.
-* Start experimenting with my recently purchased OpenMV camera.
+* ~~Teardown one of my LX-16A servos and see what can be seen.~~
+* ~~Start experimenting with my recently purchased OpenMV camera.~~
 
 
 
@@ -897,7 +923,7 @@ Like the wheel, it looked like it would be best if I tweaked the slicer settings
 * I didn't disable gap fills on this print since they tended to be located in areas that looked like they would need strength such as around holes close to a perimeter. There were also a lot fewer gap fills needed after setting the perimeter extrusion widths to get an even number of perimeter extrusions.
 
 ### Next Steps
-* I concentrated on 3D printing this week and let my software work items slide. This upcoming week, I want to continue work on the [LX-16A Servo](http://www.lewansoul.com/product/detail-17.html) software. Now that I know I can successfully send them commands from my mbed based LPC1768, I want to write a half-duplex serial driver to enable 2-way communication with them.
+* ~~I concentrated on 3D printing this week and let my software work items slide. This upcoming week, I want to continue work on the [LX-16A Servo](http://www.lewansoul.com/product/detail-17.html) software. Now that I know I can successfully send them commands from my mbed based LPC1768, I want to write a half-duplex serial driver to enable 2-way communication with them.~~
 
 
 
@@ -1003,9 +1029,9 @@ I mentioned my previously created [mriprog](https://github.com/adamgreen/bb-8/tr
 * As long as the new code is always linked with the MRI debug monitor, **mriprog** should be able to upload new code into the device. This works great for wireless solutions like BLEMRI.
 
 ### Next Steps
-* Print [Sawppy wheels](https://github.com/Roger-random/Sawppy_Rover/blob/master/STL/Wheel.stl). PrusaSlicer indicates that it will take 9.5 hours to print each of the six wheels.
-* Continue work on the [LX-16A Servo](http://www.lewansoul.com/product/detail-17.html) software. Now that I know I can successfully send them commands from my mbed based LPC1768, I want to write a half-duplex serial driver to enable 2-way communication with them.
-* Post process the last six [LX-16A Servo Couplers](https://github.com/Roger-random/Sawppy_Rover/blob/master/STL/LX-16A%20-%20Coupler.stl).
+* ~~Print [Sawppy wheels](https://github.com/Roger-random/Sawppy_Rover/blob/master/STL/Wheel.stl). PrusaSlicer indicates that it will take 9.5 hours to print each of the six wheels.~~
+* ~~Continue work on the [LX-16A Servo](http://www.lewansoul.com/product/detail-17.html) software. Now that I know I can successfully send them commands from my mbed based LPC1768, I want to write a half-duplex serial driver to enable 2-way communication with them.~~
+* ~~Post process the last six [LX-16A Servo Couplers](https://github.com/Roger-random/Sawppy_Rover/blob/master/STL/LX-16A%20-%20Coupler.stl).~~
 
 
 
@@ -1105,9 +1131,9 @@ At this point, I am ready to give up on the BusLinker board and try communicatin
 * Ordered an [OpenMV Cam H7](https://www.sparkfun.com/products/15325) from Sparkfun.
 
 ### Next Steps
-* Try a new approach for the LX16-A driver. Bypass the BusLinker board and attempt to communicate directly with the LX16-A servos using half-duplex communication.
-* Fix any issues in the BLEMRI firmware or macOS application that I encounter as I dogfood it.
-* My 3D printer has shipped so I may be able to start playing with it next week.
+* ~~Try a new approach for the LX16-A driver. Bypass the BusLinker board and attempt to communicate directly with the LX16-A servos using half-duplex communication.~~
+* ~~Fix any issues in the BLEMRI firmware or macOS application that I encounter as I dogfood it.~~
+* ~~My 3D printer has shipped so I may be able to start playing with it next week.~~
 
 
 
@@ -1221,10 +1247,10 @@ The latest [OpenMV Cam H7](https://openmv.io/collections/cams/products/openmv-ca
 I definitely want to order ones of these and start experimenting with it.
 
 ### Next Steps
-* The BLE debugging prototype that I built shows promise. I want to continue development on it this week and make some robustness updates.
-* Write mbed driver for the LewanSoul LX-16A servos.
-* Order an [Adafruit Precision NXP 9-DOF Breakout Board - FXOS8700 + FXAS21002](https://www.adafruit.com/product/3463).
-* Order an [OpenMV Cam H7](https://www.sparkfun.com/products/15325).
+* ~~The BLE debugging prototype that I built shows promise. I want to continue development on it this week and make some robustness updates.~~
+* ~~Write mbed driver for the LewanSoul LX-16A servos.~~
+* ~~Order an [Adafruit Precision NXP 9-DOF Breakout Board - FXOS8700 + FXAS21002](https://www.adafruit.com/product/3463).~~
+* ~~Order an [OpenMV Cam H7](https://www.sparkfun.com/products/15325).~~
 
 
 
@@ -1311,11 +1337,11 @@ Tools that I already had and didn't need to order:
 * Metric Allen (hex) wrenches
 
 ### Next Steps
-* Start experimenting with a nRF5 microcontroller based UART to BLE bridge for debugging.
-* Continue research into newer technologies:
-  * Would be good to use a newer IMU chip if it has better specs. Has the additional benefit of proving that my IMU code can be used with more than a single device.
-  * Should I use OpenMV instead of the currently planned Pixie Cam?
-* Buy a metric tap and die set locally.
+* ~~Start experimenting with a nRF5 microcontroller based UART to BLE bridge for debugging.~~
+* ~~Continue research into newer technologies:~~
+  * ~~Would be good to use a newer IMU chip if it has better specs. Has the additional benefit of proving that my IMU code can be used with more than a single device.~~
+  * ~~Should I use OpenMV instead of the currently planned Pixie Cam?~~
+* ~~Buy a metric tap and die set locally.~~
 
 
 
