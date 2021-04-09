@@ -62,21 +62,21 @@
 
 
 // The UART pins.
-#define RX_PIN_NUMBER           3
-#define TX_PIN_NUMBER           5
+#define RX_PIN_NUMBER           8
+#define TX_PIN_NUMBER           6
 
 // The output pin used to turn control the motor power relay.
-#define MOTOR_RELAY_PIN         24
+#define MOTOR_RELAY_PIN         2   // GPIOA0
 
 // The input pin used to read the state of the manual override switch.
-#define MANUAL_SWITCH_PIN       15
+#define MANUAL_SWITCH_PIN       5
 
 // The pins used to communicate with the LCD.
 #define LCD_SCK_PIN             12
-#define LCD_MOSI_PIN            11
-#define LCD_TFTDC_PIN           2
-#define LCD_TFTCS_PIN           8
-#define LCD_TFTRST_PIN          23
+#define LCD_MOSI_PIN            13
+#define LCD_TFTDC_PIN           14
+#define LCD_TFTCS_PIN           29
+#define LCD_TFTRST_PIN          28
 
 // The analog input pin used to read the current LiPo battery voltage through 1/3 voltage divider.
 #define BATTERY_VOLTAGE_PIN     NRF_ADC_CONFIG_INPUT_7  // P0.06 is AIN7 on nRF51422.
@@ -87,10 +87,10 @@
 #define BATTERY_VOLTAGE_DIVIDER_TOTAL   (BATTERY_VOLTAGE_DIVIDER_BOTTOM + BATTERY_VOLTAGE_DIVIDER_TOP)
 
 // Low frequency clock source to be used by the SoftDevice
-#define NRF_CLOCK_LFCLKSRC      {.source        = NRF_CLOCK_LF_SRC_XTAL,           \
-                                 .rc_ctiv       = 0,                              \
+#define NRF_CLOCK_LFCLKSRC      {.source        = NRF_CLOCK_LF_SRC_RC,           \
+                                 .rc_ctiv       = 16,                              \
                                  .rc_temp_ctiv  = 0,                                \
-                                 .xtal_accuracy = NRF_CLOCK_LF_XTAL_ACCURACY_50_PPM}
+                                 .xtal_accuracy = NRF_CLOCK_LF_XTAL_ACCURACY_250_PPM}
 
 // Motors will be disabled once the 2S LiPo battery reaches this voltage to protect the battery from under voltage.
 //  64 = 6.4V
@@ -137,7 +137,7 @@
 
 // If the lcdTimeoutHandler() routine doesn't see new BLE JoyData packets for this many iterations then it considers
 // the remote control to have been disconnected.
-#define MAX_MISSED_BLE_PACKETS  30
+#define MAX_MISSED_BLE_PACKETS  15
 
 // Timings for how often peripheral and central should communicate over the link. The shorter the interval, the more
 // data that can be sent over the link but uses more CPU and power resources.
@@ -458,10 +458,12 @@ static void lcdTimeoutHandler(void* pvContext)
     checkForMissingBlePackets(&state, &joyData);
 
     // Make sure that motors get disabled once the LiPo battery voltage gets too low.
+#ifdef UNDONE
     if (g_isBatteryTooLow)
     {
         joyData.buttons &= ~BLEJOY_BUTTONS_DEADMAN;
     }
+#endif // UNDONE
 
     // Set motor relay enable pin based on latest remote dead man switch state just received.
     nrf_gpio_pin_write(MOTOR_RELAY_PIN, joyData.buttons & BLEJOY_BUTTONS_DEADMAN);
@@ -579,7 +581,7 @@ static void startLcdTimer(void)
 static void batteryTimeoutHandler(void* pvContext)
 {
     // Process the most recent battery voltage ADC conversion if ready.
-    if (nrf_adc_conversion_finished())
+// UNDONE:    if (nrf_adc_conversion_finished())
     {
         readBatteryVoltage();
     }
@@ -587,6 +589,7 @@ static void batteryTimeoutHandler(void* pvContext)
 
 static void readBatteryVoltage(void)
 {
+#ifdef UNDONE
     // Read the last ADC battery voltage read.
     uint32_t adcReading = nrf_adc_result_get();
 
@@ -602,6 +605,7 @@ static void readBatteryVoltage(void)
     // Start the next conversion.
     nrf_adc_conversion_event_clean();
     nrf_adc_start();
+#endif // UNDONE
 }
 
 static void initUart(void)
@@ -731,6 +735,7 @@ static void initButtonsAndLeds(void)
 
 static void initBatteryVoltageReading(void)
 {
+#ifdef UNDONE
     // Setup to sample 1/3Vbatt and compare to 1.2V VBG.
     const nrf_adc_config_t adcConfig = { .resolution = NRF_ADC_CONFIG_RES_10BIT,
                                          .scaling = NRF_ADC_CONFIG_SCALING_INPUT_ONE_THIRD,
@@ -747,6 +752,7 @@ static void initBatteryVoltageReading(void)
     }
     // Read the first battery voltage sample and queue up the next one to be read in the battery timer.
     readBatteryVoltage();
+#endif // UNDONE
 }
 
 static void initDatabaseDiscoveryModule(void)
