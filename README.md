@@ -14,6 +14,26 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## April 9th, 2021
+### BLE Remote Experiments
+![BLE Experiment](photos/20210408-01.jpg)
+The BLE connection between the power distribution board (PDB) and the remote control that I built last year isn't as reliable as my initial prototypes. I conducted a few experiments this week to help narrow down what might be the cause. These experiments included:
+* Running my PDB code on a micro:bit again like I did in the initial prototype. This did seem to work a bit better than the PDB hardware in my actual robot but not significantly better. I think the fact that I didn't initially have the logic to shutoff the relay after missing ```MAX_MISSED_BLE_PACKETS``` packets from the remote is the main reason I didn't see the problem on the earlier prototype.
+* I tried moving the relay in relation to the BLE antenna. It didn't seem to have a noticeable impact. I could even place the relay right over the antenna and it didn't become any less reliable.
+* If I placed a low resistance load across the relay outputs to allow a largish current (~5A) to flow, that seemed to cause more problems for the BLE connection. Especially if placed too close to the antenna.
+* I tried switching to an [Adafruit Feather nRF52 Bluefruit LE - nRF52832](https://www.adafruit.com/product/3406) with its chip antenna. It actually performed worse than the micro:bit setup with its PCB antenna.
+* I found that holding the remote control so that its PCB was in the vertical orientation resulted in some of the best increases in reliability, even with the PDB mounted in the actual robot.
+
+### Lessons Learned:
+* Keep high current traces on PDB away from the BLE antenna.
+* Have antenna on BLE modules protruding out over the PCB if possible.
+* Mount BLE PCB antenna in vertical orientation.
+* For PDB, place it at top so there isn't much between it and the remote control.
+* For remote, try to place it so that my hand won't be between the two antenna.
+
+
+
+---
 ## March 29th, 2021
 ### Cone Detection?
 The computer vision unit of the [RoboGrok course](http://www.robogrok.com) showed a way to highlight red objects by subtracting the green and blue channel values from the red channel value so that only pixels with red and no blue and/or green component would show up brighter. The following two screen captures show what a traffic cone and a Robothon 2015 t-shirt look like when viewed with this red-only pixel filter applied. The left window in each screen capture shows the full RGB of the scene and the right window shows the same scene with the red-only filter applied.
@@ -50,7 +70,7 @@ I paused this project for a few months to get some work done on other projects:
 
 ### Next Steps
 * ~~The [RoboGrok course](http://www.robogrok.com) had some interesting sections on computer vision. I would like to take some of my vision coursework and try modifying it to detect traffic cones for the [Robo-Magellan](https://robothon.org/rules-robo-magellan/) competition.~~
-* The BLE connection between the power distribution board and the remote control that I built for the bot last year isn't as reliable as my initial prototypes. I want to do some experiments to determine what the actual cause is so that I can redesign it in the future.
+* ~~The BLE connection between the power distribution board and the remote control that I built for the bot last year isn't as reliable as my initial prototypes. I want to do some experiments to determine what the actual cause is so that I can redesign it in the future.~~
 * Figure out how I want to progress on the IMU front by picking one of the following approaches:
   * Hack up a connection to the IMU that I built for my earlier [Ferdinand16](https://github.com/adamgreen/Ferdinand16) attempt.
   * Port the Ferdinand16 firmware to work with the [NXP 9-DoF Breakout Board - FXOS8700 + FXAS21002](https://www.adafruit.com/product/3463) IMU board that I bought from Adafruit when I started working on Ferdinand20.
