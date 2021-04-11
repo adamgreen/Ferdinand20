@@ -14,9 +14,18 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## April 11th, 2021
+![New Manual Switch](photos/20210411-01.jpg)
+
+Last year I updated the Power Distribution Board enclosure to use a round push button switch for the Manual/Auto mode selection but I only had a green version of the switch on hand. I now have a [red version of the switch](https://www.adafruit.com/product/916) that I could install instead.
+
+
+
+---
 ## April 9th, 2021
 ### BLE Remote Experiments
 ![BLE Experiment](photos/20210408-01.jpg)
+
 The BLE connection between the power distribution board (PDB) and the remote control that I built last year isn't as reliable as my initial prototypes. I conducted a few experiments this week to help narrow down what might be the cause. These experiments included:
 * Running my PDB code on a micro:bit again like I did in the initial prototype. This did seem to work a bit better than the PDB hardware in my actual robot but not significantly better. I think the fact that I didn't initially have the logic to shutoff the relay after missing ```MAX_MISSED_BLE_PACKETS``` packets from the remote is the main reason I didn't see the problem on the earlier prototype.
 * I tried moving the relay in relation to the BLE antenna. It didn't seem to have a noticeable impact. I could even place the relay right over the antenna and it didn't become any less reliable.
