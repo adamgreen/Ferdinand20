@@ -14,6 +14,27 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## April 16th, 2021
+### Upgrade my IMU Hardware?
+#### Sparkfun 9 DoF - Sensor Stick
+<img src="https://cdn.sparkfun.com//assets/parts/5/6/0/5/10724-01a.jpg" alt="Sparkfun 9 DoF - Sensor Stick" width="320"/></br>
+Back in 2014, I decided to use the [Sparkfun 9 DoF - Sensor Stick](https://www.sparkfun.com/products/retired/10724) as the accelerometer, magnetometer, and gyroscope for our [Ferdinand14 project](https://github.com/adamgreen/Ferdinand14#readme).
+
+#### Adafruit Precision NXP 9-DOF Breakout Board
+<img src="https://cdn-shop.adafruit.com/970x728/3463-02.jpg" alt="Adafruit Precision NXP 9-DOF Breakout Board" height="320"/></br>
+When starting out on Ferdinand20, I noticed that Sparkfun no longer sells this board. This was a good reason to look around at new sensors as I suspected there would now be even more precise units on the market. This research led me to the [Adafruit Precision NXP 9-DOF Breakout Board](https://www.adafruit.com/product/3463) which appears to offer more precision in all axis. I ordered one of these new IMU boards from Adafruit back in July of 2019. This way I would have it if I decided to make the leap and update my Kalman filter to work with a more current sensor package. I spent time this week evaluating whether I should make that leap:
+* I code reviewed my existing [Kalman filter and I2C drivers](https://github.com/adamgreen/Ferdinand16/tree/master/libs/Sparkfun9DoFSensorStick). From looking at this code, it seems that the only work that would need to be completed to make the switch would be updating the I2C drivers to work with the newer NXP sensors, run a calibration pass, and update the config.ini with the new calibration data. Nothing else was specific to the sensors in use.
+* I read the datasheets for the NXP FXOS8700CQ Accelerometer/Magnetometer and the NXP FXAS21002C Gyroscope to learn how difficult it would be to update the I2C drivers. From what I read in those datasheets, it should only take a part of a day to make those updates. They are pretty simple and the FXOS8700CQ datasheet even includes sample C code. I also noticed that these sensors look like they all have more precision than my current IMU hardware and can run at a higher sample rate (400Hz vs 100Hz). The only thing less precise is the temperature readings on the gyroscope which might have an impact on my drift corrections.
+
+### Next Steps
+Based on my recent research, I think it should only take a week or two to switch to this new IMU hardware:
+* I need to update the I2C drivers for the two chips on this new breakout board.
+* Run the resulting raw sensor readings through my [existing calibration process](https://github.com/adamgreen/Ferdinand14#august-19-2014) to create an updated config.ini.
+* Test the new hardware with my [existing Processing based GUI](https://github.com/adamgreen/Ferdinand16/tree/master/processing/orientation).
+
+
+
+---
 ## April 11th, 2021
 ![New Manual Switch](photos/20210411-01.jpg)
 
