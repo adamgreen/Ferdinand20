@@ -19,7 +19,7 @@
 #import <pthread.h>
 #import <sys/time.h>
 #import "bleuart.h"
-#include "../include/BleJoyShared.h"
+#include "../../include/BleJoyShared.h"
 
 
 // Forward Declarations.

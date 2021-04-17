@@ -17,7 +17,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include "bleuart.h"
-#include "../include/BleJoyShared.h"
+#include "../../include/BleJoyShared.h"
 
 
 

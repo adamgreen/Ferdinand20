@@ -21,7 +21,7 @@
 #include <mbed.h>
 #include <mri.h>
 #include <GPDMA.h>
-#include "../include/PdbPacket.h"
+#include "../../include/PdbPacket.h"
 
 
 class PdbSerial : protected RawSerial

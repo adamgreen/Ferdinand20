@@ -39,5 +39,12 @@ socket.log
 *.net
 fp-info-cache
 
+# Generated file system from files/ folder.
+software/Heading/files.bin
+software/Heading/files.h
+
 # Rust build output
 target/
+
+# Second unmodified copy of SDK used for making patches.
+software/nrfSDK2/
