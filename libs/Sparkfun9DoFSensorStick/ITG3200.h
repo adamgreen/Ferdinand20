@@ -1,4 +1,4 @@
-/*  Copyright (C) 2016  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2021  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -21,14 +21,12 @@
 class ITG3200 : public SensorBase
 {
 public:
-    ITG3200(I2C* pI2C, int address = 0xD0);
+    ITG3200(I2C* pI2C, int address = (0x21<<1));
 
     void getVector(Vector<int16_t>* pVector, int16_t* pTemperature);
 
 protected:
     void initGyro();
-    void waitForPllReady();
-    void waitForDataReady();
 };
 
 #endif /* ITG3200_H_ */

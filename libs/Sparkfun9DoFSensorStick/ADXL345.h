@@ -1,4 +1,4 @@
-/*  Copyright (C) 2016  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2021  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -21,11 +21,13 @@
 class ADXL345 : public SensorBase
 {
 public:
-    ADXL345(I2C* pI2C, int address = 0xA6);
+    ADXL345(I2C* pI2C, int address = (0x1F<<1));
 
-    void getVector(Vector<int16_t>* pVector);
+    void getVectors(Vector<int16_t>* pAccelVector, Vector<int16_t>* pMagVector);
 
 protected:
+    void reset();
+    void initMagnetometer();
     void initAccelerometer();
     void waitForDataReady();
 };

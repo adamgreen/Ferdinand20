@@ -15,7 +15,6 @@
 
 #include <mbed.h>
 #include "ADXL345.h"
-#include "HMC5883L.h"
 #include "ITG3200.h"
 #include "Quaternion.h"
 #include "Vector.h"
@@ -90,8 +89,7 @@ protected:
     SensorCalibration       m_calibration;
     Ticker                  m_ticker;
     I2C                     m_i2c;
-    ADXL345                 m_accel;
-    HMC5883L                m_mag;
+    ADXL345                 m_accelMag;
     ITG3200                 m_gyro;
     SensorCalibratedValues  m_midpoints;
     SensorCalibratedValues  m_scales;

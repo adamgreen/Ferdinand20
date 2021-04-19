@@ -13,126 +13,122 @@
 #include "ITG3200.h"
 
 
-/* Gyro I2C Registers */
-#define WHO_AM_I            0x00
-#define SMPLRT_DIV          0x15
-#define DLPF_FS             0x16
-#define INT_CFG             0x17
-#define INT_STATUS          0x1A
-#define TEMP_OUT_H          0x1B
-#define TEMP_OUT_L          0x1C
-#define GYRO_XOUT_H         0x1D
-#define GYRO_XOUT_L         0x1E
-#define GYRO_YOUT_H         0x1F
-#define GYRO_YOUT_L         0x20
-#define GYRO_ZOUT_H         0x21
-#define GYRO_ZOUT_L         0x22
-#define PWR_MGM             0x3E
+/* I2C Register Addresses */
+#define STATUS          0x00
+#define OUT_X_MSB       0x01
+#define OUT_X_LSB       0x02
+#define OUT_Y_MSB       0x03
+#define OUT_Y_LSB       0x04
+#define OUT_Z_MSB       0x05
+#define OUT_Z_LSB       0x06
+#define DR_STATUS       0x07
+#define F_STATUS        0x08
+#define F_SETUP         0x09
+#define F_EVENT         0x0A
+#define INT_SRC_FLAG    0x0B
+#define WHO_AM_I        0x0C
+#define CTRL_REG0       0x0D
+#define RT_CFG          0x0E
+#define RT_SRC          0x0F
+#define RT_THS          0x10
+#define RT_COUNT        0x11
+#define TEMP            0x12
+#define CTRL_REG1       0x13
+#define CTRL_REG2       0x14
+#define CTRL_REG3       0x15
 
-/* DLPF bits */
-#define FS_SEL_SHIFT        3
-#define FS_SEL_MASK         (0x3 << FS_SEL_SHIFT)
-#define FS_SEL_2000         (3 << FS_SEL_SHIFT)
-#define DLPF_CFG_MASK       0x7
-#define DLPF_CFG_256HZ      0
-#define DLPF_CFG_188HZ      1
-#define DLPF_CFG_98HZ       2
-#define DLPF_CFG_42HZ       3
-#define DLPF_CFG_20HZ       4
-#define DLPF_CFG_10HZ       5
-#define DLPF_CFG_5HZ        6
+/* CTRL_REG0 bits */
+/*  Low pass filter cutoff frequency selection, varies by ODR setting. */
+#define BW_SHIFT            6
+#define BW_HIGHEST_FREQ     (0 << BW_SHIFT)
+#define BW_MEDIUM_FREQ      (1 << BW_SHIFT)
+#define BW_LOWEST_FREQ      (3 << BW_SHIFT)
+/*  SPI Interface Mode */
+#define SPIW_3_WIRE         (1 << 5)
+/*  High pass filter cutoff frequency selection, varies by ODR setting. */
+#define SEL_SHIFT           3
+#define SEL_HIGHEST         (0 << SEL_SHIFT)
+#define SEL_LOWEST          (3 << SEL_SHIFT)
+/*  High pass filter enabled when set to 1. */
+#define HPF_EN              (1 << 2)
+/*  Full range selection: 250/500/1000/2000 deg/s */
+#define FS_2000_DPS         0
+#define FS_1000_DPS         1
+#define FS_500_DPS          2
+#define FS_250_DPS          3
 
-/* INT_CFG bits */
-#define ACTL                (1 << 7)
-#define OPEN                (1 << 6)
-#define LATCH_INT_EN        (1 << 5)
-#define INT_ANYRD_2CLEAR    (1 << 4)
-#define ITG_RDY_EN          (1 << 2)
-#define RAW_RDY_EN          (1 << 0)
-
-/* INT_STATUS  bits */
-#define ITG_RDY             (1 << 2)
-#define RAW_DATA_RDY        (1 << 0)
-
-/* PWR_MGM bits */
-#define H_RESET                 (1 << 7)
-#define SLEEP                   (1 << 6)
-#define STBY_XG                 (1 << 5)
-#define STBY_YG                 (1 << 4)
-#define STBY_ZG                 (1 << 3)
-#define CLK_SEL_MASK            7
-#define CLK_SEL_INT             0
-#define CLK_SEL_PLL_X           1
-#define CLK_SEL_PLL_Y           2
-#define CLK_SEL_PLL_Z           3
-#define CLK_SEL_PLL_EXT_32768HZ 4
-#define CLK_SEL_PLL_EXT_19_2MHZ 5
+/* CTRL_REG1 bits */
+/*  Software reset started when set to 1. */
+#define RST                 (1 << 6)
+/*  Self test enabled when set to 1. */
+#define ST                  (1 << 5)
+/*  Output data rate. */
+#define DR_SHIFT            2
+#define DR_800_HZ           (0 << DR_SHIFT)
+#define DR_400_HZ           (1 << DR_SHIFT)
+#define DR_200_HZ           (2 << DR_SHIFT)
+#define DR_100_HZ           (3 << DR_SHIFT)
+#define DR_50_HZ            (4 << DR_SHIFT)
+#define DR_25_HZ            (5 << DR_SHIFT)
+#define DR_12_5_HZ          (6 << DR_SHIFT)
+/*  Active mode enabled when set to 1. */
+#define ACTIVE              (1 << 1)
+/*  Ready mode enabled when set to 1. */
+#define READY               (1 << 0)
 
 
-ITG3200::ITG3200(I2C* pI2C, int address /* = 0xA6 */) : SensorBase(pI2C, address)
+ITG3200::ITG3200(I2C* pI2C, int address /* = (0x21<<1) */) : SensorBase(pI2C, address)
 {
     initGyro();
 }
 
 void ITG3200::initGyro()
 {
-    do
-    {
-        writeRegister(PWR_MGM, H_RESET);
-        if (m_failedIo)
-            break;
-        writeRegister(INT_CFG, LATCH_INT_EN | ITG_RDY_EN | RAW_RDY_EN);
-        if (m_failedIo)
-            break;
-        writeRegister(PWR_MGM, CLK_SEL_PLL_X);
-        if (m_failedIo)
-            break;
-        waitForPllReady();
-        writeRegister(SMPLRT_DIV, (1000 / 100) - 1);
-        if (m_failedIo)
-            break;
-        writeRegister(DLPF_FS, FS_SEL_2000 | DLPF_CFG_42HZ);
-        if (m_failedIo)
-            break;
-    }
-    while (0);
+    // Assume that init has failed until proven wrong.
+    m_failedInit = 1;
 
+    // Reset to make sure that device is in standby mode.
+    // NOTE: Ignore any I2C error as a reset will truncate the ACK.
+    writeRegister(CTRL_REG1, RST);
+
+    // Wait a bit for reset to occur.
+    wait_ms(1);
+
+    // Configure for highest low pass filter frequency setting, disable high pass filter, and
+    // set full scale resolution to 2000 degrees/s.
+    writeRegister(CTRL_REG0, BW_HIGHEST_FREQ | FS_2000_DPS);
     if (m_failedIo)
-        m_failedInit = 1;
-}
+        return;
+    // UNDONE: Hardcoded for 100Hz right now.
+    // Set sampling rate to 100Hz.
+    // Also switches device back into active mode.
+    writeRegister(CTRL_REG1, DR_100_HZ | ACTIVE);
+    if (m_failedIo)
+        return;
 
-void ITG3200::waitForPllReady()
-{
-    char intStatus = 0;
+    // Takes 60ms to enter active mode.
+    wait_ms(60);
 
-    do
-    {
-        readRegister(INT_STATUS, &intStatus);
-    } while ((intStatus & ITG_RDY) == 0);
+    // This part of init was successful.
+    m_failedInit = 0;
 }
 
 void ITG3200::getVector(Vector<int16_t>* pVector, int16_t* pTemperature)
 {
-    char bigEndianDataWithTemp[8];
+    char bigEndianData[2*3];
 
-    readRegisters(TEMP_OUT_H, bigEndianDataWithTemp, sizeof(bigEndianDataWithTemp));
+    readRegisters(OUT_X_MSB, bigEndianData, sizeof(bigEndianData));
     if (m_failedIo)
         return;
 
     // Data returned is big endian so byte swap.
-    *pTemperature = (bigEndianDataWithTemp[0] << 8) | bigEndianDataWithTemp[1];
-    pVector->x = (bigEndianDataWithTemp[2] << 8) | bigEndianDataWithTemp[3];
-    pVector->y = (bigEndianDataWithTemp[4] << 8) | bigEndianDataWithTemp[5];
-    pVector->z = (bigEndianDataWithTemp[6] << 8) | bigEndianDataWithTemp[7];
+    pVector->x = (bigEndianData[0] << 8) | bigEndianData[1];
+    pVector->y = (bigEndianData[2] << 8) | bigEndianData[3];
+    pVector->z = (bigEndianData[4] << 8) | bigEndianData[5];
+
+    char temp;
+    readRegister(TEMP, &temp);
+    if (m_failedIo)
+        return;
+    *pTemperature = temp;
 }
-
-void ITG3200::waitForDataReady()
-{
-    char intStatus = 0;
-
-    do
-    {
-        readRegister(INT_STATUS, &intStatus);
-    } while ((intStatus & RAW_DATA_RDY) == 0);
-}
-

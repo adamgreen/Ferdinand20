@@ -18,8 +18,7 @@ Sparkfun9DoFSensorStick::Sparkfun9DoFSensorStick(PinName sdaPin, PinName sclPin,
                                                  const SensorCalibration* pCalibration /* = NULL */,
                                                  uint32_t sampleRateHz /* = 100 */) :
     m_i2c(sdaPin, sclPin),
-    m_accel(&m_i2c),
-    m_mag(&m_i2c),
+    m_accelMag(&m_i2c),
     m_gyro(&m_i2c)
 {
     m_i2c.frequency(400000);
@@ -34,7 +33,7 @@ Sparkfun9DoFSensorStick::Sparkfun9DoFSensorStick(PinName sdaPin, PinName sclPin,
 
     calibrate(pCalibration);
 
-    m_failedInit = m_accel.didInitFail() || m_mag.didInitFail() || m_gyro.didInitFail();
+    m_failedInit = m_accelMag.didInitFail() || m_gyro.didInitFail();
     m_failedIo = m_failedInit;
     if (!m_failedInit)
         m_ticker.attach_us(callback(this, &Sparkfun9DoFSensorStick::tickHandler), 1000000 / sampleRateHz);
@@ -103,12 +102,8 @@ void Sparkfun9DoFSensorStick::tickHandler()
 
     do
     {
-        m_accel.getVector(&m_sensorValues.accel);
-        if (m_accel.didIoFail())
-            break;
-
-        m_mag.getVector(&m_sensorValues.mag);
-        if (m_mag.didIoFail())
+        m_accelMag.getVectors(&m_sensorValues.accel, &m_sensorValues.mag);
+        if (m_accelMag.didIoFail())
             break;
 
         m_gyro.getVector(&m_sensorValues.gyro, &m_sensorValues.gyroTemperature);

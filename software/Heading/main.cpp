@@ -39,7 +39,9 @@ static DmaSerial g_serial(USBTX, USBRX);
 
 
 // Function prototypes.
+#if !MRI_ENABLE
 static void serialReceiveISR();
+#endif
 static SensorCalibration readConfigurationFile();
 
 
@@ -112,6 +114,7 @@ int main()
         assert( length < (int)sizeof(buffer) );
 
 #if MRI_ENABLE
+        (void)length;
         printf("%s", buffer);
 #else
         g_serial.dmaTransmit(buffer, length);
