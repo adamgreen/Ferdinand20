@@ -1,4 +1,4 @@
-/*  Copyright 2011 Adam Green (https://github.com/adamgreen)
+/*  Copyright 2021 Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,27 +16,15 @@
 */
 #include <mbed.h>
 #include <assert.h>
+#include <sys/errno.h>
 #include "FlashFileSystem.h"
 #include "ffsformat.h"
-
-
-// Set FFS_TRACE to 1 to enable tracing within the FlashFileSystem class.
-#define FFS_TRACE 0
-#if FFS_TRACE
-    #define TRACE printf
-#else
-    static void __trace(...)
-    {
-        return;
-    }
-    #define TRACE __trace
-#endif // FFS_TRACE
 
 
 
 /* Constructor for FlashFileSystemFileHandle which initializes to the specified
    file entry in the image.
-   
+
    Parameters:
     pFileStart is the beginning offset of this file in FLASH memory.
     pFileEnd is the ending offset (1 bytes past last valid byte) of this file
@@ -56,7 +44,7 @@ FlashFileSystemFileHandle::FlashFileSystemFileHandle()
 {
     FlashFileSystemFileHandle(NULL, NULL);
 }
-    
+
 
 /* Write the contents of a buffer to the file
 
@@ -70,7 +58,7 @@ FlashFileSystemFileHandle::FlashFileSystemFileHandle()
 ssize_t FlashFileSystemFileHandle::write(const void* pBuffer, size_t Length)
 {
     // This file system doesn't support writing.
-    return -1;
+    return EACCES;
 }
 
 
@@ -84,7 +72,7 @@ int FlashFileSystemFileHandle::close()
     m_pFileStart = NULL;
     m_pFileEnd = NULL;
     m_pCurr = NULL;
-    
+
     return 0;
 }
 
@@ -107,13 +95,13 @@ ssize_t FlashFileSystemFileHandle::read(void* pBuffer, size_t Length)
     {
         Length = BytesLeft;
     }
-    
+
     // Copy the bytes from FLASH into the caller provided buffer.
     memcpy(pBuffer, m_pCurr, Length);
-    
+
     // Update the file pointer.
     m_pCurr += Length;
-    
+
     return Length;
 }
 
@@ -132,13 +120,13 @@ int FlashFileSystemFileHandle::isatty()
 
 
 /* Move the file position to a given offset from a given location.
- 
+
    Parameters
     offset is the offset from whence to move to.
-    whence - SEEK_SET for the start of the file, 
-             SEEK_CUR for the current file position, or 
+    whence - SEEK_SET for the start of the file,
+             SEEK_CUR for the current file position, or
              SEEK_END for the end of the file.
-  
+
    Returns
     New file position on success, -1 on failure or unsupported
 */
@@ -156,10 +144,9 @@ off_t FlashFileSystemFileHandle::lseek(off_t offset, int whence)
         m_pCurr = (m_pFileEnd - 1) + offset;
         break;
     default:
-        TRACE("FlashFileSytem: Received unknown origin code (%d) for seek.\r\n", whence);
-        return -1;
+        return EINVAL;
     }
-    
+
     return (m_pCurr - m_pFileStart);
 }
 
@@ -167,7 +154,7 @@ off_t FlashFileSystemFileHandle::lseek(off_t offset, int whence)
 /* Flush any buffers associated with the FileHandle, ensuring it
    is up to date on disk.  Since the Flash file system is read-only, there
    is nothing to do here.
-  
+
    Returns
     0 on success or un-needed, -1 on error
 */
@@ -198,7 +185,7 @@ off_t FlashFileSystemFileHandle::flen()
     pFirstFileEntry is a pointer to the first entry found in this directory.
     DirectoryNameLength is the length of the directory name for which this
         handle is being used to enumerate.
-        
+
    Returns:
     Nothing.
 */
@@ -222,12 +209,12 @@ FlashFileSystemDirHandle::FlashFileSystemDirHandle()
     FlashFileSystemDirHandle(NULL, NULL, 0, 0);
 }
 
-                             
+
 /* Closes the directory enumeration object.
-  
+
    Parameters:
     None.
-    
+
    Returns:
     0 on success, or -1 on error.
 */
@@ -239,17 +226,17 @@ int FlashFileSystemDirHandle::closedir()
     m_FileEntriesLeft = 0;
     m_DirectoryNameLength = 0;
     m_DirectoryEntry.d_name[0] = '\0';
-    
+
     return 0;
 }
 
 
 /* Return the directory entry at the current position, and
    advances the position to the next entry.
-  
+
    Parameters:
     None.
-    
+
    Returns:
     A pointer to a dirent structure representing the
     directory entry at the current position, or NULL on reaching
@@ -262,8 +249,8 @@ struct dirent* FlashFileSystemDirHandle::readdir()
     char*        pSlash;
     size_t       PrefixLength;
     unsigned int FileEntriesUsed;
-    unsigned int FileEntriesLeft;  
-    
+    unsigned int FileEntriesLeft;
+
     // Just return now if we have already finished enumerating the entries in
     // the directory.
     if (!m_pCurrentFileEntry)
@@ -271,19 +258,19 @@ struct dirent* FlashFileSystemDirHandle::readdir()
         m_DirectoryEntry.d_name[0] = '\0';
         return NULL;
     }
-    
+
     // Calculate the number of valid entries are left in the file entry array.
     FileEntriesUsed = m_pCurrentFileEntry - m_pFirstFileEntry;
     FileEntriesLeft = m_FileEntriesLeft - FileEntriesUsed;
-    
+
     // Fill in the directory entry structure for the current entry.
-    pPrevEntryName = m_pFLASHBase + 
+    pPrevEntryName = m_pFLASHBase +
                      m_pCurrentFileEntry->FilenameOffset;
-    strncpy(m_DirectoryEntry.d_name, 
-            pPrevEntryName + m_DirectoryNameLength, 
+    strncpy(m_DirectoryEntry.d_name,
+            pPrevEntryName + m_DirectoryNameLength,
             sizeof(m_DirectoryEntry.d_name));
     m_DirectoryEntry.d_name[sizeof(m_DirectoryEntry.d_name) - 1] = '\0';
-    
+
     // If the entry to be returned contains a slash then this is a directory
     // entry.
     pSlash = strchr(m_DirectoryEntry.d_name, '/');
@@ -293,7 +280,7 @@ struct dirent* FlashFileSystemDirHandle::readdir()
         // slash so that I can tell it is a directory and not a file.
         pSlash[1] = '\0';
     }
-    
+
     // Skip entries that have the same prefix as the current entry.  This
     // will skip the files in the same sub-tree.
     PrefixLength = strlen(m_DirectoryEntry.d_name) + m_DirectoryNameLength;
@@ -302,18 +289,18 @@ struct dirent* FlashFileSystemDirHandle::readdir()
         m_pCurrentFileEntry++;
         FileEntriesLeft--;
         pCurrentEntryName = m_pFLASHBase + m_pCurrentFileEntry->FilenameOffset;
-    } while (FileEntriesLeft && 
+    } while (FileEntriesLeft &&
              0 == strncmp(pPrevEntryName, pCurrentEntryName, PrefixLength));
-    
+
     // If we have walked past the end of all file entries in the file system or
     // the prefix no longer matches this directory, then there are no more files
     // for this directory enumeration.
-    if (0 == FileEntriesLeft || 
+    if (0 == FileEntriesLeft ||
         0 != strncmp(pPrevEntryName, pCurrentEntryName, m_DirectoryNameLength))
     {
         m_pCurrentFileEntry = NULL;
     }
-    
+
     // Return a pointer to the directory entry structure that was previously
     // setup.
     return &m_DirectoryEntry;
@@ -328,10 +315,10 @@ void FlashFileSystemDirHandle::rewinddir()
 
 
 /* Returns the current position of the DirHandle.
- 
+
    Parameters:
     None.
-    
+
    Returns:
     The current position, or -1 on error.
 */
@@ -342,22 +329,22 @@ off_t FlashFileSystemDirHandle::telldir()
 
 
 /* Sets the position of the DirHandle.
- 
+
    Parameters:
     Location is the location to seek to. Must be a value returned
         by telldir.
-        
+
    Returns;
     Nothing.
 */
 void FlashFileSystemDirHandle::seekdir(off_t Location)
 {
     SFileSystemEntry*   pLocation = (SFileSystemEntry*)Location;
-    
+
     assert ( NULL != pLocation &&
              pLocation > m_pFirstFileEntry &&
              (unsigned int)(pLocation - m_pFirstFileEntry) < m_FileEntriesLeft );
-    
+
     m_pCurrentFileEntry = pLocation;
 }
 
@@ -375,11 +362,11 @@ struct SSearchContext
 
 /* Internal routine used as callback for bsearch() when searching for a
    requested filename in the FLASH file system image.
-   
+
    pvKey is a pointer to the SSearchContext object for this search.
    pvEntry is a pointer to the current file system entry being checked by
     bsearch().
-    
+
    Returns <0 if filename to find is lower in sort order than current entry.
             0 if filename to find is the same as the current entry.
            >0 if filename to find is higher in sort order than current entry.
@@ -406,17 +393,17 @@ static int _CompareKeyToFileEntry(const void* pvKey, const void* pvEntry)
     FlashSize (optional) is the size of the FLASH (KB) on the device to
         search through for the file system signature (default = 512).
 */
-FlashFileSystem::FlashFileSystem(const char* pName, const uint8_t *pFlashDrive, const uint32_t FlashSize) : FileSystemLike(pName)
+FlashFileSystem::FlashFileSystem(const char* pName, const uint8_t *pFlashDrive, const uint32_t FlashSize) : FileSystem(pName)
 {
     static const char   FileSystemSignature[] = FILE_SYSTEM_SIGNATURE;
     SFileSystemHeader*  pHeader = NULL;
     char*               pCurr = (char*)(FlashSize * 1024) - sizeof(pHeader->FileSystemSignature);
-    
+
     // Initialize the members
     m_pFLASHBase = NULL;
     m_FileCount = 0;
     m_pFileEntries = NULL;
-    
+
     // Scan backwards through 512k FLASH looking for the file system signature
     // NOTE: The file system image should be located after this code itself
     //       so stop the search.
@@ -432,7 +419,6 @@ FlashFileSystem::FlashFileSystem(const char* pName, const uint8_t *pFlashDrive, 
         }
         if (pCurr <= FileSystemSignature)
         {
-            TRACE("FlashFileSystem: Failed to find file system image in ROM.\n");
             return;
         }
     }
@@ -442,10 +428,9 @@ FlashFileSystem::FlashFileSystem(const char* pName, const uint8_t *pFlashDrive, 
     }
     if (((unsigned int)pCurr & 0x3) != 0)
     {
-        TRACE("FlashFileSystem: File system image at address %08X isn't 4-byte aligned.\n", pCurr);
         return;
     }
-    
+
     // Record the location of the file system image in the member fields.
     m_pFLASHBase = pCurr;
     pHeader = (SFileSystemHeader*)m_pFLASHBase;
@@ -453,81 +438,171 @@ FlashFileSystem::FlashFileSystem(const char* pName, const uint8_t *pFlashDrive, 
     m_pFileEntries = (SFileSystemEntry*)(m_pFLASHBase + sizeof(*pHeader));
 }
 
+FlashFileSystem::~FlashFileSystem()
+{
+}
 
-/* Opens specified file in FLASH file system when an appropriate call to
-   fopen() is made.
-   
-   pFilename is the name of the file to be opened within the file system.
-   Flags specify flags to determine open mode of file.  This file system only
-    support O_RDONLY.
-   
-   Returns NULL if an error was encountered or a pointer to a FileHandle object
-    representing the requrested file otherwise.
-*/
-FileHandle* FlashFileSystem::open(const char* pFilename, int Flags)
+
+int FlashFileSystem::mount(BlockDevice *bd)
+{
+    return ENOTSUP;
+}
+
+int FlashFileSystem::mount(BlockDevice *bd, bool force)
+{
+    return ENOTSUP;
+}
+
+int FlashFileSystem::unmount()
+{
+    return ENOTSUP;
+}
+
+int FlashFileSystem::remove(const char *path)
+{
+    return ENOTSUP;
+}
+
+int FlashFileSystem::rename(const char *path, const char *newpath)
+{
+    return ENOTSUP;
+}
+
+/** Store information about the file in a stat structure
+ *
+ *  @param path     The name of the file to find information about
+ *  @param st       The stat buffer to write to
+ *  @return         0 on success, negative error code on failure
+ */
+int FlashFileSystem::stat(const char *path, struct stat *st)
+{
+    // UNDONE: Might be able to implement this.
+    return ENOTSUP;
+}
+
+int FlashFileSystem::mkdir(const char *path, mode_t mode)
+{
+    return ENOTSUP;
+}
+
+
+
+int FlashFileSystem::file_open(fs_file_t* ppFile, const char *pFilename, int flags)
 {
     const SFileSystemEntry*     pEntry = NULL;
     FlashFileSystemFileHandle*  pFileHandle = NULL;
     SSearchContext              SearchContext;
-    
-    TRACE("FlashFileSystem: Attempt to open file /FLASH/%s with flags:%x\r\n", pFilename, Flags);
-    
+
     // Can't find the file if file system hasn't been mounted.
     if (!IsMounted())
     {
-        return NULL;
+        return EIO;
     }
 
     // Can only open files in FLASH for read.
-    if (O_RDONLY != Flags)
+    if (O_RDONLY != flags)
     {
-        TRACE("FlashFileSystem: Can only open files for reading.\r\n");
+        return EACCES;
     }
-    
+
     // Attempt to find the specified file in the file system image.
     SearchContext.pKey = pFilename;
     SearchContext.pFLASHBase = m_pFLASHBase;
     pEntry = (const SFileSystemEntry*) bsearch(&SearchContext,
                                                m_pFileEntries,
-                                               m_FileCount, 
-                                               sizeof(*m_pFileEntries), 
+                                               m_FileCount,
+                                               sizeof(*m_pFileEntries),
                                                _CompareKeyToFileEntry);
     if(!pEntry)
     {
         // Create failure response.
-        TRACE("FlashFileSystem: Failed to find '%s' in file system image.\n", pFilename);
-        return NULL;
+        return ENOENT;
     }
 
     // Attempt to find a free file handle.
     pFileHandle = FindFreeFileHandle();
     if (!pFileHandle)
     {
-        TRACE("FlashFileSystem: File handle table is full.\n");
-        return NULL;
+        return EMFILE;
     }
-    
+
     // Initialize the file handle and return it to caller.
     pFileHandle->SetEntry(m_pFLASHBase + pEntry->FileBinaryOffset,
                           m_pFLASHBase + pEntry->FileBinaryOffset + pEntry->FileBinarySize);
-    return pFileHandle;
+    *ppFile = pFileHandle;
+    return 0;
 }
 
-DirHandle*  FlashFileSystem::opendir(const char *pDirectoryName)
+int FlashFileSystem::file_close(fs_file_t file)
+{
+    FlashFileSystemFileHandle* pFile = (FlashFileSystemFileHandle*)file;
+    return pFile->close();
+}
+
+ssize_t FlashFileSystem::file_read(fs_file_t file, void *buffer, size_t len)
+{
+    FlashFileSystemFileHandle* pFile = (FlashFileSystemFileHandle*)file;
+    return pFile->read(buffer, len);
+}
+
+ssize_t FlashFileSystem::file_write(fs_file_t file, const void *buffer, size_t len)
+{
+    FlashFileSystemFileHandle* pFile = (FlashFileSystemFileHandle*)file;
+    return pFile->write(buffer, len);
+}
+
+int FlashFileSystem::file_sync(fs_file_t file)
+{
+    FlashFileSystemFileHandle* pFile = (FlashFileSystemFileHandle*)file;
+    return pFile->fsync();
+}
+
+off_t FlashFileSystem::file_seek(fs_file_t file, off_t offset, int whence)
+{
+    FlashFileSystemFileHandle* pFile = (FlashFileSystemFileHandle*)file;
+    return pFile->lseek(offset, whence);
+}
+
+off_t FlashFileSystem::file_tell(fs_file_t file)
+{
+    FlashFileSystemFileHandle* pFile = (FlashFileSystemFileHandle*)file;
+    return pFile->lseek(0, SEEK_CUR);
+}
+
+/** Get the size of the file
+ *
+ *  @param file     File handle
+ *  @return         Size of the file in bytes
+ */
+size_t FlashFileSystem::file_size(fs_file_t file)
+{
+    FlashFileSystemFileHandle* pFile = (FlashFileSystemFileHandle*)file;
+    return pFile->flen();
+}
+
+
+
+/** Open a directory on the filesystem
+ *
+ *  @param dir      Destination for the handle to the directory
+ *  @param path     Name of the directory to open
+ *  @return         0 on success, negative error code on failure
+ */
+int FlashFileSystem::dir_open(fs_dir_t* ppDir, const char* pDirectoryName)
 {
     const SFileSystemEntry* pEntry = m_pFileEntries;
     unsigned int            DirectoryNameLength;
     unsigned int            i;
-    
-    assert ( pDirectoryName);
-    
+
+    assert (pDirectoryName);
+
     // Removing leading slash since the file system image doesn't contain
     // leading slashes.
     if ('/' == pDirectoryName[0])
     {
         pDirectoryName++;
     }
-    
+
     // Make sure that the directory name length would include the trailing
     // slash.
     DirectoryNameLength = strlen(pDirectoryName);
@@ -536,13 +611,13 @@ DirHandle*  FlashFileSystem::opendir(const char *pDirectoryName)
         // Add the implicit slash to this count.
         DirectoryNameLength++;
     }
-    
+
     // Search through the file entries from the beginning to find the first
     // entry which has pDirectoryName/ as the prefix.
     for (i = 0 ; i < m_FileCount ; i++)
     {
         const char* pEntryFilename = pEntry->FilenameOffset + m_pFLASHBase;
-        
+
         if (0 == DirectoryNameLength ||
             (pEntryFilename == strstr(pEntryFilename, pDirectoryName) &&
              '/' == pEntryFilename[DirectoryNameLength-1]) )
@@ -552,42 +627,81 @@ DirHandle*  FlashFileSystem::opendir(const char *pDirectoryName)
             FlashFileSystemDirHandle* pDirHandle = FindFreeDirHandle();
             if (!pDirHandle)
             {
-                TRACE("FlashFileSystem: Dir handle table is full.\n");
-                return NULL;
+                return EMFILE;
             }
-            
+
             pDirHandle->SetEntry(m_pFLASHBase,
                                  pEntry,
                                  m_FileCount - (pEntry - m_pFileEntries),
                                  DirectoryNameLength);
-            
-            return pDirHandle;
+
+            *ppDir = pDirHandle;
+            return 0;
         }
-        
+
         // Advance to the next file entry
         pEntry++;
     }
-    
+
     // Get here when the requested directory wasn't found.
-    TRACE("FlashFileSystem: Failed to find '%s' directory in file system image.\n", 
-          pDirectoryName);
-    return NULL;
+    return ENOENT;
 }
+
+int FlashFileSystem::dir_close(fs_dir_t dir)
+{
+    FlashFileSystemDirHandle* pDirHandle = (FlashFileSystemDirHandle*)dir;
+    return pDirHandle->closedir();
+}
+
+ssize_t FlashFileSystem::dir_read(fs_dir_t dir, struct dirent *ent)
+{
+    FlashFileSystemDirHandle* pDirHandle = (FlashFileSystemDirHandle*)dir;
+    struct dirent* pEntry = pDirHandle->readdir();
+    if (pEntry == NULL)
+    {
+        return 0;
+    }
+    else
+    {
+        *ent = *pEntry;
+        return 1;
+    }
+}
+
+void FlashFileSystem::dir_seek(fs_dir_t dir, off_t offset)
+{
+    FlashFileSystemDirHandle* pDirHandle = (FlashFileSystemDirHandle*)dir;
+    pDirHandle->seekdir(offset);
+}
+
+off_t FlashFileSystem::dir_tell(fs_dir_t dir)
+{
+    FlashFileSystemDirHandle* pDirHandle = (FlashFileSystemDirHandle*)dir;
+    return pDirHandle->telldir();
+}
+
+void FlashFileSystem::dir_rewind(fs_dir_t dir)
+{
+    FlashFileSystemDirHandle* pDirHandle = (FlashFileSystemDirHandle*)dir;
+    pDirHandle->rewinddir();
+}
+
+
 
 
 /* Protected method which attempts to find a free file handle in the object's
    file handle table.
-   
+
    Parameters:
     None
-    
+
    Returns:
     Pointer to first free file handle entry or NULL if the table is full.
 */
 FlashFileSystemFileHandle* FlashFileSystem::FindFreeFileHandle()
 {
     size_t  i;
-    
+
     // Iterate through the file handle array, looking for a close file handle.
     for (i = 0 ; i < sizeof(m_FileHandles)/sizeof(m_FileHandles[0]) ; i++)
     {
@@ -596,7 +710,7 @@ FlashFileSystemFileHandle* FlashFileSystem::FindFreeFileHandle()
             return &(m_FileHandles[i]);
         }
     }
-    
+
     // If we get here, then no free entries were found.
     return NULL;
 }
@@ -604,18 +718,18 @@ FlashFileSystemFileHandle* FlashFileSystem::FindFreeFileHandle()
 
 /* Protected method which attempts to find a free dir handle in the object's
    directory handle table.
-   
+
    Parameters:
     None
-    
+
    Returns:
     Pointer to first free directory handle entry or NULL if the table is full.
 */
 FlashFileSystemDirHandle* FlashFileSystem::FindFreeDirHandle()
 {
     size_t  i;
-    
-    // Iterate through the direcotry handle array, looking for a closed 
+
+    // Iterate through the direcotry handle array, looking for a closed
     // directory handle.
     for (i = 0 ; i < sizeof(m_DirHandles)/sizeof(m_DirHandles[0]) ; i++)
     {
@@ -624,7 +738,7 @@ FlashFileSystemDirHandle* FlashFileSystem::FindFreeDirHandle()
             return &(m_DirHandles[i]);
         }
     }
-    
+
     // If we get here, then no free entries were found.
     return NULL;
 }
