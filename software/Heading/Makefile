@@ -6,7 +6,7 @@ NO_FLOAT_PRINTF := 0
 GCC4MBED_TYPE   := Release
 USER_LIBS       := ../../libs/DmaSerial \
                    ../../libs/GPDMA \
-                   ../../libs/Sparkfun9DoFSensorStick \
+                   ../../libs/AdafruitPrecision9DoF \
                    ../../libs/ConfigFile \
                    ../../libs/FlashFileSystem \
                    $(GCC4MBED_DIR)/external/mbed-os/features/unsupported/dsp

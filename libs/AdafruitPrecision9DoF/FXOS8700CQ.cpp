@@ -10,7 +10,7 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 */
-#include "ADXL345.h"
+#include "FXOS8700CQ.h"
 
 
 /* I2C Registers Addresses */
@@ -217,7 +217,7 @@
 #define M_RST_CNT_DISABLED  3
 
 
-ADXL345::ADXL345(I2C* pI2C, int address /* = (0x1F<<1) */) : SensorBase(pI2C, address)
+FXOS8700CQ::FXOS8700CQ(I2C* pI2C, int address /* = (0x1F<<1) */) : SensorBase(pI2C, address)
 {
     reset();
     initMagnetometer();
@@ -228,7 +228,7 @@ ADXL345::ADXL345(I2C* pI2C, int address /* = (0x1F<<1) */) : SensorBase(pI2C, ad
         return;
 }
 
-void ADXL345::reset()
+void FXOS8700CQ::reset()
 {
     // First reset the device to make sure that it is in standby mode.
     // NOTE: Ignore any I2C error as a reset will truncate the ACK.
@@ -238,7 +238,7 @@ void ADXL345::reset()
     wait_ms(1);
 }
 
-void ADXL345::initMagnetometer()
+void FXOS8700CQ::initMagnetometer()
 {
     // Assume that init has failed until proven wrong.
     m_failedInit = 1;
@@ -253,7 +253,7 @@ void ADXL345::initMagnetometer()
     m_failedInit = 0;
 }
 
-void ADXL345::initAccelerometer()
+void FXOS8700CQ::initAccelerometer()
 {
     // Assume that init has failed until proven wrong.
     m_failedInit = 1;
@@ -278,7 +278,7 @@ void ADXL345::initAccelerometer()
     m_failedInit = 0;
 }
 
-void ADXL345::getVectors(Vector<int16_t>* pAccelVector, Vector<int16_t>* pMagVector)
+void FXOS8700CQ::getVectors(Vector<int16_t>* pAccelVector, Vector<int16_t>* pMagVector)
 {
     // Need enough space for 3-axis of magnetometer and accelerometer readings (16-bits per axis).
     uint8_t buffer[2*(3+3)];

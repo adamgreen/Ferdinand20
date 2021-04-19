@@ -1,4 +1,4 @@
-/*  Copyright (C) 2016  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2021  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -10,12 +10,12 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 */
-#ifndef SPARKFUN_9DOF_SENSOR_STICK_H_
-#define SPARKFUN_9DOF_SENSOR_STICK_H_
+#ifndef ADAFRUIT_PRECISION_9DOF_H_
+#define ADAFRUIT_PRECISION_9DOF_H_
 
 #include <mbed.h>
-#include "ADXL345.h"
-#include "ITG3200.h"
+#include "FXOS8700CQ.h"
+#include "FXAS21002C.h"
 #include "Quaternion.h"
 #include "Vector.h"
 #include "Matrix4x4.h"
@@ -55,12 +55,12 @@ struct SensorCalibration
 };
 
 
-class Sparkfun9DoFSensorStick
+class AdafruitPrecision9DoF
 {
 public:
-    Sparkfun9DoFSensorStick(PinName sdaPin, PinName sclPin,
-                            const SensorCalibration* pCalibration = NULL,
-                            uint32_t sampleRateHz = 100);
+    AdafruitPrecision9DoF(PinName sdaPin, PinName sclPin,
+                          const SensorCalibration* pCalibration = NULL,
+                          uint32_t sampleRateHz = 100);
 
     void calibrate(const SensorCalibration* pCalibration);
 
@@ -89,8 +89,8 @@ protected:
     SensorCalibration       m_calibration;
     Ticker                  m_ticker;
     I2C                     m_i2c;
-    ADXL345                 m_accelMag;
-    ITG3200                 m_gyro;
+    FXOS8700CQ              m_accelMag;
+    FXAS21002C              m_gyro;
     SensorCalibratedValues  m_midpoints;
     SensorCalibratedValues  m_scales;
     Quaternion              m_currentOrientation;
@@ -109,4 +109,4 @@ protected:
     bool                    m_resetRequested;
 };
 
-#endif /* SPARKFUN_9DOF_SENSOR_STICK_H_ */
+#endif /* ADAFRUIT_PRECISION_9DOF_H_ */

@@ -1,4 +1,4 @@
-/*  Copyright (C) 2016  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2021  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -10,24 +10,26 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 */
-#ifndef HMC5883L_H_
-#define HMC5883L_H_
+#ifndef FXOS8700CQ_H_
+#define FXOS8700CQ_H_
 
 #include <mbed.h>
-#include "Vector.h"
 #include "SensorBase.h"
+#include "Vector.h"
 
 
-class HMC5883L : public SensorBase
+class FXOS8700CQ : public SensorBase
 {
 public:
-    HMC5883L(I2C* pI2C, int address = 0x3C);
+    FXOS8700CQ(I2C* pI2C, int address = (0x1F<<1));
 
-    void getVector(Vector<int16_t>* pVector);
+    void getVectors(Vector<int16_t>* pAccelVector, Vector<int16_t>* pMagVector);
 
 protected:
+    void reset();
     void initMagnetometer();
+    void initAccelerometer();
     void waitForDataReady();
 };
 
-#endif /* HMC5883L_H_ */
+#endif /* FXOS8700CQ_H_ */

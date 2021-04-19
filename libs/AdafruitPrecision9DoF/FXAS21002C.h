@@ -10,18 +10,18 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 */
-#ifndef ITG3200_H_
-#define ITG3200_H_
+#ifndef FXAS21002C_H_
+#define FXAS21002C_H_
 
 #include <mbed.h>
 #include "Vector.h"
 #include "SensorBase.h"
 
 
-class ITG3200 : public SensorBase
+class FXAS21002C : public SensorBase
 {
 public:
-    ITG3200(I2C* pI2C, int address = (0x21<<1));
+    FXAS21002C(I2C* pI2C, int address = (0x21<<1));
 
     void getVector(Vector<int16_t>* pVector, int16_t* pTemperature);
 
@@ -29,4 +29,4 @@ protected:
     void initGyro();
 };
 
-#endif /* ITG3200_H_ */
+#endif /* FXAS21002C_H_ */

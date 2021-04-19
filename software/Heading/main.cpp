@@ -1,4 +1,4 @@
-/*  Copyright (C) 2016  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2021  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -17,7 +17,7 @@
 #include "DmaSerial.h"
 #include "FlashFileSystem.h"
 #include "files.h"
-#include "Sparkfun9DoFSensorStick.h"
+#include "AdafruitPrecision9DoF.h"
 
 enum OUTPUT_MODE
 {
@@ -60,9 +60,9 @@ int main()
 
 
     static SensorCalibration calibration = readConfigurationFile();
-    static Sparkfun9DoFSensorStick sensorStick(p9, p10, &calibration);
-    if (sensorStick.didInitFail())
-        error("Encountered I2C I/O error during Sparkfun 9DoF Sensor Stick init.\n");
+    static AdafruitPrecision9DoF sensors(p9, p10, &calibration);
+    if (sensors.didInitFail())
+        error("Encountered I2C I/O error during IMU sensor init.\n");
 
     for (;;)
     {
@@ -72,16 +72,16 @@ int main()
 
         if (wasResetRequested)
         {
-            sensorStick.reset();
+            sensors.reset();
             g_resetRequested = false;
         }
 
-        SensorValues sensorValues = sensorStick.getRawSensorValues();
-        if (sensorStick.didIoFail())
-            error("Encountered I2C I/O error during fetch of Sparkfun 9DoF Sensor Stick readings.\n");
-        SensorCalibratedValues calibratedValues = sensorStick.calibrateSensorValues(&sensorValues);
-        Quaternion orientation = sensorStick.getOrientation(&calibratedValues);
-        float headingAngle = sensorStick.getHeading(&orientation);
+        SensorValues sensorValues = sensors.getRawSensorValues();
+        if (sensors.didIoFail())
+            error("Encountered I2C I/O error during fetch of IMU sensor readings.\n");
+        SensorCalibratedValues calibratedValues = sensors.calibrateSensorValues(&sensorValues);
+        Quaternion orientation = sensors.getOrientation(&calibratedValues);
+        float headingAngle = sensors.getHeading(&orientation);
 
         int elapsedTime = timer.read_us();
         timer.reset();
@@ -106,7 +106,7 @@ int main()
                               sensorValues.gyro.x, sensorValues.gyro.y, sensorValues.gyro.z,
                               sensorValues.gyroTemperature,
                               elapsedTime,
-                              sensorStick.getIdleTimePercent(),
+                              sensors.getIdleTimePercent(),
                               orientation.w, orientation.x, orientation.y, orientation.z,
                               headingAngle);
             break;

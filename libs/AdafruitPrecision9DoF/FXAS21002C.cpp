@@ -1,4 +1,4 @@
-/*  Copyright (C) 2016  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2021  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -10,7 +10,7 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 */
-#include "ITG3200.h"
+#include "FXAS21002C.h"
 
 
 /* I2C Register Addresses */
@@ -77,12 +77,12 @@
 #define READY               (1 << 0)
 
 
-ITG3200::ITG3200(I2C* pI2C, int address /* = (0x21<<1) */) : SensorBase(pI2C, address)
+FXAS21002C::FXAS21002C(I2C* pI2C, int address /* = (0x21<<1) */) : SensorBase(pI2C, address)
 {
     initGyro();
 }
 
-void ITG3200::initGyro()
+void FXAS21002C::initGyro()
 {
     // Assume that init has failed until proven wrong.
     m_failedInit = 1;
@@ -113,7 +113,7 @@ void ITG3200::initGyro()
     m_failedInit = 0;
 }
 
-void ITG3200::getVector(Vector<int16_t>* pVector, int16_t* pTemperature)
+void FXAS21002C::getVector(Vector<int16_t>* pVector, int16_t* pTemperature)
 {
     char bigEndianData[2*3];
 

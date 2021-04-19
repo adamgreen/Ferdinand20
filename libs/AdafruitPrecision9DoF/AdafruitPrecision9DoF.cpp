@@ -1,4 +1,4 @@
-/*  Copyright (C) 2016  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2021  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -11,12 +11,12 @@
     GNU General Public License for more details.
 */
 #include <math.h>
-#include "Sparkfun9DoFSensorStick.h"
+#include "AdafruitPrecision9DoF.h"
 
 
-Sparkfun9DoFSensorStick::Sparkfun9DoFSensorStick(PinName sdaPin, PinName sclPin,
-                                                 const SensorCalibration* pCalibration /* = NULL */,
-                                                 uint32_t sampleRateHz /* = 100 */) :
+AdafruitPrecision9DoF::AdafruitPrecision9DoF(PinName sdaPin, PinName sclPin,
+                                             const SensorCalibration* pCalibration /* = NULL */,
+                                             uint32_t sampleRateHz /* = 100 */) :
     m_i2c(sdaPin, sclPin),
     m_accelMag(&m_i2c),
     m_gyro(&m_i2c)
@@ -36,14 +36,14 @@ Sparkfun9DoFSensorStick::Sparkfun9DoFSensorStick(PinName sdaPin, PinName sclPin,
     m_failedInit = m_accelMag.didInitFail() || m_gyro.didInitFail();
     m_failedIo = m_failedInit;
     if (!m_failedInit)
-        m_ticker.attach_us(callback(this, &Sparkfun9DoFSensorStick::tickHandler), 1000000 / sampleRateHz);
+        m_ticker.attach_us(callback(this, &AdafruitPrecision9DoF::tickHandler), 1000000 / sampleRateHz);
 
     m_idleTimePercent = 0.0f;
     m_totalTimer.start();
     m_idleTimer.start();
 }
 
-void Sparkfun9DoFSensorStick::calibrate(const SensorCalibration* pCalibration)
+void AdafruitPrecision9DoF::calibrate(const SensorCalibration* pCalibration)
 {
     if (!pCalibration)
         return;
@@ -83,7 +83,7 @@ void Sparkfun9DoFSensorStick::calibrate(const SensorCalibration* pCalibration)
     m_mountingCorrection = angleFromDegreeMinuteSecond(&m_calibration.mountingCorrection);
 }
 
-float Sparkfun9DoFSensorStick::angleFromDegreeMinuteSecond(Vector<float>* pAngle)
+float AdafruitPrecision9DoF::angleFromDegreeMinuteSecond(Vector<float>* pAngle)
 {
     float angleInDegrees;
 
@@ -95,7 +95,7 @@ float Sparkfun9DoFSensorStick::angleFromDegreeMinuteSecond(Vector<float>* pAngle
     return (angleInDegrees * (float)M_PI) / 180.0f;
 }
 
-void Sparkfun9DoFSensorStick::tickHandler()
+void AdafruitPrecision9DoF::tickHandler()
 {
     // Assume I/O failed unless we complete everything successfully and then clear this flag.
     int failedIo = 1;
@@ -120,7 +120,7 @@ void Sparkfun9DoFSensorStick::tickHandler()
 }
 
 
-SensorValues Sparkfun9DoFSensorStick::getRawSensorValues()
+SensorValues AdafruitPrecision9DoF::getRawSensorValues()
 {
     uint32_t     currentSample;
     SensorValues sensorValues;
@@ -143,7 +143,7 @@ SensorValues Sparkfun9DoFSensorStick::getRawSensorValues()
     return sensorValues;
 }
 
-SensorCalibratedValues Sparkfun9DoFSensorStick::calibrateSensorValues(const SensorValues* pRawValues)
+SensorCalibratedValues AdafruitPrecision9DoF::calibrateSensorValues(const SensorValues* pRawValues)
 {
     SensorCalibratedValues calibratedValues;
 
@@ -166,7 +166,7 @@ SensorCalibratedValues Sparkfun9DoFSensorStick::calibrateSensorValues(const Sens
     return calibratedValues;
 }
 
-Quaternion Sparkfun9DoFSensorStick::getOrientation(SensorCalibratedValues* pCalibratedValues)
+Quaternion AdafruitPrecision9DoF::getOrientation(SensorCalibratedValues* pCalibratedValues)
 {
     if (m_resetRequested)
         resetKalmanFilter(pCalibratedValues);
@@ -228,7 +228,7 @@ Quaternion Sparkfun9DoFSensorStick::getOrientation(SensorCalibratedValues* pCali
     return m_currentOrientation;
 }
 
-void Sparkfun9DoFSensorStick::resetKalmanFilter(SensorCalibratedValues* pCalibratedValues)
+void AdafruitPrecision9DoF::resetKalmanFilter(SensorCalibratedValues* pCalibratedValues)
 {
     m_kalmanP.clear();
     for (int i = 0 ; i < 4 ; i++)
@@ -238,7 +238,7 @@ void Sparkfun9DoFSensorStick::resetKalmanFilter(SensorCalibratedValues* pCalibra
     m_resetRequested = false;
 }
 
-Quaternion Sparkfun9DoFSensorStick::getOrientationFromAccelerometerMagnetometerMeasurements(SensorCalibratedValues* pCalibratedValues)
+Quaternion AdafruitPrecision9DoF::getOrientationFromAccelerometerMagnetometerMeasurements(SensorCalibratedValues* pCalibratedValues)
 {
     // Setup gravity (down) and north vectors.
     // NOTE: The fields are swizzled to make the axis on the device match the axis on the screen.
@@ -269,7 +269,7 @@ Quaternion Sparkfun9DoFSensorStick::getOrientationFromAccelerometerMagnetometerM
     return rotationQuaternion;
 }
 
-float Sparkfun9DoFSensorStick::getHeading(Quaternion* pOrientation)
+float AdafruitPrecision9DoF::getHeading(Quaternion* pOrientation)
 {
     // Correct compass heading for declination at location where the robot is being run.
     // Also account for how the IMU is mounted to the robot. The yaw reading is negated to
@@ -278,7 +278,7 @@ float Sparkfun9DoFSensorStick::getHeading(Quaternion* pOrientation)
     return constrainAngle(-getYaw(pOrientation) + m_declinationCorrection + m_mountingCorrection);
 }
 
-float Sparkfun9DoFSensorStick::constrainAngle(float angle)
+float AdafruitPrecision9DoF::constrainAngle(float angle)
 {
     if (angle < -(float)M_PI)
         return angle + 2.0f*(float)M_PI;
@@ -288,7 +288,7 @@ float Sparkfun9DoFSensorStick::constrainAngle(float angle)
         return angle;
 }
 
-float Sparkfun9DoFSensorStick::getYaw(Quaternion* pOrientation)
+float AdafruitPrecision9DoF::getYaw(Quaternion* pOrientation)
 {
     float w = pOrientation->w;
     float x = pOrientation->x;
@@ -298,7 +298,7 @@ float Sparkfun9DoFSensorStick::getYaw(Quaternion* pOrientation)
     return atan2f(2.0f*(x*z+y*w), 1.0f-2.0f*(x*x+y*y));
 }
 
-float Sparkfun9DoFSensorStick::getPitch(Quaternion* pOrientation)
+float AdafruitPrecision9DoF::getPitch(Quaternion* pOrientation)
 {
     float w = pOrientation->w;
     float x = pOrientation->x;
@@ -308,7 +308,7 @@ float Sparkfun9DoFSensorStick::getPitch(Quaternion* pOrientation)
     return asinf(-2.0f*(y*z-x*w));
 }
 
-float Sparkfun9DoFSensorStick::getRoll(Quaternion* pOrientation)
+float AdafruitPrecision9DoF::getRoll(Quaternion* pOrientation)
 {
     float w = pOrientation->w;
     float x = pOrientation->x;

@@ -28,7 +28,7 @@ When starting out on Ferdinand20, I noticed that Sparkfun no longer sells this b
 
 ### Next Steps
 Based on my recent research, I think it should only take a week or two to switch to this new IMU hardware:
-* I need to update the I2C drivers for the two chips on this new breakout board.
+* ~~I need to update the I2C drivers for the two chips on this new breakout board.~~
 * Run the resulting raw sensor readings through my [existing calibration process](https://github.com/adamgreen/Ferdinand14#august-19-2014) to create an updated config.ini.
 * Test the new hardware with my [existing Processing based GUI](https://github.com/adamgreen/Ferdinand16/tree/master/processing/orientation).
 
@@ -101,9 +101,9 @@ I paused this project for a few months to get some work done on other projects:
 ### Next Steps
 * ~~The [RoboGrok course](http://www.robogrok.com) had some interesting sections on computer vision. I would like to take some of my vision coursework and try modifying it to detect traffic cones for the [Robo-Magellan](https://robothon.org/rules-robo-magellan/) competition.~~
 * ~~The BLE connection between the power distribution board and the remote control that I built for the bot last year isn't as reliable as my initial prototypes. I want to do some experiments to determine what the actual cause is so that I can redesign it in the future.~~
-* Figure out how I want to progress on the IMU front by picking one of the following approaches:
-  * Hack up a connection to the IMU that I built for my earlier [Ferdinand16](https://github.com/adamgreen/Ferdinand16) attempt.
-  * Port the Ferdinand16 firmware to work with the [NXP 9-DoF Breakout Board - FXOS8700 + FXAS21002](https://www.adafruit.com/product/3463) IMU board that I bought from Adafruit when I started working on Ferdinand20.
+* ~~Figure out how I want to progress on the IMU front by picking one of the following approaches:~~
+  * ~~Hack up a connection to the IMU that I built for my earlier [Ferdinand16](https://github.com/adamgreen/Ferdinand16) attempt.~~
+  * ~~Port the Ferdinand16 firmware to work with the [NXP 9-DoF Breakout Board - FXOS8700 + FXAS21002](https://www.adafruit.com/product/3463) IMU board that I bought from Adafruit when I started working on Ferdinand20.~~
 
 
 
