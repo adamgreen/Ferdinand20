@@ -126,8 +126,8 @@ void FXAS21002C::getVector(Vector<int16_t>* pVector, int16_t* pTemperature)
     pVector->y = (bigEndianData[2] << 8) | bigEndianData[3];
     pVector->z = (bigEndianData[4] << 8) | bigEndianData[5];
 
-    char temp;
-    readRegister(TEMP, &temp);
+    int8_t temp;
+    readRegister(TEMP, (char*)&temp);
     if (m_failedIo)
         return;
     *pTemperature = temp;
