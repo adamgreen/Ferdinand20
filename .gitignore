@@ -46,5 +46,9 @@ software/Heading/files.h
 # Rust build output
 target/
 
+# Output from calibration application.
+processing/calibration/gyro.csv
+processing/calibration/stats.csv
+
 # Second unmodified copy of SDK used for making patches.
 software/nrfSDK2/
