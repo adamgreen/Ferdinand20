@@ -60,7 +60,7 @@ int main()
 
 
     static SensorCalibration calibration = readConfigurationFile();
-    static AdafruitPrecision9DoF sensors(p9, p10, &calibration);
+    static AdafruitPrecision9DoF sensors(p9, p10, p30, &calibration);
     if (sensors.didInitFail())
         error("Encountered I2C I/O error during IMU sensor init.\n");
 

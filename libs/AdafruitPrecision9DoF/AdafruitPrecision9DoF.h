@@ -58,7 +58,7 @@ struct SensorCalibration
 class AdafruitPrecision9DoF
 {
 public:
-    AdafruitPrecision9DoF(PinName sdaPin, PinName sclPin,
+    AdafruitPrecision9DoF(PinName sdaPin, PinName sclPin, PinName int1Pin,
                           const SensorCalibration* pCalibration = NULL,
                           uint32_t sampleRateHz = 100);
 
@@ -82,13 +82,13 @@ protected:
     void         resetKalmanFilter(SensorCalibratedValues* pCalibratedValues);
     Quaternion   getOrientationFromAccelerometerMagnetometerMeasurements(SensorCalibratedValues* pCalibratedValues);
     static float angleFromDegreeMinuteSecond(Vector<float>* pAngle);
-    void         tickHandler();
+    void         interruptHandler();
 
     Timer                   m_totalTimer;
     Timer                   m_idleTimer;
     SensorCalibration       m_calibration;
-    Ticker                  m_ticker;
     I2C                     m_i2c;
+    InterruptIn             m_int1Pin;
     FXOS8700CQ              m_accelMag;
     FXAS21002C              m_gyro;
     SensorCalibratedValues  m_midpoints;

@@ -14,10 +14,11 @@
 #include "AdafruitPrecision9DoF.h"
 
 
-AdafruitPrecision9DoF::AdafruitPrecision9DoF(PinName sdaPin, PinName sclPin,
+AdafruitPrecision9DoF::AdafruitPrecision9DoF(PinName sdaPin, PinName sclPin, PinName int1Pin,
                                              const SensorCalibration* pCalibration /* = NULL */,
                                              uint32_t sampleRateHz /* = 100 */) :
     m_i2c(sdaPin, sclPin),
+    m_int1Pin(int1Pin),
     m_accelMag(&m_i2c),
     m_gyro(&m_i2c)
 {
@@ -36,7 +37,10 @@ AdafruitPrecision9DoF::AdafruitPrecision9DoF(PinName sdaPin, PinName sclPin,
     m_failedInit = m_accelMag.didInitFail() || m_gyro.didInitFail();
     m_failedIo = m_failedInit;
     if (!m_failedInit)
-        m_ticker.attach_us(callback(this, &AdafruitPrecision9DoF::tickHandler), 1000000 / sampleRateHz);
+    {
+        interruptHandler();
+        m_int1Pin.fall(callback(this, &AdafruitPrecision9DoF::interruptHandler));
+    }
 
     m_idleTimePercent = 0.0f;
     m_totalTimer.start();
@@ -95,7 +99,7 @@ float AdafruitPrecision9DoF::angleFromDegreeMinuteSecond(Vector<float>* pAngle)
     return (angleInDegrees * (float)M_PI) / 180.0f;
 }
 
-void AdafruitPrecision9DoF::tickHandler()
+void AdafruitPrecision9DoF::interruptHandler()
 {
     // Assume I/O failed unless we complete everything successfully and then clear this flag.
     int failedIo = 1;

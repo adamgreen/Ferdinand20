@@ -182,8 +182,37 @@
 #define MODS_HIGH_RESOLUTION        (2 << MODS_SHIFT)
 #define MODS_LOW_POWER              (3 << MODS_SHIFT)
 
-/* CMP_*_MSB/LSB values are right justified and need to be left justified by 2 bits. */
-#define CMP_LEFT_SHIFT              (16-14)
+/* CTRL_REG3 bits */
+#define FIFO_GATE                   (1 << 7)
+#define WAKE_TRANS                  (1 << 6)
+#define WAKE_LNDPRT                 (1 << 5)
+#define WAKE_PULSE                  (1 << 4)
+#define WAKE_FFMT                   (1 << 3)
+#define WAKE_A_VECM                 (1 << 2)
+#define IPOL                        (1 << 1)
+#define PP_OD                       (1 << 0)
+
+/* CTRL_REG4 bits */
+#define INT_EN_ASLP                 (1 << 7)
+#define INT_EN_FIFO                 (1 << 6)
+#define INT_EN_TRANS                (1 << 5)
+#define INT_EN_LNDPRT               (1 << 4)
+#define INT_EN_PULSE                (1 << 3)
+#define INT_EN_FFMT                 (1 << 2)
+#define INT_EN_A_VECM               (1 << 1)
+/*  Interrupt on data ready enabled when set to 1. */
+#define INT_EN_DRDY                 (1 << 0)
+
+/* CTRL_REG5 bits */
+#define INT_CFG_ASLP                (1 << 7)
+#define INT_CFG_FIFO                (1 << 6)
+#define INT_CFG_TRANS               (1 << 5)
+#define INT_CFG_LNDPRT              (1 << 4)
+#define INT_CFG_PULSE               (1 << 3)
+#define INT_CFG_FFMT                (1 << 2)
+#define INT_CFG_A_VECM              (1 << 1)
+/*  Data-ready interrupt is routed to INT1 (if set to 1) or INT2 (if set to 0). */
+#define INT_CFG_DRDY                (1 << 0)
 
 /* M_CTRL_REG1 bits */
 /*  Magnetic hard-iron offset auto-calibration enabled when set to 1. */
@@ -258,7 +287,6 @@ void FXOS8700CQ::initAccelerometer()
     // Assume that init has failed until proven wrong.
     m_failedInit = 1;
 
-    // UNDONE: Do I need more than 2g?
     // Set to +/-2g full scale.
     writeRegister(XYZ_DATA_CFG, FS_2G);
     if (m_failedIo)
@@ -267,8 +295,13 @@ void FXOS8700CQ::initAccelerometer()
     writeRegister(CTRL_REG2, MODS_HIGH_RESOLUTION);
     if (m_failedIo)
         return;
-    // UNDONE: Experimenting with low noise.
-    // UNDONE: Hardcoded for 100Hz right now (200Hz is halved when in hybrid mode. */
+    // Enable data ready interrupt on INT2 pin. Will go low when data is ready.
+    writeRegister(CTRL_REG4, INT_EN_DRDY);
+    if (m_failedIo)
+        return;
+
+    // UNDONE: Hardcoded for 100Hz right now (200Hz is halved when in hybrid mode.)
+    // Enable low noise mode for the accelerometer and set the sampling rate.
     // Also switches device back into active mode.
     writeRegister(CTRL_REG1, DR_200_HZ | LNOISE | ACTIVE);
     if (m_failedIo)
@@ -295,7 +328,8 @@ void FXOS8700CQ::getVectors(Vector<int16_t>* pAccelVector, Vector<int16_t>* pMag
     pAccelVector->z = ((uint16_t)buffer[10] << 8) | buffer[11];
 
     // Sign extend 14-bit signed values into 16-bit values.
-    pAccelVector->x = (int16_t)(pAccelVector->x << CMP_LEFT_SHIFT) >> CMP_LEFT_SHIFT;
-    pAccelVector->y = (int16_t)(pAccelVector->y << CMP_LEFT_SHIFT) >> CMP_LEFT_SHIFT;
-    pAccelVector->z = (int16_t)(pAccelVector->z << CMP_LEFT_SHIFT) >> CMP_LEFT_SHIFT;
+    const int shift14to16 = 16-14;
+    pAccelVector->x = (int16_t)(pAccelVector->x << shift14to16) >> shift14to16;
+    pAccelVector->y = (int16_t)(pAccelVector->y << shift14to16) >> shift14to16;
+    pAccelVector->z = (int16_t)(pAccelVector->z << shift14to16) >> shift14to16;
 }
