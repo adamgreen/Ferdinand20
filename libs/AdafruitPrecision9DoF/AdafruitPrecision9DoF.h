@@ -37,6 +37,7 @@ struct SensorCalibratedValues
 
 struct SensorCalibration
 {
+    int32_t           rate;
     float             initialVariance;
     float             gyroVariance;
     float             accelMagVariance;
@@ -59,8 +60,7 @@ class AdafruitPrecision9DoF
 {
 public:
     AdafruitPrecision9DoF(PinName sdaPin, PinName sclPin, PinName int1Pin,
-                          const SensorCalibration* pCalibration = NULL,
-                          uint32_t sampleRateHz = 100);
+                          const SensorCalibration* pCalibration = NULL);
 
     void calibrate(const SensorCalibration* pCalibration);
 

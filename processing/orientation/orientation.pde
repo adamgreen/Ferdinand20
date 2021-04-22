@@ -75,6 +75,7 @@ void setup()
   g_calibration.initialVariance = configFile.getFloat("compass.initial.variance");
   g_calibration.gyroVariance = configFile.getFloat("compass.gyro.variance");
   g_calibration.accelMagVariance = configFile.getFloat("compass.accelerometer.magnetometer.variance");
+  g_calibration.rate = configFile.getInt("compass.rate");
   
   g_kalmanP = new PMatrix3D(g_calibration.initialVariance,                          0.0f,                          0.0f, 0.0f,
                                                      0.0f, g_calibration.initialVariance,                          0.0f, 0.0f,
@@ -344,7 +345,7 @@ float[] calculateGyroRotation(FloatHeading heading, float[] currentQuaternion)
 */
 
   // Apply gyro rates (derivatives) to quaternion.
-  float timeScale = (1.0f / 100.0f) * 0.5f;
+  float timeScale = (1.0f / g_calibration.rate) * 0.5f;
   gyroX *= timeScale;
   gyroY *= timeScale;
   gyroZ *= timeScale;
@@ -498,7 +499,7 @@ float[] calculateKalmanRotation(FloatHeading heading, float[] currentQuaternion)
 
   // Construct matrix which applies gyro rates (derivatives) to quaternion.
   // This will be the A matrix for the system model.
-  final float timeScale = (1.0f / 100.0f);
+  final float timeScale = (1.0f / g_calibration.rate);
   final float scaleFactor = timeScale * 0.5f;
   gyroX *= scaleFactor;
   gyroY *= scaleFactor;

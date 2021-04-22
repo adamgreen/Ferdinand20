@@ -77,15 +77,33 @@
 #define READY               (1 << 0)
 
 
-FXAS21002C::FXAS21002C(I2C* pI2C, int address /* = (0x21<<1) */) : SensorBase(pI2C, address)
+FXAS21002C::FXAS21002C(int32_t sampleRateHz, I2C* pI2C, int address /* = (0x21<<1) */) : SensorBase(pI2C, address)
 {
-    initGyro();
+    initGyro(sampleRateHz);
 }
 
-void FXAS21002C::initGyro()
+void FXAS21002C::initGyro(int32_t sampleRateHz)
 {
     // Assume that init has failed until proven wrong.
     m_failedInit = 1;
+
+    // Determine register setting appropriate for requested sample rate.
+    uint8_t rate = 0;
+    switch (sampleRateHz)
+    {
+        case 400:
+            rate = DR_400_HZ;
+            break;
+        case 200:
+            rate = DR_200_HZ;
+            break;
+        case 100:
+            rate = DR_100_HZ;
+            break;
+        default:
+            // Invalid rate requested.
+            return;
+    }
 
     // Reset to make sure that device is in standby mode.
     // NOTE: Ignore any I2C error as a reset will truncate the ACK.
@@ -99,10 +117,9 @@ void FXAS21002C::initGyro()
     writeRegister(CTRL_REG0, BW_HIGHEST_FREQ | FS_2000_DPS);
     if (m_failedIo)
         return;
-    // UNDONE: Hardcoded for 100Hz right now.
-    // Set sampling rate to 100Hz.
+    // Set sampling rate to desired frequency.
     // Also switches device back into active mode.
-    writeRegister(CTRL_REG1, DR_100_HZ | ACTIVE);
+    writeRegister(CTRL_REG1, rate | ACTIVE);
     if (m_failedIo)
         return;
 

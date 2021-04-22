@@ -21,14 +21,14 @@
 class FXOS8700CQ : public SensorBase
 {
 public:
-    FXOS8700CQ(I2C* pI2C, int address = (0x1F<<1));
+    FXOS8700CQ(int32_t sampleRateHz, I2C* pI2C, int address = (0x1F<<1));
 
     void getVectors(Vector<int16_t>* pAccelVector, Vector<int16_t>* pMagVector);
 
 protected:
     void reset();
     void initMagnetometer();
-    void initAccelerometer();
+    void initAccelerometer(int32_t sampleRateHz);
     void waitForDataReady();
 };
 

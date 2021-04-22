@@ -21,12 +21,12 @@
 class FXAS21002C : public SensorBase
 {
 public:
-    FXAS21002C(I2C* pI2C, int address = (0x21<<1));
+    FXAS21002C(int32_t sampleRateHz, I2C* pI2C, int address = (0x21<<1));
 
     void getVector(Vector<int16_t>* pVector, int16_t* pTemperature);
 
 protected:
-    void initGyro();
+    void initGyro(int32_t sampleRateHz);
 };
 
 #endif /* FXAS21002C_H_ */

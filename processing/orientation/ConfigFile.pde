@@ -64,6 +64,19 @@ class ConfigFile
     return Float.NaN;
   }
   
+  public int getInt(String paramName)
+  {
+    String paramValue = findParam(paramName);
+    if (paramValue != null)
+    {
+      String fields[] = splitTokens(paramValue, ", ");
+      if (fields.length != 1)
+        return 0;
+      return int(fields[0]);
+    }
+    return 0;
+  }
+  
   protected String findParam(String paramName)
   {
     for (int i = 0 ; i < m_lines.length ; i++)

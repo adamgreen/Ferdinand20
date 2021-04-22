@@ -15,21 +15,17 @@
 
 
 AdafruitPrecision9DoF::AdafruitPrecision9DoF(PinName sdaPin, PinName sclPin, PinName int1Pin,
-                                             const SensorCalibration* pCalibration /* = NULL */,
-                                             uint32_t sampleRateHz /* = 100 */) :
+                                             const SensorCalibration* pCalibration /* = NULL */) :
     m_i2c(sdaPin, sclPin),
     m_int1Pin(int1Pin),
-    m_accelMag(&m_i2c),
-    m_gyro(&m_i2c)
+    m_accelMag(pCalibration->rate, &m_i2c),
+    m_gyro(pCalibration->rate, &m_i2c)
 {
     m_i2c.frequency(400000);
     m_failedIo = 0;
     m_failedInit = 0;
     m_currentSample = 0;
     m_lastSample = 0;
-    // The 0.5f is part of the math that relates gyro rates to rotation derivative and is just pre-calculated here
-    // along with the time delta to improve runtime performance.
-    m_gyroTimeScaleFactor = (1.0f / sampleRateHz) * 0.5f;
     m_resetRequested = true;
 
     calibrate(pCalibration);
@@ -52,6 +48,10 @@ void AdafruitPrecision9DoF::calibrate(const SensorCalibration* pCalibration)
     if (!pCalibration)
         return;
     m_calibration = *pCalibration;
+
+    // The 0.5f is part of the math that relates gyro rates to rotation derivative and is just pre-calculated here
+    // along with the time delta to improve runtime performance.
+    m_gyroTimeScaleFactor = (1.0f / m_calibration.rate) * 0.5f;
 
     m_midpoints.accel.x = (m_calibration.accelMin.x + m_calibration.accelMax.x) / 2.0f;
     m_midpoints.accel.y = (m_calibration.accelMin.y + m_calibration.accelMax.y) / 2.0f;

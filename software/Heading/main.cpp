@@ -176,6 +176,8 @@ static SensorCalibration readConfigurationFile()
         error("Failed to read compass.declinationCorrection\n");
     if (!configFile.getFloatVector("compass.mountingCorrection", &calibration.mountingCorrection))
         error("Failed to read compass.mountingCorrection\n");
+    if (!configFile.getInt("compass.rate", &calibration.rate))
+        error("Failed to read compass.rate\n");
 
     return calibration;
 }

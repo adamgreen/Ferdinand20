@@ -12,6 +12,7 @@
 */
 class HeadingSensorCalibration
 {
+  public int         rate;
   public float       initialVariance;
   public float       gyroVariance;
   public float       accelMagVariance;

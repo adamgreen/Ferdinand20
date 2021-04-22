@@ -246,13 +246,13 @@
 #define M_RST_CNT_DISABLED  3
 
 
-FXOS8700CQ::FXOS8700CQ(I2C* pI2C, int address /* = (0x1F<<1) */) : SensorBase(pI2C, address)
+FXOS8700CQ::FXOS8700CQ(int32_t sampleRateHz, I2C* pI2C, int address /* = (0x1F<<1) */) : SensorBase(pI2C, address)
 {
     reset();
     initMagnetometer();
     if (m_failedInit)
         return;
-    initAccelerometer();
+    initAccelerometer(sampleRateHz);
     if (m_failedInit)
         return;
 }
@@ -282,10 +282,29 @@ void FXOS8700CQ::initMagnetometer()
     m_failedInit = 0;
 }
 
-void FXOS8700CQ::initAccelerometer()
+void FXOS8700CQ::initAccelerometer(int32_t sampleRateHz)
 {
     // Assume that init has failed until proven wrong.
     m_failedInit = 1;
+
+    // Determine sample rate register setting appropriate for requested sample rate.
+    // Sampling frequency needs to be 2x requested rate in hybrid mode.
+    uint8_t rate = 0;
+    switch (sampleRateHz)
+    {
+        case 400:
+            rate = DR_800_HZ;
+            break;
+        case 200:
+            rate = DR_400_HZ;
+            break;
+        case 100:
+            rate = DR_200_HZ;
+            break;
+        default:
+            // Invalid rate requested.
+            return;
+    }
 
     // Set to +/-2g full scale.
     writeRegister(XYZ_DATA_CFG, FS_2G);
@@ -300,10 +319,9 @@ void FXOS8700CQ::initAccelerometer()
     if (m_failedIo)
         return;
 
-    // UNDONE: Hardcoded for 100Hz right now (200Hz is halved when in hybrid mode.)
     // Enable low noise mode for the accelerometer and set the sampling rate.
     // Also switches device back into active mode.
-    writeRegister(CTRL_REG1, DR_200_HZ | LNOISE | ACTIVE);
+    writeRegister(CTRL_REG1, rate | LNOISE | ACTIVE);
     if (m_failedIo)
         return;
 

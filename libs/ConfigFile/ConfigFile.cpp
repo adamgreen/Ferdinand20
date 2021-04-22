@@ -12,6 +12,7 @@
 */
 #include <ctype.h>
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -143,6 +144,21 @@ bool ConfigFile::getFloat(const char* pParamName, float* pFloat)
     skipWhitespace();
     if (*m_pCurr != '\r' && *m_pCurr != '\n' && *m_pCurr != '\0')
         return false;
+
+    return true;
+}
+
+bool ConfigFile::getInt(const char* pParamName, int32_t* pInt)
+{
+    const char* pCurr = findParameter(pParamName);
+    if (!pCurr)
+        return false;
+
+    long val = strtol(m_pCurr, (char**)&m_pCurr, 10);
+    skipWhitespace();
+    if ((*m_pCurr != '\r' && *m_pCurr != '\n' && *m_pCurr != '\0') || val < INT_MIN || val > INT_MAX)
+        return false;
+    *pInt = (int32_t)val;
 
     return true;
 }

@@ -29,6 +29,7 @@ public:
     bool getIntVector(const char* pParamName, Vector<int16_t>* pVector);
     bool getFloatVector(const char* pParamName, Vector<float>* pVector);
     bool getFloat(const char* pParamName, float* pFloat);
+    bool getInt(const char* pParamName, int32_t* pInt);
 
 protected:
     long getFileSize(FILE* pFile);
