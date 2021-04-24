@@ -14,6 +14,51 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## April 23rd, 2021
+### New IMU Hardware - Up and Running!
+![Animated GIF of IMU](photos/20210423-01.gif)<br>
+I spent this week getting the [Adafruit Precision NXP 9-DoF Breakout Board](https://www.adafruit.com/product/3463) working with my existing [Ferdinand16](https://github.com/adamgreen/Ferdinand16#readme) IMU code:
+* I copied over the Kalman filter and I2C drivers and got them working in a newer build environment:
+  * I updated my FlashFileSystem driver to work with the newer build of the mbed SDK. This file system is used to read the ```config.ini``` embedded in the firmware image as part of the build process.
+  * I reorganized the code to move the drivers out into a ```libs/``` folder so that they didn't clutter up the ```software/``` folder.
+* I rewrote the I2C drivers to work with the NXP FXOS8700CQ Accelerometer/Magnetometer and the NXP FXAS21002C Gyroscope:
+  * My original IMU code only ran at 100Hz. I added the ability to switch between sampling rates (100/200/400Hz) from a setting in ```files/config.ini```. I am now using 200Hz for testing as 400Hz swamps the UART with too much data when communicating the orientation back to the PC in certain scenarios. It could probably run at 400Hz on the robot though as it doesn't require this communication.
+  * Now samples the FXOS8700CQ Accelerometer/Magnetometer measurements on a data ready interrupt rather than a fixed timer. According to an errata from NXP, this is supposed to decrease the chance of I2C communications interfering with the magnetometer analog front end.
+* I copied over my [Ferdinand14 calibration application](https://github.com/adamgreen/Ferdinand14/tree/master/calibration) and it pretty much just worked with the latest release of Processing.
+* I was then able to use the calibration application to [calculate the settings for these sensors](https://github.com/adamgreen/Ferdinand14#august-19-2014) and update them in ```files/config.ini```.
+* I copied over my [Ferdinand16 orientation application](https://github.com/adamgreen/Ferdinand16/tree/master/processing/orientation) and got it working on newer builds of [Processing](https://processing.org):
+  * I had to use the Processing 4 alpha as the 3D graphics are broken in the current Processing 3 release on macOS.
+  * I fixed some bugs that I noticed when testing my new sensor that I must have missed in previous testing 5 years ago.
+  * I updated it to pull more configuration options from the ```config.ini``` rather than being hardcoded (variance settings, sampling rate, etc) in the sources. It also now reads from the same ```files/config.ini``` built into the firmware so that they use matching configuration options.
+  * This program is used to measure the gyro and accelerometer/magnetometer variances to be placed in ```config.ini```. If the sensor is left unmoved for a few minutes, the statistics of how each sensor contributes to noise in the quaternion representation of the orientation will be dumped to the Processing console.
+
+Issues I encountered while testing this port:
+* The temperature readings on the NXP FXAS21002C Gyroscope  are lower resolution than the InvenSense ITG-3200 Gyroscope that I used before. This limits the resolution of the gyro drift compensation that I can use on this sensor. The good news is that this gyro shows significantly less drift during my testing at temperatures between 20 and 30C.
+* While the gyro drift was pretty low when the die temperature was between 20 and 30C, it showed some very odd non-linear drift characteristics at lower temperatures which would be difficult to calibrate away. Luckily my bot isn't likely to be running at lower temperatures and the drift appears to be linear above 20C so my existing drift compensation can still be used to further reduce the drift.
+![Drift vs Temperature Graph](photos/20210423-03.png)
+* The NXP FXAS21002C Gyroscope measurements contain more noise than I encountered with the InvenSense ITG-3200 Gyroscope. The noise resulted in a 10x increase in the ```compass.gyro.variance``` setting.
+```diff
+-compass.initial.variance=1.0E-4
+-compass.gyro.variance=6.5E-11
+-compass.accelerometer.magnetometer.variance=1.0E-5
++compass.initial.variance=2.0E-4
++compass.gyro.variance=6.0E-10
++compass.accelerometer.magnetometer.variance=2.0E-4
+```
+* I see a lot more jitter in the orientation when run in Accelerometer/Magnetometer only mode. This jitter can also be seen in the Kalman filtered results, though much reduced as one would expect. If I hardcode the magnetometer reading and only use the accelerometer, there is almost no jitter at all so it is the magnetometer that causes it. Actually I think the accelerometer in the NXP FXOS8700CQ is better than the one I used previously.
+
+### What's Inside the Box?
+What's inside the brown box shown in the animated GIF at the beginning of this post?
+<br><img src="photos/20210423-02.jpg" alt="Inside the Box" width="320"/><br>
+It contains a [mbed 1768](https://os.mbed.com/platforms/mbed-LPC1768/) connected to a [Adafruit Precision NXP 9-DOF Breakout Board](https://www.adafruit.com/product/3463).
+
+### Next Steps
+Now that I have my IMU code working again on newer hardware, I want to continue fleshing out the dead reckoning part of the project. With that in mind, I will concentrate on the following next week:
+* Determine distance travelled by the wheels on my [Sawppy](https://github.com/Roger-random/Sawppy_Rover#readme) frame.
+
+
+
+---
 ## April 16th, 2021
 ### Upgrade my IMU Hardware?
 #### Sparkfun 9 DoF - Sensor Stick
@@ -29,8 +74,8 @@ When starting out on Ferdinand20, I noticed that Sparkfun no longer sells this b
 ### Next Steps
 Based on my recent research, I think it should only take a week or two to switch to this new IMU hardware:
 * ~~I need to update the I2C drivers for the two chips on this new breakout board.~~
-* Run the resulting raw sensor readings through my [existing calibration process](https://github.com/adamgreen/Ferdinand14#august-19-2014) to create an updated config.ini.
-* Test the new hardware with my [existing Processing based GUI](https://github.com/adamgreen/Ferdinand16/tree/master/processing/orientation).
+* ~~Run the resulting raw sensor readings through my [existing calibration process](https://github.com/adamgreen/Ferdinand14#august-19-2014) to create an updated config.ini.~~
+* ~~Test the new hardware with my [existing Processing based GUI](https://github.com/adamgreen/Ferdinand16/tree/master/processing/orientation).~~
 
 
 
