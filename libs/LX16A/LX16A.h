@@ -21,9 +21,16 @@
 
 
 // Constants used to convert angle in degrees or radians to the corresponding LX-16A servo angle integer value.
-#define LX16A_DEGREE_TO_SERVO_VALUE (1.0f / 0.24f)
-#define LX16A_RADIAN_TO_DEGREE (180.0f/M_PI)
-#define LX16A_RADIAN_TO_SERVO_VALUE (LX16A_RADIAN_TO_DEGREE * LX16A_DEGREE_TO_SERVO_VALUE)
+#define LX16A_SERVO_TO_DEGREE_VALUE (240.0f / 1000.0f)
+#define LX16A_DEGREE_TO_SERVO_VALUE (1.0f / LX16A_SERVO_TO_DEGREE_VALUE)
+#define LX16A_SERVO_TO_RADIAN_VALUE ((4.0f / 3.0f * (float)M_PI) / 1000.0f)
+#define LX16A_RADIAN_TO_SERVO_VALUE (1.0f / LX16A_SERVO_TO_RADIAN_VALUE)
+#define LX16A_RADIAN_TO_DEGREE (180.0f/(float)M_PI)
+#define LX16A_DEGREE_TO_RADIAN ((float)M_PI/180.0f)
+
+// Minimum and maximum rotation speeds.
+#define LX16A_ROTATION_SPEED_MIN -1000
+#define LX16A_ROTATION_SPEED_MAX 1000
 
 
 

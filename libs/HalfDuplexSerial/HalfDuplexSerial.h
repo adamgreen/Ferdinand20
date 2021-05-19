@@ -37,6 +37,7 @@ class HalfDuplexSerial : private SerialBase
         void switchToTransmit();
         void emptyRx();
         int readByteWithTimeout(uint32_t msecTimeout);
+        void verifyNoErrors();
 
         gpio_t m_gpioForTx;
         Timer  m_timer;

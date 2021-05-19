@@ -17,6 +17,9 @@
 #include "HalfDuplexSerial.h"
 
 
+#define LPC1768_FIFO_SIZE   16
+
+
 
 HalfDuplexSerial::HalfDuplexSerial(PinName tx, PinName rx, int baud) :
     SerialBase(tx, rx, baud)
@@ -51,6 +54,12 @@ void HalfDuplexSerial::write(const void* pWrite, size_t writeSize)
         emptyRxOfEchoedBytes();
         _base_putc(*pSrc++);
         m_bytesOutstanding++;
+    }
+
+    // Don't allow Rx FIFO to overflow.
+    while (m_bytesOutstanding > LPC1768_FIFO_SIZE)
+    {
+        emptyRxOfEchoedBytes();
     }
 }
 
@@ -90,7 +99,16 @@ bool HalfDuplexSerial::isLastTransmitComplete()
 {
     const uint32_t TEMT = 1 << 6;
 
+    verifyNoErrors();
+
     return (_serial.uart->LSR & TEMT) != 0;
+}
+
+void HalfDuplexSerial::verifyNoErrors()
+{
+    volatile uint32_t lsr = _serial.uart->LSR;
+
+    assert ( (lsr & (0xF << 1)) == 0 );
 }
 
 void HalfDuplexSerial::switchToTransmit()
@@ -117,6 +135,7 @@ void HalfDuplexSerial::emptyRx()
 {
     while (readable())
     {
+        verifyNoErrors();
         _base_getc();
     }
 }
@@ -126,8 +145,10 @@ void HalfDuplexSerial::emptyRxOfEchoedBytes()
     assert ( m_state == TRANSMITTING );
 
     // Discard echoed bytes while in transmit mode.
+    verifyNoErrors();
     while (readable() && m_bytesOutstanding > 0)
     {
+        verifyNoErrors();
         _base_getc();
         m_bytesOutstanding--;
     }
@@ -155,12 +176,15 @@ size_t HalfDuplexSerial::read(void* pRead, size_t readSize, int msecTimeout)
 int HalfDuplexSerial::readByteWithTimeout(uint32_t msecTimeout)
 {
     m_timer.reset();
+    verifyNoErrors();
     while (!readable() && (uint32_t)m_timer.read_ms() < msecTimeout)
     {
         // Wait for byte to be available for reading...
+        verifyNoErrors();
     }
     if (readable())
     {
+        verifyNoErrors();
         return _base_getc();
     }
 

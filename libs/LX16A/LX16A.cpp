@@ -61,6 +61,8 @@
 #define HIGH_BYTE(U16) ((uint8_t)(((U16) >> 8) & 0xFF))
 #define LOW_BYTE(U16)  ((uint8_t)((U16) & 0xFF))
 
+// Timeout to use when waiting for a serial response from the LX-16A servo.
+#define RESPONSE_TIMEOUT_MSEC 250
 
 
 LX16A_ServoBus::LX16A_ServoBus(PinName txPin, PinName rxPin) :
@@ -125,7 +127,7 @@ bool LX16A_ServoBus::readResponse(uint8_t expectedServoId, uint8_t expectedComma
     // 1 byte checksum in addition to data.
     size_t bytesToRead = responseSize + 2 + 1 + 1 + 1 + 1;
     assert ( bytesToRead <= sizeof(buffer) );
-    size_t bytesRead = m_serial.read(buffer, bytesToRead, 250);
+    size_t bytesRead = m_serial.read(buffer, bytesToRead, RESPONSE_TIMEOUT_MSEC);
     if (bytesRead != bytesToRead ||
         buffer[0] != 0x55 ||
         buffer[1] != 0x55 ||
