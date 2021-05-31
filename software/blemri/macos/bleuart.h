@@ -19,15 +19,16 @@
 #include <stdint.h>
 
 // Integer error codes that can be returned from most of these bleuart API functions.
-#define BLEUART_ERROR_NONE          0 // Success
-#define BLEUART_ERROR_CONNECT       1 // Connection to device failed.
-#define BLEUART_ERROR_PARAM         2 // Invalid parameter passed to API.
-#define BLEUART_ERROR_MEMORY        3 // Out of memory.
-#define BLEUART_ERROR_NOT_CONNECTED 4 // No device connected.
-#define BLEUART_ERROR_NO_REQUEST    5 // Not waiting for a response from a request.
-#define BLEUART_ERROR_TIMEOUT       6 // Timed out waiting for response.
-#define BLEUART_ERROR_EMPTY         7 // The queue was empty.
-#define BLEUART_ERROR_BAD_RESPONSE  8 // Unexpected response from device.
+#define BLEUART_ERROR_NONE              0 // Success
+#define BLEUART_ERROR_CONNECT           1 // Connection to device failed.
+#define BLEUART_ERROR_PARAM             2 // Invalid parameter passed to API.
+#define BLEUART_ERROR_MEMORY            3 // Out of memory.
+#define BLEUART_ERROR_NOT_CONNECTED     4 // No device connected.
+#define BLEUART_ERROR_NO_REQUEST        5 // Not waiting for a response from a request.
+#define BLEUART_ERROR_TIMEOUT           6 // Timed out waiting for response.
+#define BLEUART_ERROR_EMPTY             7 // The queue was empty.
+#define BLEUART_ERROR_BAD_RESPONSE      8 // Unexpected response from device.
+#define BLEUART_ERROR_TRANSMIT_FAILED   9 // Failed transmitting data.
 
 
 // Initialize the BLE2UART transport.

@@ -258,6 +258,10 @@ void workerMain(void)
                     isBleConnected = 0;
                     break;
                 }
+                else if (result != BLEUART_ERROR_NONE)
+                {
+                    printf("BLE transmit returned error: %d\n", result);
+                }
             }
 
             /* This is a little more time than it takes to transmit one byte at 115200. */

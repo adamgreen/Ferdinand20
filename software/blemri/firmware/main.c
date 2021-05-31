@@ -61,7 +61,7 @@
 #define SERIAL_CHUNK_QUEUE_SIZE         64
 
 // This is the vendor UUID offset to be advertised by BLEMRI devices.
-#define BLEMRI_ADVERTISE                0xADA3
+#define BLEMRI_ADVERTISE                BLE_UUID_NUS_SERVICE
 
 
 // The service database for this device can't be changed at runtime. Must be non-zero for DFU.
