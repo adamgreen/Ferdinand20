@@ -1,4 +1,4 @@
-/*  Copyright (C) 2019  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2021  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -95,12 +95,22 @@
 // Size of timer operation queues.
 #define APP_TIMER_OP_QUEUE_SIZE         4
 
-// Timings for how often peripheral and central should communicate over the link. The shorter the interval, the more
-// data that can be sent over the link but uses more CPU and power resources.
-// Minimum acceptable connection interval (7.5 ms), Connection interval uses 1.25 ms units.
-#define MIN_CONN_INTERVAL               MSEC_TO_UNITS(7.5, UNIT_1_25_MS)
-// Maximum acceptable connection interval (7.5 ms), Connection interval uses 1.25 ms units.
-#define MAX_CONN_INTERVAL               MSEC_TO_UNITS(7.5, UNIT_1_25_MS)
+// Timings for how often peripheral and central should communicate over the link. The shorter the interval, the lower
+// the link latency but at the cost of higher power usage.
+// Apple's Accessory Design Guidelines places some extra constraints on these parameters:
+// * Peripheral Latency of up to 30 connection intervals.
+// * Supervision Timeout from 2 seconds to 6 seconds.
+// * Interval Min of at least 15 ms.
+// * Interval Min is a multiple of 15 ms.
+// * One of the following:
+//   * Interval Max at least 15 ms greater than Interval Min.
+//    * Interval Max and Interval Min both set to 15 ms.
+// * Interval Max * (Peripheral Latency + 1) of 2 seconds or less.
+// * Supervision Timeout greater than Interval Max * (Peripheral Latency + 1) * 3.
+// Minimum acceptable connection interval in ms (7.5 ms is smallest allowed). Connection interval uses 1.25 ms units.
+#define MIN_CONN_INTERVAL               MSEC_TO_UNITS(15, UNIT_1_25_MS)
+// Maximum acceptable connection interval in ms. Connection interval uses 1.25 ms units.
+#define MAX_CONN_INTERVAL               MSEC_TO_UNITS(15, UNIT_1_25_MS)
 // The number of the connection interval events that the peripheral can ignore before response is required.
 #define SLAVE_LATENCY                   0
 
