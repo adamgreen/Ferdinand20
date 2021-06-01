@@ -44,17 +44,11 @@ static void* workerThread(void* pArg);
 // This class contains the information describing a buffer of data to be transmitted via BLEUART.
 @interface TransmitRequest : NSObject
 {
-    pthread_mutex_t mutex;
-    pthread_cond_t  condition;
     const uint8_t*  pData;
     size_t          dataLength;
-    int             error;
 }
 
 - (id) initWithData:(const uint8_t*)p length:(size_t)len;
-- (void) transmitCompleted;
-- (void) transmitCompletedWithError:(int)err;
-- (int) waitForCompletion;
 
 - (const uint8_t*) data;
 - (size_t) dataLength;
@@ -65,32 +59,18 @@ static void* workerThread(void* pArg);
 @implementation TransmitRequest
 - (id) initWithData:(const uint8_t*)p length:(size_t)len
 {
-    int ret = -1;
-
     self = [super init];
     if (!self)
         return nil;
 
-    ret = pthread_mutex_init(&mutex, NULL);
-    if (ret)
-        return nil;
-    ret = pthread_cond_init(&condition, NULL);
-    if (ret)
-    {
-        pthread_mutex_destroy(&mutex);
-        return nil;
-    }
-
     pData = p;
     dataLength = len;
-    error = BLEUART_ERROR_NONE;
+
     return self;
 }
 
 - (void) dealloc
 {
-    pthread_cond_destroy(&condition);
-    pthread_mutex_destroy(&mutex);
     [super dealloc];
 }
 
@@ -103,28 +83,6 @@ static void* workerThread(void* pArg);
 {
     return dataLength;
 }
-
-- (void) transmitCompleted
-{
-    pthread_cond_signal(&condition);
-}
-
-- (void) transmitCompletedWithError:(int)err
-{
-    pthread_mutex_lock(&mutex);
-        error = err;
-    pthread_mutex_unlock(&mutex);
-    [self transmitCompleted];
-}
-
-- (int) waitForCompletion
-{
-    pthread_mutex_lock(&mutex);
-        pthread_cond_wait(&condition, &mutex);
-    pthread_mutex_unlock(&mutex);
-    return error;
-}
-
 @end
 
 
@@ -258,8 +216,6 @@ Error:
     CBPeripheral*       peripheral;
     CBCharacteristic*   transmitDataWriteCharacteristic;
 
-    TransmitRequest*    request;
-
     int                 error;
     int32_t             characteristicsToFind;
     BOOL                autoConnect;
@@ -307,8 +263,6 @@ Error:
     self = [super init];
     if (!self)
         return nil;
-
-    request = NULL;
 
     discoveredDevices = [[NSMutableArray alloc] init];
     if (!discoveredDevices)
@@ -651,31 +605,16 @@ Error:
     if (!peripheral || !transmitDataWriteCharacteristic)
     {
         // Don't have a successful connection so error out.
-        [transmitRequest transmitCompletedWithError:BLEUART_ERROR_NOT_CONNECTED];
+        error = BLEUART_ERROR_NOT_CONNECTED;
         return;
     }
+    error = BLEUART_ERROR_NONE;
 
     // Prepare data to send to BLEUART device.
     NSData* cmdData = [NSData dataWithBytesNoCopy:(void*)[transmitRequest data] length:[transmitRequest dataLength] freeWhenDone:NO];
 
     // Send request to BLEUART via Core Bluetooth.
-    request = transmitRequest;
-    [peripheral writeValue:cmdData forCharacteristic:transmitDataWriteCharacteristic type:CBCharacteristicWriteWithResponse];
-}
-
-// Invoked when write completes successfully or an error is detected.
-- (void) peripheral:(CBPeripheral *)peripheral didWriteValueForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)err
-{
-    if (err)
-    {
-        NSLog(@"Write encountered error (%@)", err);
-        [request transmitCompletedWithError:BLEUART_ERROR_TRANSMIT_FAILED];
-    }
-    else
-    {
-        [request transmitCompleted];
-    }
-    request = nil;
+    [peripheral writeValue:cmdData forCharacteristic:transmitDataWriteCharacteristic type:CBCharacteristicWriteWithoutResponse];
 }
 
 // Invoked upon completion of a -[readValueForCharacteristic:] request or on the reception of a notification/indication.
@@ -828,9 +767,8 @@ static int transmitChunk(const void* pData, size_t dataLength)
         return BLEUART_ERROR_MEMORY;
 
     [g_appDelegate performSelectorOnMainThread:@selector(handleTransmitRequest:) withObject:p waitUntilDone:YES];
-    int result = [p waitForCompletion];
     [p release];
-    return result;
+    return [g_appDelegate error];
 }
 
 int bleuartTransmitData(const void* pData, size_t dataLength)

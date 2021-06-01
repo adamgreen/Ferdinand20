@@ -28,7 +28,6 @@
 #define BLEUART_ERROR_TIMEOUT           6 // Timed out waiting for response.
 #define BLEUART_ERROR_EMPTY             7 // The queue was empty.
 #define BLEUART_ERROR_BAD_RESPONSE      8 // Unexpected response from device.
-#define BLEUART_ERROR_TRANSMIT_FAILED   9 // Failed transmitting data.
 
 
 // Initialize the BLE2UART transport.
