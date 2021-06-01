@@ -41,52 +41,6 @@ static void* workerThread(void* pArg);
 
 
 
-// This class contains the information describing a buffer of data to be transmitted via BLEUART.
-@interface TransmitRequest : NSObject
-{
-    const uint8_t*  pData;
-    size_t          dataLength;
-}
-
-- (id) initWithData:(const uint8_t*)p length:(size_t)len;
-
-- (const uint8_t*) data;
-- (size_t) dataLength;
-@end
-
-
-
-@implementation TransmitRequest
-- (id) initWithData:(const uint8_t*)p length:(size_t)len
-{
-    self = [super init];
-    if (!self)
-        return nil;
-
-    pData = p;
-    dataLength = len;
-
-    return self;
-}
-
-- (void) dealloc
-{
-    [super dealloc];
-}
-
-- (const uint8_t*) data
-{
-    return pData;
-}
-
-- (size_t) dataLength
-{
-    return dataLength;
-}
-@end
-
-
-
 // This class implements a fixed sized circular queue which supports push overflow.
 @interface CircularQueue : NSObject
 {
@@ -600,8 +554,6 @@ Error:
 // Handle BLEUART transmit request posted to the main thread by the worker thread.
 - (void) handleTransmitRequest:(id) object
 {
-    TransmitRequest* transmitRequest = (TransmitRequest*)object;
-
     if (!peripheral || !transmitDataWriteCharacteristic)
     {
         // Don't have a successful connection so error out.
@@ -610,10 +562,8 @@ Error:
     }
     error = BLEUART_ERROR_NONE;
 
-    // Prepare data to send to BLEUART device.
-    NSData* cmdData = [NSData dataWithBytesNoCopy:(void*)[transmitRequest data] length:[transmitRequest dataLength] freeWhenDone:NO];
-
     // Send request to BLEUART via Core Bluetooth.
+    NSData* cmdData = (NSData*)object;
     [peripheral writeValue:cmdData forCharacteristic:transmitDataWriteCharacteristic type:CBCharacteristicWriteWithoutResponse];
 }
 
@@ -762,7 +712,7 @@ int bleuartStopDeviceDiscovery()
 
 static int transmitChunk(const void* pData, size_t dataLength)
 {
-    TransmitRequest* p = [[TransmitRequest alloc] initWithData:pData length:dataLength];
+    NSData* p = [NSData dataWithBytesNoCopy:(void*)pData length:dataLength freeWhenDone:NO];
     if (!p)
         return BLEUART_ERROR_MEMORY;
 

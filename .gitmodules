@@ -1,3 +1,6 @@
 [submodule "gcc4mbed"]
 	path = gcc4mbed
 	url = git@github.com:adamgreen/gcc4mbed.git
+[submodule "mriprog"]
+	path = mriprog
+	url = git@github.com:adamgreen/mriprog.git
