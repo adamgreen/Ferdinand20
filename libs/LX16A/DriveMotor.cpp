@@ -34,19 +34,26 @@ LX16A_DriveMotor::LX16A_DriveMotor(LX16A_ServoBus& servoBus, uint8_t servoId) :
     m_pid(PID_Kc, PID_Ti, PID_Td, 0.0f, LX16A_ROTATION_SPEED_MIN, LX16A_ROTATION_SPEED_MAX, 0.010f)
 {
     m_timer.start();
-    reset();
+    resetWithoutServo();
+}
+
+void LX16A_DriveMotor::resetWithoutServo()
+{
+    m_lastSampleTime = 0;
+    m_timer.reset();
+    m_currState.angle = 0.0f;
+    m_currState.velocity = 0.0f;
+    m_ignoredSamples = 0;
+    m_wasInDeadZone = false;
 }
 
 void LX16A_DriveMotor::reset()
 {
-    m_lastSampleTime = 0;
-    m_timer.reset();
+    resetWithoutServo();
     m_currState.angle = constrainAngle(LX16A_SERVO_TO_RADIAN_VALUE * m_servo.getPosition());
-    m_currState.velocity = 0.0f;
     setPower(0);
-    m_ignoredSamples = 0;
-    m_wasInDeadZone = false;
 }
+
 
 float LX16A_DriveMotor::constrainAngle(float angle)
 {
@@ -94,13 +101,6 @@ void LX16A_DriveMotor::setPower(int16_t speed)
 
 int16_t LX16A_DriveMotor::getPower()
 {
-#ifdef UNDONE
-    // Force motor power to 0 if desired speed is 0.
-    if (m_pid.getSetPoint() == 0.0f)
-    {
-        return 0;
-    }
-#endif // UNDONE
     return (int16_t)(m_pid.getControlOutput() + 0.5f);
 }
 
@@ -128,7 +128,6 @@ void LX16A_DriveMotor::updateState()
         m_currState.angle = constrainAngle(prevState.angle + prevState.velocity * dt);
         m_currState.velocity = prevState.velocity;
         m_wasInDeadZone = true;
-        printf("*");
     }
     else
     {
@@ -164,7 +163,6 @@ bool LX16A_DriveMotor::ignoringNonDeadZoneSamples(int16_t servoPos)
     else if (m_ignoredSamples < SAMPLES_TO_IGNORE)
     {
         m_ignoredSamples++;
-        printf("(%.2f)", servoPos * LX16A_SERVO_TO_DEGREE_VALUE);
         return true;
     }
     return false;

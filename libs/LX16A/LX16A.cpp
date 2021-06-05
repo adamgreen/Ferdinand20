@@ -258,7 +258,7 @@ int16_t LX16A_Servo::getPosition()
     bool result = sendReadCommand(SERVO_POS_READ, &position, sizeof(position));
     if (!result)
     {
-        LOG_READ_ERROR("readPosition() failed for Servo #%u.\n", m_servoId);
+        LOG_READ_ERROR("getPosition() failed for Servo #%u.\n", m_servoId);
         return 0;
     }
     return position;

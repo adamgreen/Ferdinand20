@@ -37,6 +37,7 @@ class LX16A_DriveMotor
         EncoderState getState();
 
     protected:
+        void resetWithoutServo();
         void updateState();
         void updatePID(float dt);
         bool ignoringNonDeadZoneSamples(int16_t servoPos);
