@@ -1,4 +1,4 @@
-/*  Copyright (C) 2020  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2021  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -17,6 +17,7 @@
 #define SAWPPY_DRIVE_H_
 
 #include <LX16A.h>
+#include <DriveMotor.h>
 
 class SawppyDrive : protected LX16A_ServoBus
 {
@@ -43,6 +44,9 @@ class SawppyDrive : protected LX16A_ServoBus
         // Stops all drive motion on Sawppy.
         void stopAll();
 
+        // Reset the encoder/PID state of the 6 drive motors.
+        void reset();
+
         // The Sawppy rover has 6 wheels.
         enum { WHEEL_COUNT = 6 };
 
@@ -60,11 +64,11 @@ class SawppyDrive : protected LX16A_ServoBus
         float m_maxTurnAngle;
         struct WheelUpdate
         {
-            LX16A_Servo steeringServo;
-            LX16A_Servo rollServo;
-            float       angle;
-            float       speed;
-            float       radius;
+            LX16A_Servo         steeringServo;
+            LX16A_DriveMotor    rollServo;
+            float               angle;
+            float               speed;
+            float               radius;
         } m_wheelUpdates[WHEEL_COUNT];
 };
 

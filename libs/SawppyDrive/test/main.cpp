@@ -1,4 +1,4 @@
-/*  Copyright (C) 2020  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2021  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -27,6 +27,11 @@
 #define WAIT_FOR_STOP 600
 // Number of milliseconds from g_stateChageStartTime for a transition. Should be greater than WAIT_FOR_STOP.
 #define WAIT_TRANSITION 1000
+// Number of milliseconds to wait before driving servos after motor power is re-enabled to wait for servos to power up.
+#define WAIT_FOR_MOTOR_POWER (1000/12)
+
+// Joystick is considered centered if absolute values of x or y axis are less than this threshold.
+#define JOYSTICK_CENTER_THRESHOLD 10
 
 
 
@@ -49,8 +54,6 @@ static DebugSerial<256> g_debugSerial;
     static SawppyDrive      g_drive(p9, p10);
 #endif // LOG_SAWPPY_DRIVE
 
-static bool             g_haveGlobalConstructorsRun = false;
-
 
 // Enumeration tracking current state of rover control
 enum RoverState { driving, enterTurnInPlace, turnInPlace, enterDriving };
@@ -60,17 +63,19 @@ uint32_t        g_stateChageStartTime;
 Timer           g_timer;
 PdbSerial       g_pdb(p13, p14);
 uint32_t        g_lastPacketTimestamp = 0;
+bool            g_wereMotorsEnabled = false;
 
 
 
 // Function Prototypes
 static void setup();
 static void loop();
+static void enteringDebuggerHook(void* pv);
+static void leavingDebuggerHook(void* pv);
 
 
 int main(void)
 {
-    g_haveGlobalConstructorsRun = true;
     setup();
     while (true)
     {
@@ -81,6 +86,7 @@ int main(void)
 // Runs once upon startup.
 static void setup()
 {
+    mriSetDebuggerHooks(enteringDebuggerHook, leavingDebuggerHook, NULL);
     g_timer.start();
     g_state = driving;
 }
@@ -89,23 +95,39 @@ static void setup()
 static void loop()
 {
     PdbSerial::PdbSerialPacket pdbPacket = g_pdb.getLatestPacket();
-    if (pdbPacket.timestamp == g_lastPacketTimestamp ||
-        pdbPacket.type == PdbSerial::PDBSERIAL_AUTO_PACKET ||
-        (pdbPacket.data._manual.flags & PDBSERIAL_FLAGS_MOTORS_ENABLED) == 0)
+    if (pdbPacket.timestamp == g_lastPacketTimestamp)
     {
-        // Haven't received a new manual packet with the deadman switch pressed so ignore this packet.
+        // Haven't received a new packet so ignore it.
         return;
     }
     g_lastPacketTimestamp = pdbPacket.timestamp;
+
+    bool areMotorsEnabled = pdbPacket.data._manual.flags & PDBSERIAL_FLAGS_MOTORS_ENABLED;
+    if (pdbPacket.type == PdbSerial::PDBSERIAL_AUTO_PACKET || !areMotorsEnabled)
+    {
+        // Haven't received a manual packet with the deadman switch pressed so ignore this packet.
+        g_wereMotorsEnabled = areMotorsEnabled;
+        return;
+    }
+
+    if (areMotorsEnabled && !g_wereMotorsEnabled)
+    {
+        // Take a little while for the LX-16A servos to power up.
+        wait_ms(WAIT_FOR_MOTOR_POWER);
+
+        // Motors were just re-enabled so reset the encoder / PID state of the drive motors.
+        g_drive.reset();
+    }
 
     PdbSerialManualPacket* pManual = &pdbPacket.data._manual;
     int32_t steering = ((int32_t)pManual->x * 100) / 512;
     int32_t velocity = ((int32_t)pManual->y * 100) / 512;
     bool    isJoystickPressed = pManual->flags & PDBSERIAL_FLAGS_JOYSTICK_BUTTON;
+    bool    isJoystickCentered = abs(velocity) < JOYSTICK_CENTER_THRESHOLD && abs(steering) < JOYSTICK_CENTER_THRESHOLD;
 
     uint32_t currTime = g_timer.read_ms();
     // State changes can only be triggered when going slowly or stopped.
-    if (isJoystickPressed && abs(velocity) < 10 && abs(steering) < 10)
+    if (isJoystickPressed && isJoystickCentered)
     {
         if (g_state == driving)
         {
@@ -163,41 +185,33 @@ static void loop()
 
     if (g_state == turnInPlace)
     {
-        g_drive.turnInPlace(steering);
+        g_drive.turnInPlace(isJoystickCentered ? 0 : steering);
     }
 
     if (g_state == driving)
     {
-        g_drive.drive(steering, velocity);
+        g_drive.drive(steering, isJoystickCentered ? 0 : velocity);
     }
+
+    g_wereMotorsEnabled = areMotorsEnabled;
 }
 
 
 
 // These are hooks for the MRI debug monitor to make sure that the motors are stopped when halting into the debugger
 // so that the rover doesn't continue to run off when it hits a breakpoint or crashes.
-extern "C" void __mriPlatform_EnteringDebuggerHook(void)
+static void enteringDebuggerHook(void* pv)
 {
-    // Don't do anything until the global constructors have been executed to setup the servos and debugger serial port.
-    if (!g_haveGlobalConstructorsRun)
-    {
-        return;
-    }
     // Allow any outbound DMA traffic on debug serial port to complete before passing control to MRI.
     g_debugSerial.flush();
 
     g_drive.stopAll();
 }
 
-extern "C" void __mriPlatform_LeavingDebuggerHook(void)
+static void leavingDebuggerHook(void* pv)
 {
-    // Don't do anything until the global constructors have been executed to setup the servos and debugger serial port.
-    if (!g_haveGlobalConstructorsRun)
-    {
-        return;
-    }
-
     // Just let the main loop recover and startup the motors again.
+    g_wereMotorsEnabled = false;
 
     // Clear any interrupts that might have been marked as pending against the debug serial port while MRI was
     // communicating with GDB.

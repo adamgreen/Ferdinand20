@@ -1,4 +1,4 @@
-/*  Copyright (C) 2020  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2021  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -23,6 +23,12 @@
 #define WHEEL_MIDDLE_RIGHT      3
 #define WHEEL_REAR_LEFT         4
 #define WHEEL_REAR_RIGHT        5
+
+// Maximum rotational speed in rad/s.
+#define MAXIMUM_SPEED   3.0f
+// Convert percent speed setting to rotational speed in rad/s.
+#define PERCENT_TO_SPEED (MAXIMUM_SPEED / 100.0f)
+
 
 
 struct SawppyDimension
@@ -92,46 +98,46 @@ SawppyDrive::SawppyDrive(PinName txPin, PinName rxPin, int (*pLogFormatted)(cons
     m_wheelUpdates
     {
         {
-            LX16A_Servo(*this, SERVOID_FRONT_LEFT_STEER),   // steeringServo
-            LX16A_Servo(*this, SERVOID_FRONT_LEFT_ROLL),    // rollServo
-            0.0f,                                           // angle
-            0.0f,                                           // speed
-            0.0f                                            // radius
+            LX16A_Servo(*this, SERVOID_FRONT_LEFT_STEER),       // steeringServo
+            LX16A_DriveMotor(*this, SERVOID_FRONT_LEFT_ROLL),   // rollServo
+            0.0f,                                               // angle
+            0.0f,                                               // speed
+            0.0f                                                // radius
         },
         {
-            LX16A_Servo(*this, SERVOID_FRONT_RIGHT_STEER),  // steeringServo
-            LX16A_Servo(*this, SERVOID_FRONT_RIGHT_ROLL),   // rollServo
-            0.0f,                                           // angle
-            0.0f,                                           // speed
-            0.0f                                            // radius
+            LX16A_Servo(*this, SERVOID_FRONT_RIGHT_STEER),      // steeringServo
+            LX16A_DriveMotor(*this, SERVOID_FRONT_RIGHT_ROLL),  // rollServo
+            0.0f,                                               // angle
+            0.0f,                                               // speed
+            0.0f                                                // radius
         },
         {
-            LX16A_Servo(*this, SERVOID_MIDDLE_LEFT_STEER),  // steeringServo
-            LX16A_Servo(*this, SERVOID_MIDDLE_LEFT_ROLL),   // rollServo
-            0.0f,                                           // angle
-            0.0f,                                           // speed
-            0.0f                                            // radius
+            LX16A_Servo(*this, SERVOID_MIDDLE_LEFT_STEER),      // steeringServo
+            LX16A_DriveMotor(*this, SERVOID_MIDDLE_LEFT_ROLL),  // rollServo
+            0.0f,                                               // angle
+            0.0f,                                               // speed
+            0.0f                                                // radius
         },
         {
-            LX16A_Servo(*this, SERVOID_MIDDLE_RIGHT_STEER), // steeringServo
-            LX16A_Servo(*this, SERVOID_MIDDLE_RIGHT_ROLL),  // rollServo
-            0.0f,                                           // angle
-            0.0f,                                           // speed
-            0.0f                                            // radius
+            LX16A_Servo(*this, SERVOID_MIDDLE_RIGHT_STEER),     // steeringServo
+            LX16A_DriveMotor(*this, SERVOID_MIDDLE_RIGHT_ROLL), // rollServo
+            0.0f,                                               // angle
+            0.0f,                                               // speed
+            0.0f                                                // radius
         },
         {
-            LX16A_Servo(*this, SERVOID_REAR_LEFT_STEER),    // steeringServo
-            LX16A_Servo(*this, SERVOID_REAR_LEFT_ROLL),     // rollServo
-            0.0f,                                           // angle
-            0.0f,                                           // speed
-            0.0f                                            // radius
+            LX16A_Servo(*this, SERVOID_REAR_LEFT_STEER),        // steeringServo
+            LX16A_DriveMotor(*this, SERVOID_REAR_LEFT_ROLL),    // rollServo
+            0.0f,                                               // angle
+            0.0f,                                               // speed
+            0.0f                                                // radius
         },
         {
-            LX16A_Servo(*this, SERVOID_REAR_RIGHT_STEER),   // steeringServo
-            LX16A_Servo(*this, SERVOID_REAR_RIGHT_ROLL),    // rollServo
-            0.0f,                                           // angle
-            0.0f,                                           // speed
-            0.0f                                            // radius
+            LX16A_Servo(*this, SERVOID_REAR_RIGHT_STEER),       // steeringServo
+            LX16A_DriveMotor(*this, SERVOID_REAR_RIGHT_ROLL),   // rollServo
+            0.0f,                                               // angle
+            0.0f,                                               // speed
+            0.0f                                                // radius
         }
     }
 {
@@ -301,12 +307,14 @@ void SawppyDrive::sendCommandsToServos()
             m_wheelUpdates[wheel].steeringServo.setAngle(servoAngle, 0);
         }
 
-        int32_t servoSpeed = m_wheelUpdates[wheel].speed * 10.0f;
+        int32_t servoSpeed = m_wheelUpdates[wheel].speed * PERCENT_TO_SPEED;
         if (isRightWheel(wheel))
         {
             servoSpeed = -servoSpeed;
         }
-        m_wheelUpdates[wheel].rollServo.setRotationSpeed(servoSpeed);
+        // UNDONE: Do something with the state.
+        m_wheelUpdates[wheel].rollServo.setSpeed(servoSpeed);
+        m_wheelUpdates[wheel].rollServo.getState();
     }
 
     if (m_pLogFormatted == NULL)
@@ -352,7 +360,16 @@ void SawppyDrive::stopAll()
     // Stops all of the rolling servos.
     for (size_t wheel = 0 ; wheel < WHEEL_COUNT ; wheel++)
     {
-        m_wheelUpdates[wheel].rollServo.setRotationSpeed(0);
+        m_wheelUpdates[wheel].rollServo.setSpeed(0.0f);
+    }
+}
+
+void SawppyDrive::reset()
+{
+    // Reset all of the rolling servos.
+    for (size_t wheel = 0 ; wheel < WHEEL_COUNT ; wheel++)
+    {
+        m_wheelUpdates[wheel].rollServo.reset();
     }
 }
 
