@@ -14,6 +14,108 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## June 4th, 2021
+### LX-16A Encoders
+![LX-16A Test Setup](photos/20210519-01.png) <br>
+
+The [LX-16A servos](https://www.hiwonder.hk/collections/servo/products/hiwonder-lx-16a-serial-bus-servo) used in the [Sawppy Rover](https://github.com/Roger-random/Sawppy_Rover#readme) design have a potentiometer that can be used for reading out the current angle but it can't accurately read all 360 degrees of the rotation. It returns accurate readings between -40 and 280 degrees (320 degrees of rotation) but not such accurate readings for the other 40 degrees of rotation. There are 2 types of inaccurate readings that it returns when in the range between 280 and -40 degrees (the deadzone):
+* It will return angle values that fall between 280 and -40 as expected but they aren't accurate. This is the most common case and is easy for me to detect in code. I suspect that there is a carbon arc for the section where it returns correct values (-40 to 280 degrees) and maybe just copper at the two extremes where it returns these incorrect readings. The following diagrams show what I think the internals of the potentiometer look like and where the wiper is located for a few key angles:
+  * 280 degrees: This is the maximum valid angle. The potentiometer wiper is contacting the carbon resistive track. <br>![Angle at 280 degrees](cad/pot/pot280.png)
+  * -40 degrees: This is the minimum valid angle and shows the potentiometer wiper at the other end of the carbon resistive track. <br> ![Angle at -40 degrees](cad/pot/pot-40.png)
+  * -50 degrees: This is an angle in the deadzone. The potentiometer is no longer on the carbon resistive track but is also not floating. This explains why the readings back from the LX-16A servo tend to fall around -40 or 280 when in the deadzone since this area of the track is at either the maximum or minimum voltage level since there is so little resistance to the end taps. <br> ![Angle at -50 degrees](cad/pot/pot-50.png)
+* It will return random angle readings that can fall anywhere in the 360 degree range. I suspect that this happens when the potentiometer wiper is left floating in a gap that must exist between the two ends of the potentiometer to stop the wiper from creating a short between the high and low voltages applied to the opposite ends of the potentiometer. This isn't a common case and is hard to detect in code but we do know that it happens when previous readings place it in the deadzone and the wiper shouldn't dwell in this area for long at the velocities and sampling times that will be used for controlling my robot's motion. <br> ![Angle at -60 degrees](cad/pot/pot-60.png)
+
+I tried two methods to work around these inaccurate readings and I will give an overview of them below.
+
+#### Kalman Approach
+![Kalman Filter Book](https://raw.githubusercontent.com/adamgreen/Ferdinand14/master/photos/20140619-01.jpg) <br>
+As the old saying goes, "When all you have is a hammer, everything looks like a nail." In my case, my hammer of choice has become the Kalman filter. So my first thought to solve the LX-16A servo encoder problem was to apply a Kalman filter to calculate the current rotational position and velocity. To this end, I started out by re-reading my ["Kalman Filter for Beginners with MATLAB Examples" by Phil Kim](https://www.amazon.com/Kalman-Filter-Beginners-MATLAB-Examples/dp/1463648359). I really like this book. The content is very good. The only down point is the Korean to English translation could use quite a bit of improvement. Once I finished the reread, I wrote up some code to experiment with the Kalman filter which can be seen in the following [commit](https://github.com/adamgreen/Ferdinand20/commit/b95c3b9d9873d6a039cecfaa98e94790804dd103). I played with this code for a few days but I never got the error estimates to a point where the rotational velocity estimate wasn't overly filtered with a lagging response to real world velocity changes. Based on these results, I decided to try another approach which can be best described as a bunch of conditional hacks.
+
+#### Conditional Hacks
+The key observation that I take advantage of in my set of hacks is the following:
+* If the angle returned from the LX-16A servo is between -40 and 280 degrees, then most likely it is within +/-0.24 degrees (1 lsb) of the actual real world position.
+
+This means that my code treats such position measurements as the truth and uses them to estimate the velocity. There is one exception to this and I will discuss it more later.
+
+The second observation is very much related to that first one:
+* If the angle returned from the LX-16A servo is instead between 280 degrees and -40 degrees then it is in a deadzone where the returned values are much less accurate.
+
+When my code detects that the returned position readings are in this deadzone, it uses the previous position and velocity estimates and sampling time to calculate new position estimates by assuming constant velocity between the samples.
+
+The handling of those two angle ranges gets us most of the way to a solution but I needed to add a few more conditional hacks to produce a functional filter:
+* When the wiper is in the middle of the deadzone, it will be floating and returning completely random values that fall in or outside of the deadzone. I have the code ignore the first non-deadzone sample when the previous sample was from the deadzone. If this ignored non-deadzone angle is followed by another then the code transitions into the non-deadzone logic previously described. This does mean that the first good angle reading is always dropped when transitioning out of the deadzone but that is a small price to pay for filtering out these completely erroneous readings. I only expect a single erroneous reading caused by a floating wiper when the rover is moving since there should be a very low likelihood that the wiper stays in this region for multiple samples as the motor is rotating.
+* Don't update the velocity until it has two or more non-deadzone position readings. The last interpolated position from the deadzone logic might be so incorrect that it would result in a very bad estimate of the velocity.
+* Use an exponential recursive moving average filter to smooth out the velocity calculations. We don't want high frequency noise in this calculation to later impact the PID control loop.
+
+```c++
+void LX16A_DriveMotor::updateState()
+{
+    // Calculate time since last running of the filter and grab the current servo position in close temporal
+    // relation to the time capture.
+    int16_t servoPos = m_servo.getPosition();
+    uint32_t currSampleTime = m_timer.read_us();
+    uint32_t elapsedMicroSec = currSampleTime - m_lastSampleTime;
+    m_lastSampleTime = currSampleTime;
+    float dt = (float)elapsedMicroSec / 1000000.0f;
+
+    EncoderState prevState = m_currState;
+    if (ignoringNonDeadZoneSamples(servoPos) || isServoInDeadZone(servoPos))
+    {
+        // The servo position could be off by as much as +/-20 degrees when in dead zone of the pot.
+        // Assume that the motor is still spinning at the same rate when in dead zone.
+        m_currState.angle = constrainAngle(prevState.angle + prevState.velocity * dt);
+        m_currState.velocity = prevState.velocity;
+        m_wasInDeadZone = true;
+        printf("*");
+    }
+    else
+    {
+        // The pot reading should be accurate so use it.
+        m_currState.angle = constrainAngle(servoPos * LX16A_SERVO_TO_RADIAN_VALUE);
+
+        if (m_wasInDeadZone)
+        {
+            // Don't want to base current velocity off of previously interpolated position.
+            m_currState.velocity = prevState.velocity;
+        }
+        else
+        {
+            // Calculate velocity from change in angle and then use weighted average so that it doesn't snap too much.
+            const float weight = VELOCITY_AVERAGING_WEIGHT;
+            float angleDelta = constrainAngle(fmodf(m_currState.angle - prevState.angle, 2.0f*(float)M_PI));
+            float velocity = angleDelta / dt;
+            m_currState.velocity = (1.0f-weight)*m_currState.velocity + weight*velocity;
+        }
+        m_wasInDeadZone = false;
+    }
+
+    updatePID(dt);
+}
+```
+
+I may have to add code in the future to handle the motor being stopped when in the deadzone or even worse, stopped right at the point where the potentiometer wiper is left floating. I will cross this bridge once I encounter it so that I have scenarios to use for testing my attempts to resolve it.
+
+### Closing the Loop
+Once I had a way to obtain a reasonably reliable estimate of the servo's rotational velocity, I pulled over my PID code from my old [Ferdinand16 repository](https://github.com/adamgreen/Ferdinand16#readme). The biggest changes I made to this code after copying include:
+* Now allowing the sample time to be changed between PID updates as the frequency of the LX-16A servo position reads may not be as consistent as my previous uses of the PID control algorithm.
+* Ferdinand16 required the angle error to be normalized between +/- 180 degrees and the PID code had this hardcoded into it. I updated the code to take an optional callback for performing such normalizations when required. It isn't required for LX-16A motor velocity control.
+
+Now that I had a way to close the loop on the control of the motor velocities, I went into the existing ```SawppyDrive``` class and plugged in my new ```LX16A_DriveMotor``` class for controlling the 6 servos that spin the wheels (while leaving the 4 turning servos as is). Once this switch had been made, I could drive my Sawppy bot around by remote control as before but now the wheel velocities were running under closed loop control.
+
+### MRIPROG / BLEMRI Issues with new macOS and MRI Updates
+When I started testing the new PID code on my actual Sawppy based robot, I hit a few issues with my Bluetooth Low Energy (BLE) programming/debugging tools that I had to address first. It turns out that it needed updates to work with the newer version of my [MRI debug monitor](https://github.com/adamgreen/mri#readme), my new MacBook Air, and Big Sur updates:
+* I updated **mriprog** to move the entry point for the LPC1768 bootloader into entry.S so that I can use assembly language code to initialize the stack pointers (MSP & PSP) to the desired value since the current MRI doesn't allow for modifying the stack pointers from GDB. Once the stack pointers are set, it just branches to the original main() code.
+* MRI now contains 6 more special registers in the context (MSP, PSP, PRIMASK, BASEPRI, FAULTMASK, CONTROL). I updated **mriprog**'s gdbRemote module to take these into account.
+* When my new laptop communicates with the nRF51 BLE to UART bridge, it tends to corrupt a few packets that need to be resent. I made a few updates to **mriprog** to better handle these resends:
+  * Instead of reporting each packet error encountered, just count them and report the number of retries at the end along with the other statistics.
+  * Reduce PACKET_MAX_DATA from 16k to 4k so that if the CRC fails on a packet then less data needs to be resent.
+* I updated my **blemri** code to handle a BLE change introduced with Big Sur. Once the Mac has been connected to a BLE device such as BLEMRI, Big Sur only returns the information that it cached on the first connection and this doesn't include the 128-bit service UUID from the scan response. My code used this UUID for filtering when performing BLE device discovery. I modified the firmware to no longer advertise the unique service UUID and now just advertise the Nordic UART service UUID actually supported by the device as it is no longer of use for filtering. I now have the application running on macOS perform BLE discovery with no filtering and then check the local device name on each discovered device, looking for ones named BLEMRI.
+* I increased the minimum and maximum connection interval from 7.5ms to 15ms in my BLEMRI firmware to meet the Apple design recommendations. My iPhone is now able to stay connected for over 100 seconds. My iPhone would previously drop the connection when it couldn't agree with the device on connection parameters. This change doesn't decrease the throughput that much as BLE allows multiple packets to be scheduled per interval. It would increase the turn around time to get the response back from commands. The throughput is still above 5kB/s after this change so I will keep it.
+* I copied the **mriprog** utility from my [older BB-8 project](https://github.com/adamgreen/bb-8/tree/master/mriprog) and placed it in its [own repository](https://github.com/adamgreen/mriprog) so that it could be included as a submodule in this Ferdinand20 repository.
+
+
+
+---
 ## April 23rd, 2021
 ### New IMU Hardware - Up and Running!
 ![Animated GIF of IMU](photos/20210423-01.gif)<br>
