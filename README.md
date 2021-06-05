@@ -113,6 +113,11 @@ When I started testing the new PID code on my actual Sawppy based robot, I hit a
 * I increased the minimum and maximum connection interval from 7.5ms to 15ms in my BLEMRI firmware to meet the Apple design recommendations. My iPhone is now able to stay connected for over 100 seconds. My iPhone would previously drop the connection when it couldn't agree with the device on connection parameters. This change doesn't decrease the throughput that much as BLE allows multiple packets to be scheduled per interval. It would increase the turn around time to get the response back from commands. The throughput is still above 5kB/s after this change so I will keep it.
 * I copied the **mriprog** utility from my [older BB-8 project](https://github.com/adamgreen/bb-8/tree/master/mriprog) and placed it in its [own repository](https://github.com/adamgreen/mriprog) so that it could be included as a submodule in this Ferdinand20 repository.
 
+### Next Steps
+* Debug and fix some of the issues that I encountered while performing the latest testing on my Sawppy control code.
+* Wire the IMU into the LPC1768 on my Sawppy bot.
+* Port my [heading maintaining code from my Ferdinand16 project](https://github.com/adamgreen/Ferdinand16/tree/master/firmware/robot) and get it working on this bot.
+
 
 
 ---
@@ -156,7 +161,7 @@ It contains a [mbed 1768](https://os.mbed.com/platforms/mbed-LPC1768/) connected
 
 ### Next Steps
 Now that I have my IMU code working again on newer hardware, I want to continue fleshing out the dead reckoning part of the project. With that in mind, I will concentrate on the following next week:
-* Determine distance travelled by the wheels on my [Sawppy](https://github.com/Roger-random/Sawppy_Rover#readme) frame.
+* ~~Determine distance travelled by the wheels on my [Sawppy](https://github.com/Roger-random/Sawppy_Rover#readme) frame.~~
 
 
 
