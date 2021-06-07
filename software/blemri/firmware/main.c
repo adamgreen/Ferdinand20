@@ -60,6 +60,9 @@
 // encountered when attempting the BLE send.
 #define SERIAL_CHUNK_QUEUE_SIZE         64
 
+// The maximum number of UART buffers that can be queued up in the app scheduler to be sent from main thread.
+#define MAX_SERIAL_BUFFERS              16
+
 // This is the vendor UUID offset to be advertised by BLEMRI devices.
 #define BLEMRI_ADVERTISE                BLE_UUID_NUS_SERVICE
 
@@ -157,12 +160,6 @@ static ble_uuid_t                   g_advertiseUuids[] = {{BLEMRI_ADVERTISE, NUS
 // Queue of serial packets to be sent to PC via BLE.
 static SerialChunkQueue             g_chunkQueue;
 
-// Global counters used to track serial packets queued up for transmission and packets that have been transmitted
-// successfully. Each counter is incremented at a different IRQ priority level and when they are equal then there are
-// no outstanding packets to be transmitted.
-static volatile uint32_t            g_packetsQueued;
-static volatile uint32_t            g_packetsTransmitted;
-
 // Buffer up data received from the UART until a full BLE packet is received or no more data is received for a few
 // serial frames.
 static uint8_t g_uartData[BLE_NUS_MAX_DATA_LEN];
@@ -174,10 +171,9 @@ static uint8_t g_uartIndex = 0;
 static void initTimers(void);
 static void initUart(void);
 static void uartEventHandler(app_uart_evt_t * pEvent);
-static void transmitFirstPacket(void * pData, uint16_t length);
-static void sendUartBuffer();
+static void queueUartBuffer();
+static void transmitBlePacket(void * pData, uint16_t length);
 static void uartFrameTimeoutHandler(void* pContext);
-static void interlockedIncrement(volatile uint32_t* pVal);
 static void pushSerialChunk(const uint8_t* pData, uint8_t length);
 static bool isSerialChunkQueueFull();
 static uint32_t nextIndex(uint32_t index);
@@ -188,7 +184,8 @@ static void initBleStack(void);
 static void bleEventHandler(ble_evt_t * p_ble_evt);
 static bool isSerialChunkQueueEmpty();
 static void transmitNextChunk();
-static void popSerialChunk(uint8_t* pDest, uint32_t* pLength);
+static void peekSerialChunk(uint8_t* pDest, uint32_t* pLength);
+static void popSerialChunk();
 static void handleBleEventsForApplication(ble_evt_t * pBleEvent);
 static void initGapParams(void);
 static void initBleUartService(void);
@@ -204,7 +201,7 @@ static void enterLowPowerModeUntilNextEvent(void);
 
 int main(void)
 {
-    APP_SCHED_INIT(BLE_NUS_MAX_DATA_LEN, 1);
+    APP_SCHED_INIT(BLE_NUS_MAX_DATA_LEN, MAX_SERIAL_BUFFERS);
     initTimers();
     initUart();
 
@@ -272,7 +269,7 @@ static void uartEventHandler(app_uart_evt_t * pEvent)
                 // Buffer is full so queue it up to be sent to PC via BLE.
                 // Cancel any outstanding timers since we are now sending filled buffer.
                 app_simple_timer_stop();
-                sendUartBuffer();
+                queueUartBuffer();
             }
             else
             {
@@ -297,40 +294,45 @@ static void uartEventHandler(app_uart_evt_t * pEvent)
     }
 }
 
-static void transmitFirstPacket(void * pData, uint16_t length)
+static void queueUartBuffer()
 {
-    uint32_t errorCode  = ble_nus_string_send(&g_nordicUartService, pData, length);
-    if (errorCode == NRF_SUCCESS)
-    {
-        interlockedIncrement(&g_packetsQueued);
-    }
-    else if (errorCode != NRF_ERROR_INVALID_STATE)
-    {
-        APP_ERROR_CHECK(errorCode);
-    }
+    // Queue up the data received via UART to the app scheduler to be handed off to the BLE stack from the main thread.
+    uint32_t errorCode = app_sched_event_put(g_uartData, g_uartIndex, transmitBlePacket);
+    APP_ERROR_CHECK(errorCode);
+
+    // Reset g_uartIndex to start buffering up the data for the next packet.
+    g_uartIndex = 0;
 }
 
-static void sendUartBuffer()
+static void transmitBlePacket(void * pData, uint16_t length)
 {
-    bool needToPushChunk = true;
-    if (g_packetsQueued == g_packetsTransmitted)
+    // Queue up entries to BLE stack directly until it fills up and returns an error. After that, place the data in
+    // serial chunk queue and send new data as the BLE stack notifies us that an older chunk has been successfully
+    // transmitted to PC.
+    if (isSerialChunkQueueEmpty())
     {
-        // Normally queued up serial chunks will be transmitted when the previous one completes.
-        // However if there isn't already a transmit in-flight, we need to queue up an event to
-        // have the main thread loop issue the first transmit.
-        uint32_t errorCode = app_sched_event_put(g_uartData, g_uartIndex, transmitFirstPacket);
+        // First try handing off the UART data to the BLE stack for transmitting to the PC.
+        uint32_t errorCode  = ble_nus_string_send(&g_nordicUartService, pData, length);
         if (errorCode == NRF_SUCCESS)
         {
-            needToPushChunk = false;
+            // Data has been successfully queued up to the BLE stack.
+            return;
         }
-        // It will fail to schedule an event if there is already an event scheduled so it is ok to just add
-        // to chunk queue instead.
+        else if (errorCode == NRF_ERROR_INVALID_STATE)
+        {
+            // The BLE connection has been disconnected so just ignore trying to send this packet.
+            return;
+        }
+        else if (errorCode != BLE_ERROR_NO_TX_PACKETS)
+        {
+            APP_ERROR_CHECK(errorCode);
+        }
+        // Fall through to the pushSerialChunk() call if there are no more TX packets left in the BLE stack.
     }
-    if (needToPushChunk)
-    {
-        pushSerialChunk(g_uartData, g_uartIndex);
-    }
-    g_uartIndex = 0;
+
+    // Get here if there are already serial chunks in the queue or this is the first one we need to add to the queue
+    // because it failed to be queued up directly in the BLE stack.
+    pushSerialChunk(pData, length);
 }
 
 static void uartFrameTimeoutHandler(void* pContext)
@@ -340,14 +342,7 @@ static void uartFrameTimeoutHandler(void* pContext)
         // Data has already been set.
         return;
     }
-    sendUartBuffer();
-}
-
-static void interlockedIncrement(volatile uint32_t* pVal)
-{
-    CRITICAL_REGION_ENTER();
-        *pVal = *pVal + 1;
-    CRITICAL_REGION_EXIT();
+    queueUartBuffer();
 }
 
 static void pushSerialChunk(const uint8_t* pData, uint8_t length)
@@ -491,7 +486,6 @@ static void handleBleEventsForApplication(ble_evt_t * pBleEvent)
             break; // BLE_GAP_EVT_DISCONNECTED
 
         case BLE_EVT_TX_COMPLETE:
-            g_packetsTransmitted++;
             if (!isSerialChunkQueueEmpty())
             {
                 transmitNextChunk();
@@ -582,19 +576,19 @@ static void transmitNextChunk()
     uint8_t data[BLE_NUS_MAX_DATA_LEN];
     uint32_t length = 0;
 
-    popSerialChunk(data, &length);
+    peekSerialChunk(data, &length);
     uint32_t errorCode  = ble_nus_string_send(&g_nordicUartService, data, length);
     if (errorCode == NRF_SUCCESS)
     {
-        interlockedIncrement(&g_packetsQueued);
+        popSerialChunk();
     }
-    else if (errorCode != NRF_ERROR_INVALID_STATE)
+    else if (errorCode != BLE_ERROR_NO_TX_PACKETS && errorCode != NRF_ERROR_INVALID_STATE)
     {
         APP_ERROR_CHECK(errorCode);
     }
 }
 
-static void popSerialChunk(uint8_t* pDest, uint32_t* pLength)
+static void peekSerialChunk(uint8_t* pDest, uint32_t* pLength)
 {
     ASSERT ( !isSerialChunkQueueEmpty() );
 
@@ -603,7 +597,13 @@ static void popSerialChunk(uint8_t* pDest, uint32_t* pLength)
     uint32_t length = pChunk->length;
     memcpy(pDest, pChunk->data, length);
     *pLength = length;
-    g_chunkQueue.popIndex = nextIndex(popIndex);
+}
+
+static void popSerialChunk()
+{
+    ASSERT ( !isSerialChunkQueueEmpty() );
+
+    g_chunkQueue.popIndex = nextIndex(g_chunkQueue.popIndex);
 }
 
 static void initGapParams(void)
