@@ -121,7 +121,13 @@ void LX16A_DriveMotor::updateState()
     float dt = (float)elapsedMicroSec / 1000000.0f;
 
     EncoderState prevState = m_currState;
-    if (ignoringNonDeadZoneSamples(servoPos) || isServoInDeadZone(servoPos))
+    if (m_servo.getLastReadResult() == false)
+    {
+        // m_servo.getPosition() failed, so just interpolate state for now.
+        m_currState.angle = constrainAngle(prevState.angle + prevState.velocity * dt);
+        m_currState.velocity = prevState.velocity;
+    }
+    else if (ignoringNonDeadZoneSamples(servoPos) || isServoInDeadZone(servoPos))
     {
         // The servo position could be off by as much as +/-20 degrees when in dead zone of the pot.
         // Assume that the motor is still spinning at the same rate when in dead zone.

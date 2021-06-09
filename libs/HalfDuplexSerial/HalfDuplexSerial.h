@@ -1,4 +1,4 @@
-/*  Copyright (C) 2019  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2021  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -39,10 +39,11 @@ class HalfDuplexSerial : private SerialBase
         int readByteWithTimeout(uint32_t msecTimeout);
         void verifyNoErrors();
 
-        gpio_t m_gpioForTx;
-        Timer  m_timer;
-        State  m_state;
+        gpio_t   m_gpioForTx;
+        Timer    m_timer;
+        State    m_state;
         uint32_t m_bytesOutstanding;
+        bool     m_lineError;
 };
 
 #endif // HALF_DUPLEX_SERIAL_H_

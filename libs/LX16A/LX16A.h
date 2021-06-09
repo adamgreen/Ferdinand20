@@ -1,4 +1,4 @@
-/*  Copyright (C) 2020  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2021  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -77,8 +77,11 @@ class LX16A_ServoBus
         void sendCommand(uint8_t servoId, const uint8_t* pCommand, size_t commandSize);
         bool readResponse(uint8_t expectedServoId, uint8_t expectedCommand, void* pResponse, size_t responseSize);
         uint8_t checksum(uint8_t* pBuffer, size_t bufferLength);
+        void insertInterCmdDelay();
 
         HalfDuplexSerial m_serial;
+        Timer            m_timer;
+        uint32_t         m_lastSendTime;
 };
 
 

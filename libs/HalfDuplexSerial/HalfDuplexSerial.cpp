@@ -1,4 +1,4 @@
-/*  Copyright (C) 2019  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2021  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -27,6 +27,7 @@ HalfDuplexSerial::HalfDuplexSerial(PinName tx, PinName rx, int baud) :
     initGpioForTx(tx);
     m_state = TRANSMITTING;
     m_bytesOutstanding = 0;
+    m_lineError = false;
     m_timer.start();
 }
 
@@ -106,9 +107,17 @@ bool HalfDuplexSerial::isLastTransmitComplete()
 
 void HalfDuplexSerial::verifyNoErrors()
 {
+    const uint32_t    overrunError = 1 << 1;
+    const uint32_t    framingError = 1 << 3;
+    const uint32_t    breakInterrupt = 1 << 4;
+    const uint32_t    lineErrors = framingError | breakInterrupt;
     volatile uint32_t lsr = _serial.uart->LSR;
 
-    assert ( (lsr & (0xF << 1)) == 0 );
+    if (lsr & lineErrors)
+    {
+        m_lineError = true;
+    }
+    assert ( (lsr & overrunError) == 0 );
 }
 
 void HalfDuplexSerial::switchToTransmit()
@@ -158,6 +167,7 @@ size_t HalfDuplexSerial::read(void* pRead, size_t readSize, int msecTimeout)
 {
     setState(RECEIVING);
 
+    m_lineError = false;
     uint8_t* pDest = (uint8_t*)pRead;
     size_t bytesRead = 0;
     while (bytesRead < readSize)
@@ -169,6 +179,12 @@ size_t HalfDuplexSerial::read(void* pRead, size_t readSize, int msecTimeout)
         }
         *pDest++ = byte;
         bytesRead++;
+    }
+
+    if (m_lineError)
+    {
+        // Data is likely bad if there was a line error so drop all of the data read by setting bytesRead to 0.
+        bytesRead = 0;
     }
     return bytesRead;
 }

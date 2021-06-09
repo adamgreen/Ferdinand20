@@ -1,4 +1,4 @@
-/*  Copyright (C) 2019  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2021  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -53,7 +53,7 @@
 #define SERVO_MODE_MOTOR_CONTROL    1
 
 // Set to false to disable logging of read errors to stdout.
-#define LOG_READ_ERRORS             true
+#define LOG_READ_ERRORS             false
 
 #define LOG_READ_ERROR(...) if (LOG_READ_ERRORS) printf("LX-16A_Error: " __VA_ARGS__);
 
@@ -62,12 +62,18 @@
 #define LOW_BYTE(U16)  ((uint8_t)((U16) & 0xFF))
 
 // Timeout to use when waiting for a serial response from the LX-16A servo.
-#define RESPONSE_TIMEOUT_MSEC 250
+#define RESPONSE_TIMEOUT_MSEC 2
+
+// There must be atleast this much time (in usec) between the end of one command and the beginning of the next.
+#define CMD_DELAY 10
+
 
 
 LX16A_ServoBus::LX16A_ServoBus(PinName txPin, PinName rxPin) :
     m_serial(txPin, rxPin, 115200)
 {
+    m_timer.start();
+    m_lastSendTime = -CMD_DELAY;
 }
 
 void LX16A_ServoBus::sendWriteCommand(uint8_t servoId, const uint8_t* pCommand, size_t commandSize)
@@ -106,6 +112,8 @@ void LX16A_ServoBus::sendCommand(uint8_t servoId, const uint8_t* pCommand, size_
 {
     uint8_t buffer[10];
 
+    insertInterCmdDelay();
+
     // Will add two bytes of header sync bytes (0x55 0x55), 1 byte servo ID, 1 byte length, and 1 byte checksum.
     assert ( commandSize + 2 + 1 + 1 + 1 <= sizeof(buffer) );
     buffer[0] = 0x55;
@@ -117,6 +125,7 @@ void LX16A_ServoBus::sendCommand(uint8_t servoId, const uint8_t* pCommand, size_
 
     size_t bytesToSend = commandSize + 5;
     m_serial.write(buffer, bytesToSend);
+    m_lastSendTime = m_timer.read_us();
 }
 
 bool LX16A_ServoBus::readResponse(uint8_t expectedServoId, uint8_t expectedCommand, void* pResponse, size_t responseSize)
@@ -128,6 +137,7 @@ bool LX16A_ServoBus::readResponse(uint8_t expectedServoId, uint8_t expectedComma
     size_t bytesToRead = responseSize + 2 + 1 + 1 + 1 + 1;
     assert ( bytesToRead <= sizeof(buffer) );
     size_t bytesRead = m_serial.read(buffer, bytesToRead, RESPONSE_TIMEOUT_MSEC);
+    m_lastSendTime = m_timer.read_us();
     if (bytesRead != bytesToRead ||
         buffer[0] != 0x55 ||
         buffer[1] != 0x55 ||
@@ -152,6 +162,13 @@ uint8_t LX16A_ServoBus::checksum(uint8_t* pBuffer, size_t bufferLength)
     return ~sum;
 }
 
+void LX16A_ServoBus::insertInterCmdDelay()
+{
+    while (m_timer.read_us() - m_lastSendTime < CMD_DELAY)
+    {
+        // Busy wait before sending the next LX-16A command.
+    }
+}
 
 
 LX16A_Servo::LX16A_Servo(LX16A_ServoBus& servoBus, uint8_t servoId, uint8_t maxRetry /* = 2 */) :

@@ -114,7 +114,7 @@ When I started testing the new PID code on my actual Sawppy based robot, I hit a
 * I copied the **mriprog** utility from my [older BB-8 project](https://github.com/adamgreen/bb-8/tree/master/mriprog) and placed it in its [own repository](https://github.com/adamgreen/mriprog) so that it could be included as a submodule in this Ferdinand20 repository.
 
 ### Next Steps
-* Debug and fix some of the issues that I encountered while performing the latest testing on my Sawppy control code.
+* ~~Debug and fix some of the issues that I encountered while performing the latest testing on my Sawppy control code.~~
 * Wire the IMU into the LPC1768 on my Sawppy bot.
 * Port my [heading maintaining code from my Ferdinand16 project](https://github.com/adamgreen/Ferdinand16/tree/master/firmware/robot) and get it working on this bot.
 
