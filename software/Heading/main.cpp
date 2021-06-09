@@ -141,7 +141,7 @@ static void serialReceiveISR()
 
 static SensorCalibration readConfigurationFile()
 {
-    ConfigFile        configFile;
+    ConfigFile configFile;
     if (configFile.open("/flash/config.ini"))
         error("Encountered error opening /flash/config.ini\n");
 

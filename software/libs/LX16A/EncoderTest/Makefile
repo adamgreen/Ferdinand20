@@ -1,13 +1,13 @@
 PROJECT         := EncoderTest
 DEVICES         := LPC1768
-GCC4MBED_DIR    := ../../gcc4mbed
+GCC4MBED_DIR    := ../../../../gcc4mbed
 NO_FLOAT_SCANF  := 1
 NO_FLOAT_PRINTF := 0
 GCC4MBED_TYPE   := Develop
 
-USER_LIBS       := !../../libs/LX16A \
-                   ../../libs/PID \
-                   ../../libs/HalfDuplexSerial \
+USER_LIBS       := !../../LX16A \
+                   ../../PID \
+                   ../../HalfDuplexSerial \
                    $(GCC4MBED_DIR)/external/mbed-os/features/unsupported/dsp
 
 
