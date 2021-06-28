@@ -11,21 +11,11 @@
     GNU General Public License for more details.
 */
 #include <math.h>
-#include "AdafruitPrecision9DoF.h"
+#include "KalmanFilter.h"
 
 
-AdafruitPrecision9DoF::AdafruitPrecision9DoF(PinName sdaPin, PinName sclPin, PinName int1Pin, int32_t sampleRateHz,
-                                             const SensorCalibration* pCalibration /* = NULL */) :
-    m_i2c(sdaPin, sclPin),
-    m_int1Pin(int1Pin),
-    m_accelMag(sampleRateHz, &m_i2c),
-    m_gyro(sampleRateHz, &m_i2c)
+KalmanFilter::KalmanFilter(int32_t sampleRateHz, const SensorCalibration* pCalibration /* = NULL */)
 {
-    m_i2c.frequency(400000);
-    m_failedIo = 0;
-    m_failedInit = 0;
-    m_currentSample = 0;
-    m_lastSample = 0;
     m_resetRequested = true;
 
     // The 0.5f is part of the math that relates gyro rates to rotation derivative and is just pre-calculated here
@@ -33,21 +23,9 @@ AdafruitPrecision9DoF::AdafruitPrecision9DoF(PinName sdaPin, PinName sclPin, Pin
     m_gyroTimeScaleFactor = (1.0f / sampleRateHz) * 0.5f;
 
     calibrate(pCalibration);
-
-    m_failedInit = m_accelMag.didInitFail() || m_gyro.didInitFail();
-    m_failedIo = m_failedInit;
-    if (!m_failedInit)
-    {
-        interruptHandler();
-        m_int1Pin.fall(callback(this, &AdafruitPrecision9DoF::interruptHandler));
-    }
-
-    m_idleTimePercent = 0.0f;
-    m_totalTimer.start();
-    m_idleTimer.start();
 }
 
-void AdafruitPrecision9DoF::calibrate(const SensorCalibration* pCalibration)
+void KalmanFilter::calibrate(const SensorCalibration* pCalibration)
 {
     if (!pCalibration)
         return;
@@ -87,7 +65,7 @@ void AdafruitPrecision9DoF::calibrate(const SensorCalibration* pCalibration)
     m_mountingCorrection = angleFromDegreeMinuteSecond(&m_calibration.mountingCorrection);
 }
 
-float AdafruitPrecision9DoF::angleFromDegreeMinuteSecond(Vector<float>* pAngle)
+float KalmanFilter::angleFromDegreeMinuteSecond(Vector<float>* pAngle)
 {
     float angleInDegrees;
 
@@ -99,55 +77,7 @@ float AdafruitPrecision9DoF::angleFromDegreeMinuteSecond(Vector<float>* pAngle)
     return (angleInDegrees * (float)M_PI) / 180.0f;
 }
 
-void AdafruitPrecision9DoF::interruptHandler()
-{
-    // Assume I/O failed unless we complete everything successfully and then clear this flag.
-    int failedIo = 1;
-
-    do
-    {
-        m_accelMag.getVectors(&m_sensorValues.accel, &m_sensorValues.mag);
-        if (m_accelMag.didIoFail())
-            break;
-
-        m_gyro.getVector(&m_sensorValues.gyro, &m_sensorValues.gyroTemperature);
-        if (m_gyro.didIoFail())
-            break;
-
-        m_currentSample++;
-
-        // If we got here then all reads were successful.
-        failedIo = 0;
-    } while (0);
-
-    m_failedIo = failedIo;
-}
-
-
-SensorValues AdafruitPrecision9DoF::getRawSensorValues()
-{
-    uint32_t     currentSample;
-    SensorValues sensorValues;
-
-    // Wait for next sample to become available.
-    m_idleTimer.reset();
-    do
-    {
-        currentSample = m_currentSample;
-    } while (currentSample == m_lastSample);
-    m_lastSample = currentSample;
-
-    m_idleTimePercent = ((float)m_idleTimer.read_us() * 100.0f) / (float)m_totalTimer.read_us();
-    m_totalTimer.reset();
-
-    __disable_irq();
-        memcpy(&sensorValues, &m_sensorValues, sizeof(sensorValues));
-    __enable_irq();
-
-    return sensorValues;
-}
-
-SensorCalibratedValues AdafruitPrecision9DoF::calibrateSensorValues(const SensorValues* pRawValues)
+SensorCalibratedValues KalmanFilter::calibrateSensorValues(const SensorValues* pRawValues)
 {
     SensorCalibratedValues calibratedValues;
 
@@ -170,7 +100,7 @@ SensorCalibratedValues AdafruitPrecision9DoF::calibrateSensorValues(const Sensor
     return calibratedValues;
 }
 
-Quaternion AdafruitPrecision9DoF::getOrientation(SensorCalibratedValues* pCalibratedValues)
+Quaternion KalmanFilter::getOrientation(SensorCalibratedValues* pCalibratedValues)
 {
     if (m_resetRequested)
         resetKalmanFilter(pCalibratedValues);
@@ -232,7 +162,7 @@ Quaternion AdafruitPrecision9DoF::getOrientation(SensorCalibratedValues* pCalibr
     return m_currentOrientation;
 }
 
-void AdafruitPrecision9DoF::resetKalmanFilter(SensorCalibratedValues* pCalibratedValues)
+void KalmanFilter::resetKalmanFilter(SensorCalibratedValues* pCalibratedValues)
 {
     m_kalmanP.clear();
     for (int i = 0 ; i < 4 ; i++)
@@ -242,7 +172,7 @@ void AdafruitPrecision9DoF::resetKalmanFilter(SensorCalibratedValues* pCalibrate
     m_resetRequested = false;
 }
 
-Quaternion AdafruitPrecision9DoF::getOrientationFromAccelerometerMagnetometerMeasurements(SensorCalibratedValues* pCalibratedValues)
+Quaternion KalmanFilter::getOrientationFromAccelerometerMagnetometerMeasurements(SensorCalibratedValues* pCalibratedValues)
 {
     // Setup gravity (down) and north vectors.
     // NOTE: The fields are swizzled to make the axis on the device match the axis on the screen.
@@ -273,7 +203,7 @@ Quaternion AdafruitPrecision9DoF::getOrientationFromAccelerometerMagnetometerMea
     return rotationQuaternion;
 }
 
-float AdafruitPrecision9DoF::getHeading(Quaternion* pOrientation)
+float KalmanFilter::getHeading(Quaternion* pOrientation)
 {
     // Correct compass heading for declination at location where the robot is being run.
     // Also account for how the IMU is mounted to the robot. The yaw reading is negated to
@@ -282,7 +212,7 @@ float AdafruitPrecision9DoF::getHeading(Quaternion* pOrientation)
     return constrainAngle(-getYaw(pOrientation) + m_declinationCorrection + m_mountingCorrection);
 }
 
-float AdafruitPrecision9DoF::constrainAngle(float angle)
+float KalmanFilter::constrainAngle(float angle)
 {
     if (angle < -(float)M_PI)
         return angle + 2.0f*(float)M_PI;
@@ -292,7 +222,7 @@ float AdafruitPrecision9DoF::constrainAngle(float angle)
         return angle;
 }
 
-float AdafruitPrecision9DoF::getYaw(Quaternion* pOrientation)
+float KalmanFilter::getYaw(Quaternion* pOrientation)
 {
     float w = pOrientation->w;
     float x = pOrientation->x;
@@ -302,7 +232,7 @@ float AdafruitPrecision9DoF::getYaw(Quaternion* pOrientation)
     return atan2f(2.0f*(x*z+y*w), 1.0f-2.0f*(x*x+y*y));
 }
 
-float AdafruitPrecision9DoF::getPitch(Quaternion* pOrientation)
+float KalmanFilter::getPitch(Quaternion* pOrientation)
 {
     float w = pOrientation->w;
     float x = pOrientation->x;
@@ -312,7 +242,7 @@ float AdafruitPrecision9DoF::getPitch(Quaternion* pOrientation)
     return asinf(-2.0f*(y*z-x*w));
 }
 
-float AdafruitPrecision9DoF::getRoll(Quaternion* pOrientation)
+float KalmanFilter::getRoll(Quaternion* pOrientation)
 {
     float w = pOrientation->w;
     float x = pOrientation->x;

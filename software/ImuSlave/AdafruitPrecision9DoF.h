@@ -13,7 +13,7 @@
 #ifndef ADAFRUIT_PRECISION_9DOF_H_
 #define ADAFRUIT_PRECISION_9DOF_H_
 
-#include <mbed.h>
+#include <mbedFake.h>
 #include "FXOS8700CQ.h"
 #include "FXAS21002C.h"
 #include "Quaternion.h"

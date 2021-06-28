@@ -42,6 +42,8 @@ fp-info-cache
 # Generated file system from files/ folder.
 software/Heading/files.bin
 software/Heading/files.h
+software/Robot/files.bin
+software/Robot/files.h
 
 # Rust build output
 target/

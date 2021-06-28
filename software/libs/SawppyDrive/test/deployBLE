@@ -6,4 +6,4 @@ if [ "$1" != "" ] ; then
 fi
 
 make LPC1768
-../../../mriprog/mriprog $IP_ADDRESS:3333 LPC1768/*.elf -e
+../../../../mriprog/mriprog $IP_ADDRESS:3333 LPC1768/*.elf -e

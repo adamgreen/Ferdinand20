@@ -10,14 +10,13 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 */
-/* Test harness for my heading class. */
-#include <assert.h>
+/* Main code for my RoboMagellan bot. */
 #include <mbed.h>
 #include "ConfigFile.h"
 #include "DmaSerial.h"
 #include "FlashFileSystem.h"
 #include "files.h"
-#include "AdafruitPrecision9DoF.h"
+#include "KalmanFilter.h"
 
 enum OUTPUT_MODE
 {
@@ -43,6 +42,7 @@ static DmaSerial g_serial(USBTX, USBRX);
 static void serialReceiveISR();
 #endif
 static void readConfigurationFile(int32_t* pSampleRateHz, SensorCalibration* pCalibration);
+static void receiveFromSpi(SPI* pSpi, void* pBuffer, size_t bufferSize);
 
 
 int main()
@@ -58,13 +58,16 @@ int main()
     if (!fileSystem.IsMounted())
         error("Encountered error mounting FLASH file system.\n");
 
+    static SPI spi(p5, p6, p7);
+    static DigitalOut chipSelect(p8, 1);
+    spi.format(8, 0);
+    spi.frequency(1000000);
 
     SensorCalibration calibration;
     int32_t           sampleRateHz;
+
     readConfigurationFile(&sampleRateHz, &calibration);
-    static AdafruitPrecision9DoF sensors(p9, p10, p30, sampleRateHz, &calibration);
-    if (sensors.didInitFail())
-        error("Encountered I2C I/O error during IMU sensor init.\n");
+    static KalmanFilter sensors(sampleRateHz, &calibration);
 
     for (;;)
     {
@@ -78,9 +81,21 @@ int main()
             g_resetRequested = false;
         }
 
-        SensorValues sensorValues = sensors.getRawSensorValues();
-        if (sensors.didIoFail())
-            error("Encountered I2C I/O error during fetch of IMU sensor readings.\n");
+        // Send new sensor reading request.
+        SensorValues sensorValues;
+        chipSelect = 0;
+        uint8_t response = spi.write(0xA5);
+        if (response != sizeof(SensorValues))
+        {
+            // Packet isn't ready yet so try again.
+            chipSelect = 1;
+            continue;
+        }
+        // A new sensor reading is ready so read it now.
+        receiveFromSpi(&spi, &sensorValues, sizeof(sensorValues));
+        chipSelect = 1;
+
+        // Run the latest sensor reading through the Kalman filter to determine orientation/heading.
         SensorCalibratedValues calibratedValues = sensors.calibrateSensorValues(&sensorValues);
         Quaternion orientation = sensors.getOrientation(&calibratedValues);
         float headingAngle = sensors.getHeading(&orientation);
@@ -108,7 +123,7 @@ int main()
                               sensorValues.gyro.x, sensorValues.gyro.y, sensorValues.gyro.z,
                               sensorValues.gyroTemperature,
                               elapsedTime,
-                              sensors.getIdleTimePercent(),
+                              0.0f, // Not calculating idle time in this code.
                               orientation.w, orientation.x, orientation.y, orientation.z,
                               headingAngle);
             break;
@@ -179,4 +194,13 @@ static void readConfigurationFile(int32_t* pSampleRateHz, SensorCalibration* pCa
         error("Failed to read compass.mountingCorrection\n");
     if (!configFile.getInt("compass.rate", pSampleRateHz))
         error("Failed to read compass.rate\n");
+}
+
+static void receiveFromSpi(SPI* pSpi, void* pBuffer, size_t bufferSize)
+{
+    uint8_t* pCurr = (uint8_t*)pBuffer;
+    while (bufferSize-- > 0)
+    {
+        *pCurr++ = pSpi->write(0xFF);
+    }
 }

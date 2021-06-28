@@ -1,3 +1,77 @@
+diff -Naurb nrfSDK2/components/drivers_nrf/gpiote/nrf_drv_gpiote.h nrfSDK/components/drivers_nrf/gpiote/nrf_drv_gpiote.h
+--- nrfSDK2/components/drivers_nrf/gpiote/nrf_drv_gpiote.h	2017-05-05 14:10:54.000000000 -0700
++++ nrfSDK/components/drivers_nrf/gpiote/nrf_drv_gpiote.h	2021-06-23 18:19:24.000000000 -0700
+@@ -75,30 +75,30 @@
+  * @details Set hi_accu to true to use IN_EVENT. */
+ #define GPIOTE_CONFIG_IN_SENSE_LOTOHI(hi_accu)     \
+     {                                            \
++        .sense = NRF_GPIOTE_POLARITY_LOTOHI,     \
++        .pull = NRF_GPIO_PIN_NOPULL,             \
+         .is_watcher = false,                     \
+         .hi_accuracy = hi_accu,                  \
+-        .pull = NRF_GPIO_PIN_NOPULL,             \
+-        .sense = NRF_GPIOTE_POLARITY_LOTOHI,     \
+     }
+ 
+ /**@brief Macro for configuring a pin to use a GPIO IN or PORT EVENT to detect high-to-low transition.
+  * @details Set hi_accu to true to use IN_EVENT. */
+ #define GPIOTE_CONFIG_IN_SENSE_HITOLO(hi_accu)      \
+     {                                            \
++        .sense = NRF_GPIOTE_POLARITY_HITOLO,     \
++        .pull = NRF_GPIO_PIN_NOPULL,             \
+         .is_watcher = false,                     \
+         .hi_accuracy = hi_accu,                  \
+-        .pull = NRF_GPIO_PIN_NOPULL,             \
+-        .sense = NRF_GPIOTE_POLARITY_HITOLO,     \
+     }
+ 
+ /**@brief Macro for configuring a pin to use a GPIO IN or PORT EVENT to detect any change on the pin.
+  * @details Set hi_accu to true to use IN_EVENT.*/
+ #define GPIOTE_CONFIG_IN_SENSE_TOGGLE(hi_accu)   \
+     {                                            \
++        .sense = NRF_GPIOTE_POLARITY_TOGGLE,     \
++        .pull = NRF_GPIO_PIN_NOPULL,             \
+         .is_watcher = false,                     \
+         .hi_accuracy = hi_accu,                  \
+-        .pull = NRF_GPIO_PIN_NOPULL,             \
+-        .sense = NRF_GPIOTE_POLARITY_TOGGLE,     \
+     }
+ 
+ /**@brief Output pin configuration. */
+diff -Naurb nrfSDK2/components/drivers_nrf/spi_slave/nrf_drv_spis.h nrfSDK/components/drivers_nrf/spi_slave/nrf_drv_spis.h
+--- nrfSDK2/components/drivers_nrf/spi_slave/nrf_drv_spis.h	2017-05-05 14:10:54.000000000 -0700
++++ nrfSDK/components/drivers_nrf/spi_slave/nrf_drv_spis.h	2021-06-22 17:54:01.000000000 -0700
+@@ -138,23 +138,23 @@
+ #define NRF_DRV_SPIS_INSTANCE(id)                        \
+ {                                                        \
+     .p_reg        = CONCAT_2(NRF_SPIS, id),              \
+-    .irq          = CONCAT_3(SPIS, id, _IRQ),            \
+     .instance_id  = CONCAT_3(SPIS, id, _INSTANCE_INDEX), \
++    .irq          = CONCAT_3(SPIS, id, _IRQ),            \
+ }
+ 
+ /** @brief SPI slave instance default configuration. */
+ #define NRF_DRV_SPIS_DEFAULT_CONFIG                                \
+ {                                                                  \
+-    .sck_pin      = NRF_DRV_SPIS_PIN_NOT_USED,                     \
+-    .mosi_pin     = NRF_DRV_SPIS_PIN_NOT_USED,                     \
+     .miso_pin     = NRF_DRV_SPIS_PIN_NOT_USED,                     \
++    .mosi_pin     = NRF_DRV_SPIS_PIN_NOT_USED,                     \
++    .sck_pin      = NRF_DRV_SPIS_PIN_NOT_USED,                     \
+     .csn_pin      = NRF_DRV_SPIS_PIN_NOT_USED,                     \
+-    .miso_drive   = NRF_DRV_SPIS_DEFAULT_MISO_DRIVE,               \
+-    .csn_pullup   = NRF_DRV_SPIS_DEFAULT_CSN_PULLUP,               \
+-    .orc          = SPIS_DEFAULT_ORC,                              \
+-    .def          = SPIS_DEFAULT_DEF,                              \
+     .mode         = (nrf_drv_spis_mode_t)SPIS_DEFAULT_MODE,        \
+     .bit_order    = (nrf_drv_spis_endian_t)SPIS_DEFAULT_BIT_ORDER, \
++    .csn_pullup   = NRF_DRV_SPIS_DEFAULT_CSN_PULLUP,               \
++    .miso_drive   = NRF_DRV_SPIS_DEFAULT_MISO_DRIVE,               \
++    .def          = SPIS_DEFAULT_DEF,                              \
++    .orc          = SPIS_DEFAULT_ORC,                              \
+     .irq_priority = SPIS_DEFAULT_CONFIG_IRQ_PRIORITY,              \
+ }
+ 
 diff -Naurb nrfSDK2/components/softdevice/s130/headers/nrf_svc.h nrfSDK/components/softdevice/s130/headers/nrf_svc.h
 --- nrfSDK2/components/softdevice/s130/headers/nrf_svc.h	2016-04-20 15:57:06.000000000 -0700
 +++ nrfSDK/components/softdevice/s130/headers/nrf_svc.h	2020-02-06 02:01:48.000000000 -0800
@@ -24,11 +98,13 @@ diff -Naurb nrfSDK2/components/softdevice/s132/headers/nrf_svc.h nrfSDK/componen
  #endif
 diff -Naurb nrfSDK2/components/toolchain/gcc/Makefile.common nrfSDK/components/toolchain/gcc/Makefile.common
 --- nrfSDK2/components/toolchain/gcc/Makefile.common	2017-05-05 13:10:30.000000000 -0700
-+++ nrfSDK/components/toolchain/gcc/Makefile.common	2020-02-05 21:01:46.000000000 -0800
-@@ -154,6 +154,7 @@
++++ nrfSDK/components/toolchain/gcc/Makefile.common	2021-06-23 20:35:35.000000000 -0700
+@@ -153,7 +153,8 @@
+ 	$(eval FILE_LIST := $^ $(LIB_FILES))
  	$(NO_ECHO)$(DUMP_FILE_LIST) > $(@:.out=.in)
  	@echo Linking target: $@
- 	$(NO_ECHO)$(CC) -Wl,-Map=$(@:.out=.map) $(LDFLAGS) @$(@:.out=.in) -lm -o $@
+-	$(NO_ECHO)$(CC) -Wl,-Map=$(@:.out=.map) $(LDFLAGS) @$(@:.out=.in) -lm -o $@
++	$(NO_ECHO)$(CXX) -Wl,-Map=$(@:.out=.map) $(LDFLAGS) @$(@:.out=.in) -lm -o $@
 +	$(NO_ECHO)$(OBJDUMP) -d -f -M reg-names-std --demangle $@ > $(@:.out=.disasm)
  	-@echo ''
  	$(NO_ECHO)$(SIZE) $@
