@@ -14,6 +14,34 @@ Tracking the build of my robot to compete in the
 
 
 ---
+## June 27th, 2021
+### I2C? What I2C?
+The next task I set myself upon was wiring the IMU into the LPC1768 on my Sawppy bot so that I could use it with the [dead reckoning code that I wrote for the Ferdinand16 project](https://github.com/adamgreen/Ferdinand16/tree/master/firmware/robot). When I was working with the IMU hardware back in April, I had it connected to a dedicated LPC1768 on a breadboard and not the one already wired up to my bot. When I went to move it over to the LPC1768 microcontroller on the Sawppy bot, I hit a snag. All of the I2C capable pins on the microcontroller were already being used for their UART functionality: LX-16A servos/motors, MRI debug monitor, and PDB communication.
+
+### Bridge It
+In the future, I plan to create my own PCB for the LPC1768 based brains of my bot which will give me access to more pins of the microcontroller. In the meantime, I would like to continue prototyping with the mbed based board that I already have. How can I work around the lack of free I2C pins? It turns out that I still have one set of SPI pins available. Using another microcontroller, I could create a bridge device that reads the IMU sensors via I2C and then sends the resulting readings to my main microcontroller over SPI.
+
+#### LPC1768 as SPI Slave
+My first attempt at building this bridge was to use another mbed LPC1768 microcontroller as a SPI slave. When I originally skimmed the mbed SPISlave class documentation I was kind of confused on how to really use it. I then read the LPC1768 User Manual and was even more confused. I tried for several days to get the LPC1768 to reliably send data back to the SPI master but ended up throwing in the towel. I just don't think the SPI peripheral on the LPC1768 hardware is designed properly for use in slave mode:
+* There is no way to get an interrupt when the master sends a single byte request. It will only interrupt when the Rx buffer overflows, the Rx FIFO is half full, or 4 byte times have elapsed since the last received byte.
+* It is really hard to queue up the Tx data at the right time and if you don't have it queued in time because your code is busy doing something else, the peripheral just takes the oldest already sent data from the Tx buffer and sends it instead.
+
+In the end, I gave up on the LPC1768 and decided to research using another microcontroller from my stash.
+
+#### nRF5x as SPI Slave
+I had an [Adafruit Feather nRF52 Pro with myNewt Bootloader - nRF52832](https://www.adafruit.com/product/3574) in my stash of development boards so I pulled up its SPI slave documentation. What I saw there looked very promising:
+* You can specify what data should be returned when you have no active data queued up to be sent back.
+* Once you do have data to be sent, you queue it all up at once with the help of EasyDMA.
+
+I ported my I2C sensor reading code to the nRF52832 and quickly implemented the SPI bridging code. The SPI Slave functionality on this device worked exactly as expected and I soon had a functional bridge setup between the bot's main LPC1768 and the nRF52 bridge.
+
+![nRF52 bridge connected to LPC1768](photos/20210627-01.jpg)
+
+Now to get it all installed back on my bot and start writing some dead reckoning code :)
+
+
+
+---
 ## June 4th, 2021
 ### LX-16A Encoders
 ![LX-16A Test Setup](photos/20210519-01.png) <br>
